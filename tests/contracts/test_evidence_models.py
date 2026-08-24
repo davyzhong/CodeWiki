@@ -292,3 +292,122 @@ def test_evidence_pack_counts_tokens_across_distinct_excerpt_boundaries() -> Non
             budget=EvidenceBudget(max_items=2, max_characters=10, max_tokens=1),
             token_counter=lambda text: len(text.split()),
         )
+
+
+def test_validated_contract_collections_are_immutable_and_defensive() -> None:
+    repository = make_repository()
+    target = make_target()
+    pack = make_pack(repository=repository)
+    configuration = {"nested": {"features": ["payments"]}}
+    provenance = {"steps": ["parsed"]}
+    survey = RepositorySurvey(
+        repository_id=repository.repository_id,
+        snapshot_id=repository.snapshot_id,
+        files=["src/shop/checkout.py"],
+        languages=["Python"],
+        symbols=["CheckoutService.checkout"],
+        graph_communities=[["CheckoutService.checkout"]],
+        configuration_facts=configuration,
+    )
+    fact = GraphFact(
+        source="CheckoutService.checkout",
+        predicate="calls",
+        target="Inventory.reserve",
+        confidence="deterministic",
+        provenance=provenance,
+    )
+
+    with pytest.raises(AttributeError):
+        repository.eligible_files.append("ignored.py")
+    with pytest.raises(AttributeError):
+        target.evidence_seeds.append("ignored")
+    with pytest.raises(AttributeError):
+        pack.evidence.append(make_item(repository, symbol="other"))
+    with pytest.raises(AttributeError):
+        pack.graph_facts.append(fact)
+    with pytest.raises(TypeError):
+        pack.graph_facts[0].provenance["new"] = "value"  # type: ignore[index]
+    with pytest.raises(AttributeError):
+        survey.files.append("mutable.py")
+    with pytest.raises(AttributeError):
+        survey.graph_communities[0].append("Mutable.symbol")
+    with pytest.raises(TypeError):
+        survey.configuration_facts["new"] = "value"  # type: ignore[index]
+    with pytest.raises(AttributeError):
+        survey.configuration_facts["nested"]["features"].append("mutable")  # type: ignore[index,union-attr]
+    with pytest.raises(TypeError):
+        fact.provenance["new"] = "value"  # type: ignore[index]
+
+    configuration["nested"]["features"].append("external")
+    provenance["steps"].append("external")
+    assert survey.model_dump(mode="json")["configuration_facts"] == {
+        "nested": {"features": ["payments"]}
+    }
+    assert fact.model_dump(mode="json")["provenance"] == {"steps": ["parsed"]}
+
+
+def test_pack_revalidates_preconstructed_nested_models() -> None:
+    repository = make_repository()
+    malformed_item = make_item(repository).model_copy(update={"start_line": 0})
+    with pytest.raises(ValidationError, match="start_line"):
+        make_pack(repository=repository, evidence=[malformed_item])
+
+    malformed_repository = repository.model_copy(update={"root": Path("relative/shop")})
+    with pytest.raises(ValidationError, match="absolute"):
+        make_pack(repository=malformed_repository, evidence=[])
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["C:\\src\\shop.py", "C:/src/shop.py", "src/shop\x00.py"],
+)
+def test_evidence_rejects_drive_qualified_or_nul_paths(path: str) -> None:
+    with pytest.raises((ValueError, ValidationError), match="path"):
+        make_item(make_repository(), path=path)
+
+
+def test_identity_and_semantic_fields_reject_blank_values() -> None:
+    with pytest.raises(ValidationError):
+        make_repository(repository_id="   ")
+    with pytest.raises(ValidationError):
+        make_repository(commit="")
+    with pytest.raises(ValidationError):
+        make_repository(branch=" ")
+    assert make_repository(branch=None).branch is None
+
+    for field in ("id", "topic"):
+        values = {
+            "id": "module.shop.checkout",
+            "topic": "checkout",
+            "evidence_seeds": [],
+            field: " ",
+        }
+        with pytest.raises(ValidationError):
+            PlanTarget(**values)
+
+    repository = make_repository()
+    for field in ("provider", "relationship", "commit"):
+        with pytest.raises(ValidationError):
+            make_item(repository, **{field: " "})
+
+    for field in ("source", "predicate", "target", "confidence"):
+        values = {
+            "source": "CheckoutService.checkout",
+            "predicate": "calls",
+            "target": "Inventory.reserve",
+            "confidence": "deterministic",
+            field: " ",
+        }
+        with pytest.raises(ValidationError):
+            GraphFact(**values)
+
+
+@pytest.mark.parametrize("invalid_limit", [True, "1", 1.0])
+@pytest.mark.parametrize("field", ["max_items", "max_characters", "max_tokens"])
+def test_evidence_budget_requires_strict_integers(
+    field: str, invalid_limit: object
+) -> None:
+    values = {"max_items": 1, "max_characters": 1, "max_tokens": 1}
+    values[field] = invalid_limit
+    with pytest.raises(ValidationError):
+        EvidenceBudget(**values)  # type: ignore[arg-type]

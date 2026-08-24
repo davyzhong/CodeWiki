@@ -3,9 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+
+
+NonBlankString = Annotated[str, StringConstraints(min_length=1, pattern=r"\S")]
 
 
 def _canonical_sha256(value: object) -> str:
@@ -25,16 +28,18 @@ def build_snapshot_id(
 
 
 class RepositorySnapshot(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, revalidate_instances="always"
+    )
 
-    repository_id: str
+    repository_id: NonBlankString
     snapshot_id: str
     root: Path
-    branch: str
-    commit: str
+    branch: NonBlankString | None
+    commit: NonBlankString
     dirty: bool
     working_tree_hash: str | None = None
-    eligible_files: list[str] = Field(default_factory=list)
+    eligible_files: tuple[NonBlankString, ...] = ()
 
     @model_validator(mode="after")
     def validate_identity(self) -> RepositorySnapshot:
@@ -52,17 +57,21 @@ class RepositorySnapshot(BaseModel):
 
 
 class PlanTarget(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, revalidate_instances="always"
+    )
 
-    id: str
+    id: NonBlankString
     type: Literal["module"] = "module"
-    topic: str
-    evidence_seeds: list[str] = Field(default_factory=list)
+    topic: NonBlankString
+    evidence_seeds: tuple[NonBlankString, ...] = ()
 
 
 class EvidenceBudget(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, revalidate_instances="always"
+    )
 
-    max_items: int = Field(gt=0)
-    max_characters: int = Field(gt=0)
-    max_tokens: int = Field(gt=0)
+    max_items: int = Field(strict=True, gt=0)
+    max_characters: int = Field(strict=True, gt=0)
+    max_tokens: int = Field(strict=True, gt=0)

@@ -4,13 +4,16 @@ import hashlib
 import json
 import re
 from pathlib import PurePosixPath
-from typing import Any, Callable, Literal
+from types import MappingProxyType
+from typing import Annotated, Any, Callable, Literal, Mapping
 
 from pydantic import (
+    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
     JsonValue,
+    PlainSerializer,
     ValidationInfo,
     field_validator,
     model_validator,
@@ -18,6 +21,7 @@ from pydantic import (
 
 from knowledge_compiler.contracts.repository import (
     EvidenceBudget,
+    NonBlankString,
     PlanTarget,
     RepositorySnapshot,
 )
@@ -25,6 +29,31 @@ from knowledge_compiler.contracts.repository import (
 
 SHA256_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 TokenCounter = Callable[[str], int]
+
+
+def _freeze_json(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {key: _freeze_json(item) for key, item in value.items()}
+        )
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_json(item) for item in value)
+    return value
+
+
+def _thaw_json(value: Any) -> JsonValue:
+    if isinstance(value, Mapping):
+        return {key: _thaw_json(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw_json(item) for item in value]
+    return value
+
+
+FrozenJsonMapping = Annotated[
+    Mapping[str, JsonValue],
+    AfterValidator(_freeze_json),
+    PlainSerializer(_thaw_json, return_type=dict[str, JsonValue]),
+]
 
 
 def _canonical_sha256(value: object) -> str:
@@ -35,7 +64,13 @@ def _canonical_sha256(value: object) -> str:
 def _normalized_posix_path(path: str) -> str:
     candidate = path.replace("\\", "/")
     parsed = PurePosixPath(candidate)
-    if not candidate or parsed.is_absolute() or ".." in parsed.parts:
+    if (
+        not candidate
+        or "\x00" in candidate
+        or re.match(r"^[A-Za-z]:", candidate)
+        or parsed.is_absolute()
+        or ".." in parsed.parts
+    ):
         raise ValueError("evidence path must be a non-traversing relative path")
     normalized = parsed.as_posix()
     if normalized in {"", "."}:
@@ -67,42 +102,54 @@ def build_evidence_id(
 
 
 class RepositorySurvey(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        revalidate_instances="always",
+        validate_default=True,
+    )
 
-    repository_id: str
-    snapshot_id: str
-    files: list[str] = Field(default_factory=list)
-    languages: list[str] = Field(default_factory=list)
-    symbols: list[str] = Field(default_factory=list)
-    graph_communities: list[list[str]] = Field(default_factory=list)
-    configuration_facts: dict[str, JsonValue] = Field(default_factory=dict)
+    repository_id: NonBlankString
+    snapshot_id: NonBlankString
+    files: tuple[NonBlankString, ...] = ()
+    languages: tuple[NonBlankString, ...] = ()
+    symbols: tuple[NonBlankString, ...] = ()
+    graph_communities: tuple[tuple[NonBlankString, ...], ...] = ()
+    configuration_facts: FrozenJsonMapping = Field(default_factory=dict)
 
 
 class GraphFact(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        revalidate_instances="always",
+        validate_default=True,
+    )
 
-    source: str
-    predicate: str
-    target: str
-    confidence: str
-    provenance: dict[str, JsonValue] = Field(default_factory=dict)
+    source: NonBlankString
+    predicate: NonBlankString
+    target: NonBlankString
+    confidence: NonBlankString
+    provenance: FrozenJsonMapping = Field(default_factory=dict)
 
 
 class EvidenceItem(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, revalidate_instances="always"
+    )
 
     id: str
-    provider: str
+    provider: NonBlankString
     kind: Literal["source"] = "source"
     path: str
-    symbol: str | None = None
+    symbol: NonBlankString | None = None
     start_line: int = Field(gt=0)
     end_line: int = Field(gt=0)
-    commit: str
+    commit: NonBlankString
     content_hash: str
     excerpt_hash: str
     excerpt: str
-    relationship: str
+    relationship: NonBlankString
     strength: Literal["direct"] = "direct"
 
     @field_validator("id", "content_hash", "excerpt_hash")
@@ -129,14 +176,16 @@ def _default_token_counter(text: str) -> int:
 
 
 class EvidencePack(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, revalidate_instances="always"
+    )
 
     contract_version: Literal["0.1"] = "0.1"
     repository: RepositorySnapshot
     target: PlanTarget
     budget: EvidenceBudget
-    evidence: list[EvidenceItem] = Field(default_factory=list)
-    graph_facts: list[GraphFact] = Field(default_factory=list)
+    evidence: tuple[EvidenceItem, ...] = ()
+    graph_facts: tuple[GraphFact, ...] = ()
 
     @model_validator(mode="after")
     def validate_pack(self, info: ValidationInfo) -> EvidencePack:
