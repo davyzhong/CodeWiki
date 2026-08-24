@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+
+# Local worktrees and generated spike observations
+.worktrees/
+work/
+
+# Generated Knowledge Compiler state
+.knowledge/cache/
+.knowledge/state/
+.knowledge/exports/
+.codewiki/
