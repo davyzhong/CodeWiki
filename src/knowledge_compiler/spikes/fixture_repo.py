@@ -22,6 +22,7 @@ def _git(root: Path, *args: str) -> str:
 
 
 def materialize_probe_repo(template: Path, destination: Path) -> ProbeRepository:
+    destination = destination.resolve()
     shutil.copytree(template, destination)
     _git(destination, "init", "-q")
     _git(destination, "config", "user.name", "Knowledge Compiler Spike")

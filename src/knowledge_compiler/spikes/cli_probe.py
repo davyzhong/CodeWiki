@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import tempfile
 from typing import Any
 
 from knowledge_compiler.spikes.fixture_repo import ProbeRepository
@@ -26,9 +27,10 @@ def _run(
     name: str,
     args: list[str],
     *,
+    cwd: Path,
     stdin: str | None = None,
 ) -> CommandObservation:
-    executable_path = str(Path(executable).resolve()) if "/" in executable else executable
+    executable_path = str(Path(executable).absolute()) if "/" in executable else executable
     argv = [executable_path, *args]
     environment = {
         "HOME": os.environ.get("HOME", ""),
@@ -38,7 +40,7 @@ def _run(
     try:
         result = subprocess.run(
             argv,
-            cwd=repo.root,
+            cwd=cwd,
             env=environment,
             input=stdin,
             text=True,
@@ -63,7 +65,7 @@ def _run(
 
     return CommandObservation(
         name=name,
-        argv=[sanitize_text(arg, repo.root) for arg in argv],
+        argv=[Path(argv[0]).name, *[sanitize_text(arg, repo.root) for arg in argv[1:]]],
         returncode=returncode,
         stdout=sanitize_text(stdout, repo.root),
         stderr=sanitize_text(stderr, repo.root),
@@ -86,26 +88,53 @@ def run_cli_probe(executable: str, repo: ProbeRepository) -> list[CommandObserva
             ["graph", "explore", "checkout inventory", "--repo", str(repo.root), "--json"],
         ),
     ]
-    observations = [_run(executable, repo, name, args) for name, args in commands]
-    observations.append(
-        _run(
-            executable,
-            repo,
-            "graph_affected",
-            ["graph", "affected", "--repo", str(repo.root), "--stdin", "--json"],
-            stdin="src/shop/inventory.py\n",
+    with tempfile.TemporaryDirectory(prefix="knowledge-codewiki-provider-") as provider_dir:
+        cwd = Path(provider_dir)
+        observations = [
+            _run(executable, repo, name, args, cwd=cwd) for name, args in commands
+        ]
+        if observations[0].returncode != 0:
+            executable_path = Path(executable).absolute() if "/" in executable else None
+            python = executable_path.parent / "python" if executable_path else None
+            if python and python.exists():
+                observations.append(
+                    _run(
+                        str(python),
+                        repo,
+                        "package_version",
+                        [
+                            "-c",
+                            "from importlib.metadata import version; print('codewiki ' + version('codewiki'))",
+                        ],
+                        cwd=cwd,
+                    )
+                )
+        observations.append(
+            _run(
+                executable,
+                repo,
+                "graph_affected",
+                ["graph", "affected", "--repo", str(repo.root), "--stdin", "--json"],
+                cwd=cwd,
+                stdin="src/shop/inventory.py\n",
+            )
         )
-    )
 
-    inventory = repo.root / "src/shop/inventory.py"
-    inventory.write_text(inventory.read_text(encoding="utf-8") + "\n# probe update\n", encoding="utf-8")
-    observations.append(_run(executable, repo, "update", ["update", str(repo.root), "--json"]))
-    observations.append(
-        _run(
-            executable,
-            repo,
-            "graph_search_after_update",
-            ["graph", "search", "CheckoutService", "--repo", str(repo.root), "--json"],
+        inventory = repo.root / "src/shop/inventory.py"
+        inventory.write_text(
+            inventory.read_text(encoding="utf-8") + "\n# probe update\n",
+            encoding="utf-8",
         )
-    )
-    return observations
+        observations.append(
+            _run(executable, repo, "update", ["update", str(repo.root), "--json"], cwd=cwd)
+        )
+        observations.append(
+            _run(
+                executable,
+                repo,
+                "graph_search_after_update",
+                ["graph", "search", "CheckoutService", "--repo", str(repo.root), "--json"],
+                cwd=cwd,
+            )
+        )
+        return observations

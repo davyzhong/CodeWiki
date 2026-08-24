@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+from pathlib import Path
 import sys
 
 
@@ -9,6 +10,8 @@ if args == ["--version"]:
 elif args[:2] == ["repos", "add"]:
     print(json.dumps({"repository": {"id": "probe-repo", "path": args[2]}}))
 elif args and args[0] == "analyze":
+    Path("storage").mkdir(exist_ok=True)
+    (Path("storage") / "provider-marker").write_text("temporary", encoding="utf-8")
     print(json.dumps({"status": "completed", "repository_id": "probe-repo"}))
 elif args[:2] == ["repos", "scan"]:
     print(json.dumps({"files": [
@@ -39,4 +42,3 @@ elif args and args[0] == "update":
 else:
     print(json.dumps({"error": "unsupported", "args": args}))
     raise SystemExit(2)
-

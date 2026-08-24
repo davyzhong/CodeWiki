@@ -1,4 +1,6 @@
 from copy import deepcopy
+import json
+from pathlib import Path
 
 from knowledge_compiler.spikes.evaluator import evaluate
 from knowledge_compiler.spikes.main import render_report
@@ -102,3 +104,63 @@ def test_render_report_contains_required_sections() -> None:
     assert "## Capability matrix" in report
     assert "## Missing or ambiguous capabilities" in report
     assert "## Adapter recommendation" in report
+
+
+def test_evaluate_accepts_codewiki_065_public_shapes() -> None:
+    data = complete_bundle_dict()
+    data["commands"].append({
+        "name": "package_version",
+        "argv": ["python", "-c", "metadata"],
+        "returncode": 0,
+        "stdout": "codewiki 0.6.5\n",
+        "stderr": "",
+        "json_value": None,
+    })
+    analyze = next(item for item in data["commands"] if item["name"] == "analyze")
+    analyze["json_value"]["status"] = "done"
+    update = next(item for item in data["commands"] if item["name"] == "update")
+    update["json_value"]["status"] = "done"
+    explore = next(item for item in data["commands"] if item["name"] == "graph_explore")
+    explore["json_value"] = {
+        "entry_points": [
+            {
+                "name": "checkout",
+                "symbol_id": "src/shop/checkout.py::CheckoutService.checkout",
+                "file_path": "src/shop/checkout.py",
+                "start_line": 8,
+                "end_line": 11,
+            },
+            {
+                "name": "reserve",
+                "symbol_id": "src/shop/inventory.py::Inventory.reserve",
+                "file_path": "src/shop/inventory.py",
+                "start_line": 2,
+                "end_line": 3,
+            },
+        ],
+        "relationships": [{
+            "source": "CheckoutService.checkout",
+            "type": "calls",
+            "target": "Inventory.reserve",
+        }],
+        "source_sections": [{
+            "file_path": "src/shop/checkout.py",
+            "start_line": 1,
+            "end_line": 11,
+            "content": "from shop.inventory import Inventory",
+        }],
+        "query": "checkout inventory",
+    }
+
+    decision = evaluate(ProbeBundle.model_validate(data))
+
+    assert decision.decision == "go"
+
+
+def test_captured_codewiki_065_contract_reproduces_go_decision() -> None:
+    fixture = Path("tests/fixtures/codewiki/0.6/cli-observations.json")
+    bundle = ProbeBundle.model_validate(json.loads(fixture.read_text(encoding="utf-8")))
+
+    decision = evaluate(bundle)
+
+    assert decision.decision == "go"

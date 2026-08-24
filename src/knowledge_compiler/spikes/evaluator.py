@@ -105,7 +105,7 @@ def _successful_status(bundle: ProbeBundle, name: str, capability: str) -> Capab
     evidence = []
     if item and item.returncode == 0:
         text = _text(item.json_value)
-        if any(status in text for status in ("completed", "success", "succeeded", "indexed")):
+        if any(status in text for status in ("completed", "success", "succeeded", "indexed", "done")):
             evidence.append(f"cli:{name}")
     return _supported(capability, evidence)
 
@@ -143,13 +143,25 @@ def _source_references(bundle: ProbeBundle) -> CapabilityResult:
     evidence = []
     for source, value in _all_values(bundle):
         if any(
-            isinstance(item.get("path"), str)
+            isinstance(item.get("path", item.get("file_path")), str)
             and isinstance(item.get("start_line"), int)
             and isinstance(item.get("end_line"), int)
             for item in _find_dicts(value)
         ):
             evidence.append(source)
     return _supported("source_references", evidence)
+
+
+def _imports(bundle: ProbeBundle) -> CapabilityResult:
+    result = _edge(bundle, "imports", ("import", "imports"))
+    if result.status == "supported":
+        return result
+    evidence = [
+        source
+        for source, value in _all_values(bundle)
+        if re.search(r"\b(from\s+shop\.\w+\s+import|import\s+shop\.)", _text(value))
+    ]
+    return _supported("imports", evidence)
 
 
 def _named_content(bundle: ProbeBundle, capability: str, names: tuple[str, ...], terms: tuple[str, ...]) -> CapabilityResult:
@@ -174,7 +186,11 @@ def _incremental(bundle: ProbeBundle) -> CapabilityResult:
 
 
 def _bounded(bundle: ProbeBundle) -> CapabilityResult:
-    successful_cli = [item for item in bundle.commands if item.name != "version" and item.returncode == 0]
+    successful_cli = [
+        item
+        for item in bundle.commands
+        if item.name not in {"version", "package_version"} and item.returncode == 0
+    ]
     evidence = []
     if successful_cli and all(item.json_value is not None for item in successful_cli):
         evidence.append("cli:parseable-json")
@@ -190,7 +206,7 @@ def evaluate(bundle: ProbeBundle) -> SpikeDecision:
         lambda: _successful_status(bundle, "analyze", "full_index"),
         lambda: _survey(bundle),
         lambda: _symbols(bundle),
-        lambda: _edge(bundle, "imports", ("import", "imports")),
+        lambda: _imports(bundle),
         lambda: _edge(bundle, "calls", ("call", "calls")),
         lambda: _source_references(bundle),
         lambda: _named_content(

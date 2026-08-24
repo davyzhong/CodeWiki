@@ -25,6 +25,11 @@ MCP_CAPABILITY_MAP = {
 }
 
 
+@app.callback()
+def main() -> None:
+    """Probe CodeWiki's public surfaces."""
+
+
 def render_report(bundle: ProbeBundle, decision: SpikeDecision) -> str:
     lines = [
         "# CodeWiki Public-Surface Spike",
@@ -106,7 +111,14 @@ def execute_spike(
     probe_root = work_dir / "probe-repository"
     repo = materialize_probe_repo(repo_template, probe_root)
     commands = run_cli_probe(executable, repo)
-    version = next((item.stdout.strip() for item in commands if item.name == "version"), None) or None
+    version = next(
+        (
+            item.stdout.strip()
+            for item in commands
+            if item.name in {"version", "package_version"} and item.returncode == 0
+        ),
+        None,
+    ) or None
     bundle = ProbeBundle(
         codewiki_version=version,
         repository_commit=repo.commit,
