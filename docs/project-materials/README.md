@@ -7,6 +7,7 @@
 1. [项目起源](00-origin/project-origin.md)：为什么会有这个项目，以及 ATLAS、Enterprise Intelligence 与本项目的关系。
 2. [演进时间线](00-origin/timeline.md)：从知识库实践、产品调研到 Phase 0/Phase 1 的决策顺序。
 3. [参考产品与模式](02-external-research/reference-products.md)：Qoder Repo Wiki、Knowledge Cards、Google Code Wiki、GitHub Copilot Memory 与 PorunC/CodeWiki。
+   - [Qoder 三页官方资料的详细资料包](02-external-research/qoder/README.md)
 4. [跨项目方法沉淀](01-local-practice/cross-project-lessons.md)：从 ATLAS 和 Enterprise Intelligence 提炼、且适合公开复用的知识工程方法。
 5. [技能资料索引](03-skills/README.md)：上游 CodeWiki Skill 快照，以及 Knowledge Compiler 四个拟议 Skill 的历史状态。
 6. [来源目录](source-catalog.md)：每份材料的来源、性质、许可、日期和是否入库。

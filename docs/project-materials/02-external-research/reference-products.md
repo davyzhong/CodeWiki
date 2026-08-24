@@ -28,6 +28,8 @@ Canonical Knowledge IR
 
 本项目进一步要求 Claim/Evidence 成为 IR 的组成部分，避免 Wiki 和 Card 各自生成相互矛盾的事实。
 
+三份中文官方页面的逐页内容记录、抓取哈希和综合分析见 [Qoder 参考资料包](qoder/README.md)。
+
 ## PorunC/CodeWiki：MVP 底座与边界
 
 上游项目的实现管线可概括为：
