@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "knowledge-compiler"
+version = "0.1.0.dev0"
+requires-python = ">=3.12"
+dependencies = [
+  "mcp>=1.0",
+  "pydantic>=2.10",
+  "typer>=0.15",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+]
+
+[project.scripts]
+knowledge-codewiki-spike = "knowledge_compiler.spikes.main:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/knowledge_compiler"]
+
