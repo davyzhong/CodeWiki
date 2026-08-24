@@ -1,0 +1,1035 @@
+{
+  "codewiki_version": "codewiki 0.6.5",
+  "commands": [
+    {
+      "argv": [
+        "codewiki",
+        "--version"
+      ],
+      "json_value": null,
+      "name": "version",
+      "returncode": 2,
+      "stderr": "Usage: codewiki [OPTIONS] COMMAND [ARGS]...\nTry 'codewiki --help' for help.\n\nError: No such option '--version'.\n",
+      "stdout": ""
+    },
+    {
+      "argv": [
+        "codewiki",
+        "repos",
+        "add",
+        "<REPO>",
+        "--json"
+      ],
+      "json_value": {
+        "commit_hash": "f207b4f37b1375a9b9bf7fae0b89361c6e39aa86",
+        "git_url": null,
+        "id": "85f16b68ab657f68",
+        "name": "probe-repository",
+        "path": "<REPO>",
+        "source_type": "local"
+      },
+      "name": "repos_add",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\n  \"commit_hash\": \"f207b4f37b1375a9b9bf7fae0b89361c6e39aa86\",\n  \"git_url\": null,\n  \"id\": \"85f16b68ab657f68\",\n  \"name\": \"probe-repository\",\n  \"path\": \"<REPO>\",\n  \"source_type\": \"local\"\n}\n"
+    },
+    {
+      "argv": [
+        "codewiki",
+        "analyze",
+        "<REPO>",
+        "--json"
+      ],
+      "json_value": {
+        "community_count": 3,
+        "community_count_by_level": {
+          "0": 3
+        },
+        "community_naming": {
+          "community_count": 3,
+          "errors": [
+            "LLM community naming skipped because no LLM endpoint or API key is configured."
+          ],
+          "llm_run_id": null,
+          "llm_run_ids": null,
+          "renamed_count": 0,
+          "repo_id": "85f16b68ab657f68",
+          "status": "skipped"
+        },
+        "edge_count": 29,
+        "errors": [],
+        "mode": "full",
+        "node_count": 14,
+        "parsed_file_count": 4,
+        "repo_id": "85f16b68ab657f68",
+        "reused_file_count": 0,
+        "run_id": "935c5d57c36849a989586129d7934dfd",
+        "scanned_count": 5,
+        "status": "done"
+      },
+      "name": "analyze",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\n  \"community_count\": 3,\n  \"community_count_by_level\": {\n    \"0\": 3\n  },\n  \"community_naming\": {\n    \"community_count\": 3,\n    \"errors\": [\n      \"LLM community naming skipped because no LLM endpoint or API key is configured.\"\n    ],\n    \"llm_run_id\": null,\n    \"llm_run_ids\": null,\n    \"renamed_count\": 0,\n    \"repo_id\": \"85f16b68ab657f68\",\n    \"status\": \"skipped\"\n  },\n  \"edge_count\": 29,\n  \"errors\": [],\n  \"mode\": \"full\",\n  \"node_count\": 14,\n  \"parsed_file_count\": 4,\n  \"repo_id\": \"85f16b68ab657f68\",\n  \"reused_file_count\": 0,\n  \"run_id\": \"935c5d57c36849a989586129d7934dfd\",\n  \"scanned_count\": 5,\n  \"status\": \"done\"\n}\n"
+    },
+    {
+      "argv": [
+        "codewiki",
+        "repos",
+        "scan",
+        "<REPO>",
+        "--json"
+      ],
+      "json_value": {
+        "files": [
+          {
+            "absolute_path": "<REPO>/pyproject.toml",
+            "is_source": false,
+            "language": "toml",
+            "last_commit_at": null,
+            "modified_at": "2026-08-24T14:41:07.301399+00:00",
+            "path": "pyproject.toml",
+            "sha256": "a5eede9cf7f5417ecc071142a87df5965929288cc32bbb1f308f5c607a6aaf39",
+            "size_bytes": 85
+          },
+          {
+            "absolute_path": "<REPO>/src/shop/__init__.py",
+            "is_source": true,
+            "language": "python",
+            "last_commit_at": "2026-08-24T22:57:04+08:00",
+            "modified_at": "2026-08-24T14:41:07.301856+00:00",
+            "path": "src/shop/__init__.py",
+            "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+            "size_bytes": 1
+          },
+          {
+            "absolute_path": "<REPO>/src/shop/api.py",
+            "is_source": true,
+            "language": "python",
+            "last_commit_at": "2026-08-24T22:57:04+08:00",
+            "modified_at": "2026-08-24T14:41:07.302524+00:00",
+            "path": "src/shop/api.py",
+            "sha256": "7c68acd0bfaf85ecde8d03e2f98c4ad024fc5ddb2be7f645679101a8816dc7ab",
+            "size_bytes": 198
+          },
+          {
+            "absolute_path": "<REPO>/src/shop/checkout.py",
+            "is_source": true,
+            "language": "python",
+            "last_commit_at": "2026-08-24T22:57:04+08:00",
+            "modified_at": "2026-08-24T14:41:07.302294+00:00",
+            "path": "src/shop/checkout.py",
+            "sha256": "d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b",
+            "size_bytes": 355
+          },
+          {
+            "absolute_path": "<REPO>/src/shop/inventory.py",
+            "is_source": true,
+            "language": "python",
+            "last_commit_at": "2026-08-24T22:57:04+08:00",
+            "modified_at": "2026-08-24T14:41:07.302068+00:00",
+            "path": "src/shop/inventory.py",
+            "sha256": "dc9de1003e15a3c22677e0315ba054ce5a76f3457109d1b24d43dd23961a8bbc",
+            "size_bytes": 102
+          }
+        ],
+        "ignored_count": 1,
+        "repo": {
+          "commit_hash": "f207b4f37b1375a9b9bf7fae0b89361c6e39aa86",
+          "git_url": null,
+          "id": "85f16b68ab657f68",
+          "name": "probe-repository",
+          "path": "<REPO>",
+          "source_type": "local"
+        },
+        "scanned_count": 5,
+        "skipped_count": 0
+      },
+      "name": "repos_scan",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\n  \"files\": [\n    {\n      \"absolute_path\": \"<REPO>/pyproject.toml\",\n      \"is_source\": false,\n      \"language\": \"toml\",\n      \"last_commit_at\": null,\n      \"modified_at\": \"2026-08-24T14:41:07.301399+00:00\",\n      \"path\": \"pyproject.toml\",\n      \"sha256\": \"a5eede9cf7f5417ecc071142a87df5965929288cc32bbb1f308f5c607a6aaf39\",\n      \"size_bytes\": 85\n    },\n    {\n      \"absolute_path\": \"<REPO>/src/shop/__init__.py\",\n      \"is_source\": true,\n      \"language\": \"python\",\n      \"last_commit_at\": \"2026-08-24T22:57:04+08:00\",\n      \"modified_at\": \"2026-08-24T14:41:07.301856+00:00\",\n      \"path\": \"src/shop/__init__.py\",\n      \"sha256\": \"01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b\",\n      \"size_bytes\": 1\n    },\n    {\n      \"absolute_path\": \"<REPO>/src/shop/api.py\",\n      \"is_source\": true,\n      \"language\": \"python\",\n      \"last_commit_at\": \"2026-08-24T22:57:04+08:00\",\n      \"modified_at\": \"2026-08-24T14:41:07.302524+00:00\",\n      \"path\": \"src/shop/api.py\",\n      \"sha256\": \"7c68acd0bfaf85ecde8d03e2f98c4ad024fc5ddb2be7f645679101a8816dc7ab\",\n      \"size_bytes\": 198\n    },\n    {\n      \"absolute_path\": \"<REPO>/src/shop/checkout.py\",\n      \"is_source\": true,\n      \"language\": \"python\",\n      \"last_commit_at\": \"2026-08-24T22:57:04+08:00\",\n      \"modified_at\": \"2026-08-24T14:41:07.302294+00:00\",\n      \"path\": \"src/shop/checkout.py\",\n      \"sha256\": \"d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b\",\n      \"size_bytes\": 355\n    },\n    {\n      \"absolute_path\": \"<REPO>/src/shop/inventory.py\",\n      \"is_source\": true,\n      \"language\": \"python\",\n      \"last_commit_at\": \"2026-08-24T22:57:04+08:00\",\n      \"modified_at\": \"2026-08-24T14:41:07.302068+00:00\",\n      \"path\": \"src/shop/inventory.py\",\n      \"sha256\": \"dc9de1003e15a3c22677e0315ba054ce5a76f3457109d1b24d43dd23961a8bbc\",\n      \"size_bytes\": 102\n    }\n  ],\n  \"ignored_count\": 1,\n  \"repo\": {\n    \"commit_hash\": \"f207b4f37b1375a9b9bf7fae0b89361c6e39aa86\",\n    \"git_url\": null,\n    \"id\": \"85f16b68ab657f68\",\n    \"name\": \"probe-repository\",\n    \"path\": \"<REPO>\",\n    \"source_type\": \"local\"\n  },\n  \"scanned_count\": 5,\n  \"skipped_count\": 0\n}\n"
+    },
+    {
+      "argv": [
+        "codewiki",
+        "graph",
+        "search",
+        "CheckoutService",
+        "--repo",
+        "<REPO>",
+        "--json"
+      ],
+      "json_value": [
+        {
+          "node": {
+            "end_line": 11,
+            "file_path": "src/shop/checkout.py",
+            "hash": "d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b",
+            "id": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService",
+            "language": "python",
+            "metadata": {
+              "bases": [],
+              "calls": [
+                "ValueError",
+                "reserve"
+              ],
+              "confidence": 1.0,
+              "decorators": [],
+              "docstring": null,
+              "exported": true,
+              "exports": [],
+              "implements": [],
+              "language_enhancer": "python",
+              "provenance": {
+                "confidence": 1.0,
+                "evidence": [
+                  "type=class",
+                  "file_path=src/shop/checkout.py",
+                  "start_line=4",
+                  "end_line=11"
+                ],
+                "kind": "extracted",
+                "source": "ast_parser",
+                "version": "codewiki.provenance.v1"
+              },
+              "python_node_type": "ClassDef",
+              "references": [
+                "Inventory",
+                "ValueError",
+                "int",
+                "inventory",
+                "quantity",
+                "reserve",
+                "self",
+                "sku",
+                "str"
+              ],
+              "signature": null,
+              "tree_sitter_capture": true,
+              "tree_sitter_type": "class_definition"
+            },
+            "name": "CheckoutService",
+            "repo_id": "85f16b68ab657f68",
+            "start_line": 4,
+            "summary": null,
+            "symbol_id": "src/shop/checkout.py::CheckoutService",
+            "type": "class"
+          },
+          "reasons": [
+            "fts"
+          ],
+          "score": 3.28
+        },
+        {
+          "node": {
+            "end_line": 6,
+            "file_path": "src/shop/checkout.py",
+            "hash": "d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b",
+            "id": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__",
+            "language": "python",
+            "metadata": {
+              "bases": [],
+              "calls": [],
+              "confidence": 1.0,
+              "decorators": [],
+              "docstring": null,
+              "exported": false,
+              "exports": [],
+              "implements": [],
+              "language_enhancer": "python",
+              "provenance": {
+                "confidence": 1.0,
+                "evidence": [
+                  "type=method",
+                  "file_path=src/shop/checkout.py",
+                  "start_line=5",
+                  "end_line=6"
+                ],
+                "kind": "extracted",
+                "source": "ast_parser",
+                "version": "codewiki.provenance.v1"
+              },
+              "python_node_type": "FunctionDef",
+              "references": [
+                "Inventory",
+                "inventory",
+                "self"
+              ],
+              "signature": "def __init__(self, inventory: Inventory) -> None",
+              "tree_sitter_capture": true,
+              "tree_sitter_type": "function_definition"
+            },
+            "name": "__init__",
+            "repo_id": "85f16b68ab657f68",
+            "start_line": 5,
+            "summary": null,
+            "symbol_id": "src/shop/checkout.py::CheckoutService.__init__",
+            "type": "method"
+          },
+          "reasons": [
+            "fts"
+          ],
+          "score": 1.28
+        },
+        {
+          "node": {
+            "end_line": 11,
+            "file_path": "src/shop/checkout.py",
+            "hash": "d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b",
+            "id": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout",
+            "language": "python",
+            "metadata": {
+              "bases": [],
+              "calls": [
+                "ValueError",
+                "reserve"
+              ],
+              "confidence": 1.0,
+              "decorators": [],
+              "docstring": null,
+              "exported": false,
+              "exports": [],
+              "implements": [],
+              "language_enhancer": "python",
+              "provenance": {
+                "confidence": 1.0,
+                "evidence": [
+                  "type=method",
+                  "file_path=src/shop/checkout.py",
+                  "start_line=8",
+                  "end_line=11"
+                ],
+                "kind": "extracted",
+                "source": "ast_parser",
+                "version": "codewiki.provenance.v1"
+              },
+              "python_node_type": "FunctionDef",
+              "references": [
+                "ValueError",
+                "int",
+                "inventory",
+                "quantity",
+                "reserve",
+                "self",
+                "sku",
+                "str"
+              ],
+              "signature": "def checkout(self, sku: str, quantity: int) -> str",
+              "tree_sitter_capture": true,
+              "tree_sitter_type": "function_definition"
+            },
+            "name": "checkout",
+            "repo_id": "85f16b68ab657f68",
+            "start_line": 8,
+            "summary": null,
+            "symbol_id": "src/shop/checkout.py::CheckoutService.checkout",
+            "type": "method"
+          },
+          "reasons": [
+            "fts"
+          ],
+          "score": 1.26
+        }
+      ],
+      "name": "graph_search",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "[\n  {\n    \"node\": {\n      \"end_line\": 11,\n      \"file_path\": \"src/shop/checkout.py\",\n      \"hash\": \"d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b\",\n      \"id\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService\",\n      \"language\": \"python\",\n      \"metadata\": {\n        \"bases\": [],\n        \"calls\": [\n          \"ValueError\",\n          \"reserve\"\n        ],\n        \"confidence\": 1.0,\n        \"decorators\": [],\n        \"docstring\": null,\n        \"exported\": true,\n        \"exports\": [],\n        \"implements\": [],\n        \"language_enhancer\": \"python\",\n        \"provenance\": {\n          \"confidence\": 1.0,\n          \"evidence\": [\n            \"type=class\",\n            \"file_path=src/shop/checkout.py\",\n            \"start_line=4\",\n            \"end_line=11\"\n          ],\n          \"kind\": \"extracted\",\n          \"source\": \"ast_parser\",\n          \"version\": \"codewiki.provenance.v1\"\n        },\n        \"python_node_type\": \"ClassDef\",\n        \"references\": [\n          \"Inventory\",\n          \"ValueError\",\n          \"int\",\n          \"inventory\",\n          \"quantity\",\n          \"reserve\",\n          \"self\",\n          \"sku\",\n          \"str\"\n        ],\n        \"signature\": null,\n        \"tree_sitter_capture\": true,\n        \"tree_sitter_type\": \"class_definition\"\n      },\n      \"name\": \"CheckoutService\",\n      \"repo_id\": \"85f16b68ab657f68\",\n      \"start_line\": 4,\n      \"summary\": null,\n      \"symbol_id\": \"src/shop/checkout.py::CheckoutService\",\n      \"type\": \"class\"\n    },\n    \"reasons\": [\n      \"fts\"\n    ],\n    \"score\": 3.28\n  },\n  {\n    \"node\": {\n      \"end_line\": 6,\n      \"file_path\": \"src/shop/checkout.py\",\n      \"hash\": \"d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b\",\n      \"id\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__\",\n      \"language\": \"python\",\n      \"metadata\": {\n        \"bases\": [],\n        \"calls\": [],\n        \"confidence\": 1.0,\n        \"decorators\": [],\n        \"docstring\": null,\n        \"exported\": false,\n        \"exports\": [],\n        \"implements\": [],\n        \"language_enhancer\": \"python\",\n        \"provenance\": {\n          \"confidence\": 1.0,\n          \"evidence\": [\n            \"type=method\",\n            \"file_path=src/shop/checkout.py\",\n            \"start_line=5\",\n            \"end_line=6\"\n          ],\n          \"kind\": \"extracted\",\n          \"source\": \"ast_parser\",\n          \"version\": \"codewiki.provenance.v1\"\n        },\n        \"python_node_type\": \"FunctionDef\",\n        \"references\": [\n          \"Inventory\",\n          \"inventory\",\n          \"self\"\n        ],\n        \"signature\": \"def __init__(self, inventory: Inventory) -> None\",\n        \"tree_sitter_capture\": true,\n        \"tree_sitter_type\": \"function_definition\"\n      },\n      \"name\": \"__init__\",\n      \"repo_id\": \"85f16b68ab657f68\",\n      \"start_line\": 5,\n      \"summary\": null,\n      \"symbol_id\": \"src/shop/checkout.py::CheckoutService.__init__\",\n      \"type\": \"method\"\n    },\n    \"reasons\": [\n      \"fts\"\n    ],\n    \"score\": 1.28\n  },\n  {\n    \"node\": {\n      \"end_line\": 11,\n      \"file_path\": \"src/shop/checkout.py\",\n      \"hash\": \"d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b\",\n      \"id\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout\",\n      \"language\": \"python\",\n      \"metadata\": {\n        \"bases\": [],\n        \"calls\": [\n          \"ValueError\",\n          \"reserve\"\n        ],\n        \"confidence\": 1.0,\n        \"decorators\": [],\n        \"docstring\": null,\n        \"exported\": false,\n        \"exports\": [],\n        \"implements\": [],\n        \"language_enhancer\": \"python\",\n        \"provenance\": {\n          \"confidence\": 1.0,\n          \"evidence\": [\n            \"type=method\",\n            \"file_path=src/shop/checkout.py\",\n            \"start_line=8\",\n            \"end_line=11\"\n          ],\n          \"kind\": \"extracted\",\n          \"source\": \"ast_parser\",\n          \"version\": \"codewiki.provenance.v1\"\n        },\n        \"python_node_type\": \"FunctionDef\",\n        \"references\": [\n          \"ValueError\",\n          \"int\",\n          \"inventory\",\n          \"quantity\",\n          \"reserve\",\n          \"self\",\n          \"sku\",\n          \"str\"\n        ],\n        \"signature\": \"def checkout(self, sku: str, quantity: int) -> str\",\n        \"tree_sitter_capture\": true,\n        \"tree_sitter_type\": \"function_definition\"\n      },\n      \"name\": \"checkout\",\n      \"repo_id\": \"85f16b68ab657f68\",\n      \"start_line\": 8,\n      \"summary\": null,\n      \"symbol_id\": \"src/shop/checkout.py::CheckoutService.checkout\",\n      \"type\": \"method\"\n    },\n    \"reasons\": [\n      \"fts\"\n    ],\n    \"score\": 1.26\n  }\n]\n"
+    },
+    {
+      "argv": [
+        "codewiki",
+        "graph",
+        "explore",
+        "checkout inventory",
+        "--repo",
+        "<REPO>",
+        "--json"
+      ],
+      "json_value": {
+        "additional_files": [],
+        "entry_points": [
+          {
+            "end_line": 3,
+            "file_path": "src/shop/inventory.py",
+            "id": "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory",
+            "language": "python",
+            "name": "Inventory",
+            "reasons": [
+              "fts"
+            ],
+            "score": 2.91,
+            "start_line": 1,
+            "symbol_id": "src/shop/inventory.py::Inventory",
+            "type": "class"
+          },
+          {
+            "end_line": 11,
+            "file_path": "src/shop/checkout.py",
+            "id": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout",
+            "language": "python",
+            "name": "checkout",
+            "reasons": [
+              "fts"
+            ],
+            "score": 2.85,
+            "start_line": 8,
+            "symbol_id": "src/shop/checkout.py::CheckoutService.checkout",
+            "type": "method"
+          },
+          {
+            "end_line": 6,
+            "file_path": "src/shop/checkout.py",
+            "id": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__",
+            "language": "python",
+            "name": "__init__",
+            "reasons": [
+              "fts"
+            ],
+            "score": 1.55,
+            "start_line": 5,
+            "symbol_id": "src/shop/checkout.py::CheckoutService.__init__",
+            "type": "method"
+          },
+          {
+            "end_line": 3,
+            "file_path": "src/shop/inventory.py",
+            "id": "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory.reserve",
+            "language": "python",
+            "name": "reserve",
+            "reasons": [
+              "fts"
+            ],
+            "score": 1.49,
+            "start_line": 2,
+            "symbol_id": "src/shop/inventory.py::Inventory.reserve",
+            "type": "method"
+          },
+          {
+            "end_line": 11,
+            "file_path": "src/shop/checkout.py",
+            "id": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService",
+            "language": "python",
+            "name": "CheckoutService",
+            "reasons": [
+              "fts"
+            ],
+            "score": 1.45,
+            "start_line": 4,
+            "symbol_id": "src/shop/checkout.py::CheckoutService",
+            "type": "class"
+          },
+          {
+            "end_line": null,
+            "file_path": "src/shop/inventory.py",
+            "id": "85f16b68ab657f68:file:src/shop/inventory.py",
+            "language": "python",
+            "name": "inventory.py",
+            "reasons": [
+              "fts"
+            ],
+            "score": 1.31,
+            "start_line": 1,
+            "symbol_id": "file:src/shop/inventory.py",
+            "type": "file"
+          },
+          {
+            "end_line": null,
+            "file_path": "src/shop/checkout.py",
+            "id": "85f16b68ab657f68:file:src/shop/checkout.py",
+            "language": "python",
+            "name": "checkout.py",
+            "reasons": [
+              "fts"
+            ],
+            "score": 1.23,
+            "start_line": 1,
+            "symbol_id": "file:src/shop/checkout.py",
+            "type": "file"
+          },
+          {
+            "end_line": 6,
+            "file_path": "src/shop/api.py",
+            "id": "85f16b68ab657f68:symbol:src/shop/api.py::checkout_order",
+            "language": "python",
+            "name": "checkout_order",
+            "reasons": [
+              "fts"
+            ],
+            "score": 1.16,
+            "start_line": 5,
+            "symbol_id": "src/shop/api.py::checkout_order",
+            "type": "function"
+          }
+        ],
+        "query": "checkout inventory",
+        "relationships": [
+          {
+            "confidence": 0.5,
+            "id": "85f16b68ab657f68:edge:e80189c23adf9e280162",
+            "reason": "global",
+            "source": "85f16b68ab657f68:symbol:src/shop/api.py::checkout_order",
+            "source_file": "src/shop/api.py",
+            "source_name": "checkout_order",
+            "target": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService",
+            "target_file": "src/shop/checkout.py",
+            "target_name": "CheckoutService",
+            "type": "calls"
+          },
+          {
+            "confidence": 0.5,
+            "id": "85f16b68ab657f68:edge:6c94d0fbad09e8bedb5d",
+            "reason": "global",
+            "source": "85f16b68ab657f68:symbol:src/shop/api.py::checkout_order",
+            "source_file": "src/shop/api.py",
+            "source_name": "checkout_order",
+            "target": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout",
+            "target_file": "src/shop/checkout.py",
+            "target_name": "checkout",
+            "type": "calls"
+          },
+          {
+            "confidence": 0.5,
+            "id": "85f16b68ab657f68:edge:417ec4d5cad826f2aceb",
+            "reason": "global",
+            "source": "85f16b68ab657f68:symbol:src/shop/api.py::checkout_order",
+            "source_file": "src/shop/api.py",
+            "source_name": "checkout_order",
+            "target": "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory",
+            "target_file": "src/shop/inventory.py",
+            "target_name": "Inventory",
+            "type": "calls"
+          },
+          {
+            "confidence": 0.5,
+            "id": "85f16b68ab657f68:edge:3d0b499d5474c3b257a6",
+            "reason": "global",
+            "source": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService",
+            "source_file": "src/shop/checkout.py",
+            "source_name": "CheckoutService",
+            "target": "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory.reserve",
+            "target_file": "src/shop/inventory.py",
+            "target_name": "reserve",
+            "type": "calls"
+          },
+          {
+            "confidence": 0.5,
+            "id": "85f16b68ab657f68:edge:bfa3a572647adea03695",
+            "reason": "global",
+            "source": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout",
+            "source_file": "src/shop/checkout.py",
+            "source_name": "checkout",
+            "target": "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory.reserve",
+            "target_file": "src/shop/inventory.py",
+            "target_name": "reserve",
+            "type": "calls"
+          },
+          {
+            "confidence": 1.0,
+            "id": "85f16b68ab657f68:edge:424c2b385a4bda2a3a65",
+            "reason": "definition",
+            "source": "85f16b68ab657f68:file:src/shop/api.py",
+            "source_file": "src/shop/api.py",
+            "source_name": "api.py",
+            "target": "85f16b68ab657f68:symbol:src/shop/api.py::checkout_order",
+            "target_file": "src/shop/api.py",
+            "target_name": "checkout_order",
+            "type": "defines"
+          },
+          {
+            "confidence": 1.0,
+            "id": "85f16b68ab657f68:edge:843301429072cfca18aa",
+            "reason": "definition",
+            "source": "85f16b68ab657f68:file:src/shop/checkout.py",
+            "source_file": "src/shop/checkout.py",
+            "source_name": "checkout.py",
+            "target": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService",
+            "target_file": "src/shop/checkout.py",
+            "target_name": "CheckoutService",
+            "type": "defines"
+          },
+          {
+            "confidence": 1.0,
+            "id": "85f16b68ab657f68:edge:fca2dc28f27134127175",
+            "reason": "definition",
+            "source": "85f16b68ab657f68:file:src/shop/checkout.py",
+            "source_file": "src/shop/checkout.py",
+            "source_name": "checkout.py",
+            "target": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__",
+            "target_file": "src/shop/checkout.py",
+            "target_name": "__init__",
+            "type": "defines"
+          },
+          {
+            "confidence": 1.0,
+            "id": "85f16b68ab657f68:edge:ca19f087090156046ed7",
+            "reason": "definition",
+            "source": "85f16b68ab657f68:file:src/shop/checkout.py",
+            "source_file": "src/shop/checkout.py",
+            "source_name": "checkout.py",
+            "target": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout",
+            "target_file": "src/shop/checkout.py",
+            "target_name": "checkout",
+            "type": "defines"
+          },
+          {
+            "confidence": 1.0,
+            "id": "85f16b68ab657f68:edge:8e89b0ba0a97fceec449",
+            "reason": "definition",
+            "source": "85f16b68ab657f68:file:src/shop/inventory.py",
+            "source_file": "src/shop/inventory.py",
+            "source_name": "inventory.py",
+            "target": "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory",
+            "target_file": "src/shop/inventory.py",
+            "target_name": "Inventory",
+            "type": "defines"
+          },
+          {
+            "confidence": 1.0,
+            "id": "85f16b68ab657f68:edge:6fc237f36d3c1f9f06d7",
+            "reason": "definition",
+            "source": "85f16b68ab657f68:file:src/shop/inventory.py",
+            "source_file": "src/shop/inventory.py",
+            "source_name": "inventory.py",
+            "target": "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory.reserve",
+            "target_file": "src/shop/inventory.py",
+            "target_name": "reserve",
+            "type": "defines"
+          },
+          {
+            "confidence": 1.0,
+            "id": "85f16b68ab657f68:edge:2051fe6654397e01b96e",
+            "reason": "exported",
+            "source": "85f16b68ab657f68:file:src/shop/api.py",
+            "source_file": "src/shop/api.py",
+            "source_name": "api.py",
+            "target": "85f16b68ab657f68:symbol:src/shop/api.py::checkout_order",
+            "target_file": "src/shop/api.py",
+            "target_name": "checkout_order",
+            "type": "exports"
+          },
+          {
+            "confidence": 1.0,
+            "id": "85f16b68ab657f68:edge:fd502cbcc8be791c434f",
+            "reason": "exported",
+            "source": "85f16b68ab657f68:file:src/shop/checkout.py",
+            "source_file": "src/shop/checkout.py",
+            "source_name": "checkout.py",
+            "target": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService",
+            "target_file": "src/shop/checkout.py",
+            "target_name": "CheckoutService",
+            "type": "exports"
+          },
+          {
+            "confidence": 1.0,
+            "id": "85f16b68ab657f68:edge:c5c07f39df0a978b8e46",
+            "reason": "exported",
+            "source": "85f16b68ab657f68:file:src/shop/inventory.py",
+            "source_file": "src/shop/inventory.py",
+            "source_name": "inventory.py",
+            "target": "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory",
+            "target_file": "src/shop/inventory.py",
+            "target_name": "Inventory",
+            "type": "exports"
+          },
+          {
+            "confidence": 0.5,
+            "id": "85f16b68ab657f68:edge:36db5b9466d183440382",
+            "reason": "global",
+            "source": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService",
+            "source_file": "src/shop/checkout.py",
+            "source_name": "CheckoutService",
+            "target": "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory",
+            "target_file": "src/shop/inventory.py",
+            "target_name": "Inventory",
+            "type": "references"
+          },
+          {
+            "confidence": 0.5,
+            "id": "85f16b68ab657f68:edge:9f569c78e55fe8858170",
+            "reason": "global",
+            "source": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__",
+            "source_file": "src/shop/checkout.py",
+            "source_name": "__init__",
+            "target": "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory",
+            "target_file": "src/shop/inventory.py",
+            "target_name": "Inventory",
+            "type": "references"
+          }
+        ],
+        "repo_id": "85f16b68ab657f68",
+        "source_sections": [
+          {
+            "content": "1: from shop.inventory import Inventory\n2: \n3: \n4: class CheckoutService:\n5:     def __init__(self, inventory: Inventory) -> None:\n6:         self.inventory = inventory\n7: \n8:     def checkout(self, sku: str, quantity: int) -> str:\n9:         if not self.inventory.reserve(sku, quantity):\n10:             raise ValueError(\"inventory reservation failed\")\n11:         return \"order-created\"\n12: ",
+            "end_line": 12,
+            "file_path": "src/shop/checkout.py",
+            "language": "python",
+            "start_line": 1,
+            "symbols": [
+              "CheckoutService(class)",
+              "__init__(method)",
+              "checkout(method)",
+              "checkout.py(file)"
+            ]
+          },
+          {
+            "content": "1: class Inventory:\n2:     def reserve(self, sku: str, quantity: int) -> bool:\n3:         return quantity > 0\n4: ",
+            "end_line": 4,
+            "file_path": "src/shop/inventory.py",
+            "language": "python",
+            "start_line": 1,
+            "symbols": [
+              "Inventory(class)",
+              "inventory.py(file)",
+              "reserve(method)"
+            ]
+          },
+          {
+            "content": "1: from shop.checkout import CheckoutService\n2: from shop.inventory import Inventory\n3: \n4: \n5: def checkout_order(sku: str, quantity: int) -> str:\n6:     return CheckoutService(Inventory()).checkout(sku, quantity)\n7: ",
+            "end_line": 7,
+            "file_path": "src/shop/api.py",
+            "language": "python",
+            "start_line": 1,
+            "symbols": [
+              "api.py(file)",
+              "checkout_order(function)"
+            ]
+          },
+          {
+            "content": "1: ",
+            "end_line": 1,
+            "file_path": "src/shop/__init__.py",
+            "language": "python",
+            "start_line": 1,
+            "symbols": [
+              "src/shop/__init__.py"
+            ]
+          }
+        ],
+        "stats": {
+          "additional_file_count": 0,
+          "entry_point_count": 8,
+          "selected_edge_count": 28,
+          "selected_node_count": 13,
+          "source_section_count": 4
+        },
+        "text": "## Exploration: checkout inventory\n\n### Entry Points\n- Inventory (class) src/shop/inventory.py:1\n- checkout (method) src/shop/checkout.py:8\n- __init__ (method) src/shop/checkout.py:5\n- reserve (method) src/shop/inventory.py:2\n- CheckoutService (class) src/shop/checkout.py:4\n- inventory.py (file) src/shop/inventory.py:1\n- checkout.py (file) src/shop/checkout.py:1\n- checkout_order (function) src/shop/api.py:5\n\n### Relationships\n- checkout_order -[calls]-> CheckoutService\n- checkout_order -[calls]-> checkout\n- checkout_order -[calls]-> Inventory\n- CheckoutService -[calls]-> reserve\n- checkout -[calls]-> reserve\n- api.py -[defines]-> checkout_order\n- checkout.py -[defines]-> CheckoutService\n- checkout.py -[defines]-> __init__\n- checkout.py -[defines]-> checkout\n- inventory.py -[defines]-> Inventory\n- inventory.py -[defines]-> reserve\n- api.py -[exports]-> checkout_order\n- checkout.py -[exports]-> CheckoutService\n- inventory.py -[exports]-> Inventory\n- CheckoutService -[references]-> Inventory\n- __init__ -[references]-> Inventory\n\n### Source Sections\n\n#### src/shop/checkout.py:1-12 (CheckoutService(class), __init__(method), checkout(method), checkout.py(file))\n```\n1: from shop.inventory import Inventory\n2: \n3: \n4: class CheckoutService:\n5:     def __init__(self, inventory: Inventory) -> None:\n6:         self.inventory = inventory\n7: \n8:     def checkout(self, sku: str, quantity: int) -> str:\n9:         if not self.inventory.reserve(sku, quantity):\n10:             raise ValueError(\"inventory reservation failed\")\n11:         return \"order-created\"\n12: \n```\n\n#### src/shop/inventory.py:1-4 (Inventory(class), inventory.py(file), reserve(method))\n```\n1: class Inventory:\n2:     def reserve(self, sku: str, quantity: int) -> bool:\n3:         return quantity > 0\n4: \n```\n\n#### src/shop/api.py:1-7 (api.py(file), checkout_order(function))\n```\n1: from shop.checkout import CheckoutService\n2: from shop.inventory import Inventory\n3: \n4: \n5: def checkout_order(sku: str, quantity: int) -> str:\n6:     return CheckoutService(Inventory()).checkout(sku, quantity)\n7: \n```\n\n#### src/shop/__init__.py:1-1 (src/shop/__init__.py)\n```\n1: \n```"
+      },
+      "name": "graph_explore",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\n  \"additional_files\": [],\n  \"entry_points\": [\n    {\n      \"end_line\": 3,\n      \"file_path\": \"src/shop/inventory.py\",\n      \"id\": \"85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory\",\n      \"language\": \"python\",\n      \"name\": \"Inventory\",\n      \"reasons\": [\n        \"fts\"\n      ],\n      \"score\": 2.91,\n      \"start_line\": 1,\n      \"symbol_id\": \"src/shop/inventory.py::Inventory\",\n      \"type\": \"class\"\n    },\n    {\n      \"end_line\": 11,\n      \"file_path\": \"src/shop/checkout.py\",\n      \"id\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout\",\n      \"language\": \"python\",\n      \"name\": \"checkout\",\n      \"reasons\": [\n        \"fts\"\n      ],\n      \"score\": 2.85,\n      \"start_line\": 8,\n      \"symbol_id\": \"src/shop/checkout.py::CheckoutService.checkout\",\n      \"type\": \"method\"\n    },\n    {\n      \"end_line\": 6,\n      \"file_path\": \"src/shop/checkout.py\",\n      \"id\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__\",\n      \"language\": \"python\",\n      \"name\": \"__init__\",\n      \"reasons\": [\n        \"fts\"\n      ],\n      \"score\": 1.55,\n      \"start_line\": 5,\n      \"symbol_id\": \"src/shop/checkout.py::CheckoutService.__init__\",\n      \"type\": \"method\"\n    },\n    {\n      \"end_line\": 3,\n      \"file_path\": \"src/shop/inventory.py\",\n      \"id\": \"85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory.reserve\",\n      \"language\": \"python\",\n      \"name\": \"reserve\",\n      \"reasons\": [\n        \"fts\"\n      ],\n      \"score\": 1.49,\n      \"start_line\": 2,\n      \"symbol_id\": \"src/shop/inventory.py::Inventory.reserve\",\n      \"type\": \"method\"\n    },\n    {\n      \"end_line\": 11,\n      \"file_path\": \"src/shop/checkout.py\",\n      \"id\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService\",\n      \"language\": \"python\",\n      \"name\": \"CheckoutService\",\n      \"reasons\": [\n        \"fts\"\n      ],\n      \"score\": 1.45,\n      \"start_line\": 4,\n      \"symbol_id\": \"src/shop/checkout.py::CheckoutService\",\n      \"type\": \"class\"\n    },\n    {\n      \"end_line\": null,\n      \"file_path\": \"src/shop/inventory.py\",\n      \"id\": \"85f16b68ab657f68:file:src/shop/inventory.py\",\n      \"language\": \"python\",\n      \"name\": \"inventory.py\",\n      \"reasons\": [\n        \"fts\"\n      ],\n      \"score\": 1.31,\n      \"start_line\": 1,\n      \"symbol_id\": \"file:src/shop/inventory.py\",\n      \"type\": \"file\"\n    },\n    {\n      \"end_line\": null,\n      \"file_path\": \"src/shop/checkout.py\",\n      \"id\": \"85f16b68ab657f68:file:src/shop/checkout.py\",\n      \"language\": \"python\",\n      \"name\": \"checkout.py\",\n      \"reasons\": [\n        \"fts\"\n      ],\n      \"score\": 1.23,\n      \"start_line\": 1,\n      \"symbol_id\": \"file:src/shop/checkout.py\",\n      \"type\": \"file\"\n    },\n    {\n      \"end_line\": 6,\n      \"file_path\": \"src/shop/api.py\",\n      \"id\": \"85f16b68ab657f68:symbol:src/shop/api.py::checkout_order\",\n      \"language\": \"python\",\n      \"name\": \"checkout_order\",\n      \"reasons\": [\n        \"fts\"\n      ],\n      \"score\": 1.16,\n      \"start_line\": 5,\n      \"symbol_id\": \"src/shop/api.py::checkout_order\",\n      \"type\": \"function\"\n    }\n  ],\n  \"query\": \"checkout inventory\",\n  \"relationships\": [\n    {\n      \"confidence\": 0.5,\n      \"id\": \"85f16b68ab657f68:edge:e80189c23adf9e280162\",\n      \"reason\": \"global\",\n      \"source\": \"85f16b68ab657f68:symbol:src/shop/api.py::checkout_order\",\n      \"source_file\": \"src/shop/api.py\",\n      \"source_name\": \"checkout_order\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService\",\n      \"target_file\": \"src/shop/checkout.py\",\n      \"target_name\": \"CheckoutService\",\n      \"type\": \"calls\"\n    },\n    {\n      \"confidence\": 0.5,\n      \"id\": \"85f16b68ab657f68:edge:6c94d0fbad09e8bedb5d\",\n      \"reason\": \"global\",\n      \"source\": \"85f16b68ab657f68:symbol:src/shop/api.py::checkout_order\",\n      \"source_file\": \"src/shop/api.py\",\n      \"source_name\": \"checkout_order\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout\",\n      \"target_file\": \"src/shop/checkout.py\",\n      \"target_name\": \"checkout\",\n      \"type\": \"calls\"\n    },\n    {\n      \"confidence\": 0.5,\n      \"id\": \"85f16b68ab657f68:edge:417ec4d5cad826f2aceb\",\n      \"reason\": \"global\",\n      \"source\": \"85f16b68ab657f68:symbol:src/shop/api.py::checkout_order\",\n      \"source_file\": \"src/shop/api.py\",\n      \"source_name\": \"checkout_order\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory\",\n      \"target_file\": \"src/shop/inventory.py\",\n      \"target_name\": \"Inventory\",\n      \"type\": \"calls\"\n    },\n    {\n      \"confidence\": 0.5,\n      \"id\": \"85f16b68ab657f68:edge:3d0b499d5474c3b257a6\",\n      \"reason\": \"global\",\n      \"source\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService\",\n      \"source_file\": \"src/shop/checkout.py\",\n      \"source_name\": \"CheckoutService\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory.reserve\",\n      \"target_file\": \"src/shop/inventory.py\",\n      \"target_name\": \"reserve\",\n      \"type\": \"calls\"\n    },\n    {\n      \"confidence\": 0.5,\n      \"id\": \"85f16b68ab657f68:edge:bfa3a572647adea03695\",\n      \"reason\": \"global\",\n      \"source\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout\",\n      \"source_file\": \"src/shop/checkout.py\",\n      \"source_name\": \"checkout\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory.reserve\",\n      \"target_file\": \"src/shop/inventory.py\",\n      \"target_name\": \"reserve\",\n      \"type\": \"calls\"\n    },\n    {\n      \"confidence\": 1.0,\n      \"id\": \"85f16b68ab657f68:edge:424c2b385a4bda2a3a65\",\n      \"reason\": \"definition\",\n      \"source\": \"85f16b68ab657f68:file:src/shop/api.py\",\n      \"source_file\": \"src/shop/api.py\",\n      \"source_name\": \"api.py\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/api.py::checkout_order\",\n      \"target_file\": \"src/shop/api.py\",\n      \"target_name\": \"checkout_order\",\n      \"type\": \"defines\"\n    },\n    {\n      \"confidence\": 1.0,\n      \"id\": \"85f16b68ab657f68:edge:843301429072cfca18aa\",\n      \"reason\": \"definition\",\n      \"source\": \"85f16b68ab657f68:file:src/shop/checkout.py\",\n      \"source_file\": \"src/shop/checkout.py\",\n      \"source_name\": \"checkout.py\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService\",\n      \"target_file\": \"src/shop/checkout.py\",\n      \"target_name\": \"CheckoutService\",\n      \"type\": \"defines\"\n    },\n    {\n      \"confidence\": 1.0,\n      \"id\": \"85f16b68ab657f68:edge:fca2dc28f27134127175\",\n      \"reason\": \"definition\",\n      \"source\": \"85f16b68ab657f68:file:src/shop/checkout.py\",\n      \"source_file\": \"src/shop/checkout.py\",\n      \"source_name\": \"checkout.py\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__\",\n      \"target_file\": \"src/shop/checkout.py\",\n      \"target_name\": \"__init__\",\n      \"type\": \"defines\"\n    },\n    {\n      \"confidence\": 1.0,\n      \"id\": \"85f16b68ab657f68:edge:ca19f087090156046ed7\",\n      \"reason\": \"definition\",\n      \"source\": \"85f16b68ab657f68:file:src/shop/checkout.py\",\n      \"source_file\": \"src/shop/checkout.py\",\n      \"source_name\": \"checkout.py\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout\",\n      \"target_file\": \"src/shop/checkout.py\",\n      \"target_name\": \"checkout\",\n      \"type\": \"defines\"\n    },\n    {\n      \"confidence\": 1.0,\n      \"id\": \"85f16b68ab657f68:edge:8e89b0ba0a97fceec449\",\n      \"reason\": \"definition\",\n      \"source\": \"85f16b68ab657f68:file:src/shop/inventory.py\",\n      \"source_file\": \"src/shop/inventory.py\",\n      \"source_name\": \"inventory.py\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory\",\n      \"target_file\": \"src/shop/inventory.py\",\n      \"target_name\": \"Inventory\",\n      \"type\": \"defines\"\n    },\n    {\n      \"confidence\": 1.0,\n      \"id\": \"85f16b68ab657f68:edge:6fc237f36d3c1f9f06d7\",\n      \"reason\": \"definition\",\n      \"source\": \"85f16b68ab657f68:file:src/shop/inventory.py\",\n      \"source_file\": \"src/shop/inventory.py\",\n      \"source_name\": \"inventory.py\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory.reserve\",\n      \"target_file\": \"src/shop/inventory.py\",\n      \"target_name\": \"reserve\",\n      \"type\": \"defines\"\n    },\n    {\n      \"confidence\": 1.0,\n      \"id\": \"85f16b68ab657f68:edge:2051fe6654397e01b96e\",\n      \"reason\": \"exported\",\n      \"source\": \"85f16b68ab657f68:file:src/shop/api.py\",\n      \"source_file\": \"src/shop/api.py\",\n      \"source_name\": \"api.py\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/api.py::checkout_order\",\n      \"target_file\": \"src/shop/api.py\",\n      \"target_name\": \"checkout_order\",\n      \"type\": \"exports\"\n    },\n    {\n      \"confidence\": 1.0,\n      \"id\": \"85f16b68ab657f68:edge:fd502cbcc8be791c434f\",\n      \"reason\": \"exported\",\n      \"source\": \"85f16b68ab657f68:file:src/shop/checkout.py\",\n      \"source_file\": \"src/shop/checkout.py\",\n      \"source_name\": \"checkout.py\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService\",\n      \"target_file\": \"src/shop/checkout.py\",\n      \"target_name\": \"CheckoutService\",\n      \"type\": \"exports\"\n    },\n    {\n      \"confidence\": 1.0,\n      \"id\": \"85f16b68ab657f68:edge:c5c07f39df0a978b8e46\",\n      \"reason\": \"exported\",\n      \"source\": \"85f16b68ab657f68:file:src/shop/inventory.py\",\n      \"source_file\": \"src/shop/inventory.py\",\n      \"source_name\": \"inventory.py\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory\",\n      \"target_file\": \"src/shop/inventory.py\",\n      \"target_name\": \"Inventory\",\n      \"type\": \"exports\"\n    },\n    {\n      \"confidence\": 0.5,\n      \"id\": \"85f16b68ab657f68:edge:36db5b9466d183440382\",\n      \"reason\": \"global\",\n      \"source\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService\",\n      \"source_file\": \"src/shop/checkout.py\",\n      \"source_name\": \"CheckoutService\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory\",\n      \"target_file\": \"src/shop/inventory.py\",\n      \"target_name\": \"Inventory\",\n      \"type\": \"references\"\n    },\n    {\n      \"confidence\": 0.5,\n      \"id\": \"85f16b68ab657f68:edge:9f569c78e55fe8858170\",\n      \"reason\": \"global\",\n      \"source\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__\",\n      \"source_file\": \"src/shop/checkout.py\",\n      \"source_name\": \"__init__\",\n      \"target\": \"85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory\",\n      \"target_file\": \"src/shop/inventory.py\",\n      \"target_name\": \"Inventory\",\n      \"type\": \"references\"\n    }\n  ],\n  \"repo_id\": \"85f16b68ab657f68\",\n  \"source_sections\": [\n    {\n      \"content\": \"1: from shop.inventory import Inventory\\n2: \\n3: \\n4: class CheckoutService:\\n5:     def __init__(self, inventory: Inventory) -> None:\\n6:         self.inventory = inventory\\n7: \\n8:     def checkout(self, sku: str, quantity: int) -> str:\\n9:         if not self.inventory.reserve(sku, quantity):\\n10:             raise ValueError(\\\"inventory reservation failed\\\")\\n11:         return \\\"order-created\\\"\\n12: \",\n      \"end_line\": 12,\n      \"file_path\": \"src/shop/checkout.py\",\n      \"language\": \"python\",\n      \"start_line\": 1,\n      \"symbols\": [\n        \"CheckoutService(class)\",\n        \"__init__(method)\",\n        \"checkout(method)\",\n        \"checkout.py(file)\"\n      ]\n    },\n    {\n      \"content\": \"1: class Inventory:\\n2:     def reserve(self, sku: str, quantity: int) -> bool:\\n3:         return quantity > 0\\n4: \",\n      \"end_line\": 4,\n      \"file_path\": \"src/shop/inventory.py\",\n      \"language\": \"python\",\n      \"start_line\": 1,\n      \"symbols\": [\n        \"Inventory(class)\",\n        \"inventory.py(file)\",\n        \"reserve(method)\"\n      ]\n    },\n    {\n      \"content\": \"1: from shop.checkout import CheckoutService\\n2: from shop.inventory import Inventory\\n3: \\n4: \\n5: def checkout_order(sku: str, quantity: int) -> str:\\n6:     return CheckoutService(Inventory()).checkout(sku, quantity)\\n7: \",\n      \"end_line\": 7,\n      \"file_path\": \"src/shop/api.py\",\n      \"language\": \"python\",\n      \"start_line\": 1,\n      \"symbols\": [\n        \"api.py(file)\",\n        \"checkout_order(function)\"\n      ]\n    },\n    {\n      \"content\": \"1: \",\n      \"end_line\": 1,\n      \"file_path\": \"src/shop/__init__.py\",\n      \"language\": \"python\",\n      \"start_line\": 1,\n      \"symbols\": [\n        \"src/shop/__init__.py\"\n      ]\n    }\n  ],\n  \"stats\": {\n    \"additional_file_count\": 0,\n    \"entry_point_count\": 8,\n    \"selected_edge_count\": 28,\n    \"selected_node_count\": 13,\n    \"source_section_count\": 4\n  },\n  \"text\": \"## Exploration: checkout inventory\\n\\n### Entry Points\\n- Inventory (class) src/shop/inventory.py:1\\n- checkout (method) src/shop/checkout.py:8\\n- __init__ (method) src/shop/checkout.py:5\\n- reserve (method) src/shop/inventory.py:2\\n- CheckoutService (class) src/shop/checkout.py:4\\n- inventory.py (file) src/shop/inventory.py:1\\n- checkout.py (file) src/shop/checkout.py:1\\n- checkout_order (function) src/shop/api.py:5\\n\\n### Relationships\\n- checkout_order -[calls]-> CheckoutService\\n- checkout_order -[calls]-> checkout\\n- checkout_order -[calls]-> Inventory\\n- CheckoutService -[calls]-> reserve\\n- checkout -[calls]-> reserve\\n- api.py -[defines]-> checkout_order\\n- checkout.py -[defines]-> CheckoutService\\n- checkout.py -[defines]-> __init__\\n- checkout.py -[defines]-> checkout\\n- inventory.py -[defines]-> Inventory\\n- inventory.py -[defines]-> reserve\\n- api.py -[exports]-> checkout_order\\n- checkout.py -[exports]-> CheckoutService\\n- inventory.py -[exports]-> Inventory\\n- CheckoutService -[references]-> Inventory\\n- __init__ -[references]-> Inventory\\n\\n### Source Sections\\n\\n#### src/shop/checkout.py:1-12 (CheckoutService(class), __init__(method), checkout(method), checkout.py(file))\\n```\\n1: from shop.inventory import Inventory\\n2: \\n3: \\n4: class CheckoutService:\\n5:     def __init__(self, inventory: Inventory) -> None:\\n6:         self.inventory = inventory\\n7: \\n8:     def checkout(self, sku: str, quantity: int) -> str:\\n9:         if not self.inventory.reserve(sku, quantity):\\n10:             raise ValueError(\\\"inventory reservation failed\\\")\\n11:         return \\\"order-created\\\"\\n12: \\n```\\n\\n#### src/shop/inventory.py:1-4 (Inventory(class), inventory.py(file), reserve(method))\\n```\\n1: class Inventory:\\n2:     def reserve(self, sku: str, quantity: int) -> bool:\\n3:         return quantity > 0\\n4: \\n```\\n\\n#### src/shop/api.py:1-7 (api.py(file), checkout_order(function))\\n```\\n1: from shop.checkout import CheckoutService\\n2: from shop.inventory import Inventory\\n3: \\n4: \\n5: def checkout_order(sku: str, quantity: int) -> str:\\n6:     return CheckoutService(Inventory()).checkout(sku, quantity)\\n7: \\n```\\n\\n#### src/shop/__init__.py:1-1 (src/shop/__init__.py)\\n```\\n1: \\n```\"\n}\n"
+    },
+    {
+      "argv": [
+        "python",
+        "-c",
+        "from importlib.metadata import version; print('codewiki ' + version('codewiki'))"
+      ],
+      "json_value": null,
+      "name": "package_version",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "codewiki 0.6.5\n"
+    },
+    {
+      "argv": [
+        "codewiki",
+        "graph",
+        "affected",
+        "--repo",
+        "<REPO>",
+        "--stdin",
+        "--json"
+      ],
+      "json_value": {
+        "affected_files": [
+          "src/shop/api.py",
+          "src/shop/checkout.py",
+          "src/shop/inventory.py"
+        ],
+        "affected_node_ids": [
+          "85f16b68ab657f68:file:src/shop/api.py",
+          "85f16b68ab657f68:file:src/shop/checkout.py",
+          "85f16b68ab657f68:file:src/shop/inventory.py",
+          "85f16b68ab657f68:symbol:src/shop/api.py::checkout_order",
+          "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService",
+          "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__",
+          "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout",
+          "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory",
+          "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory.reserve"
+        ],
+        "affected_tests": [],
+        "affected_wiki_pages": [],
+        "changed_files": [
+          "src/shop/inventory.py"
+        ],
+        "repo_id": "85f16b68ab657f68",
+        "traversed_file_count": 2
+      },
+      "name": "graph_affected",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\n  \"affected_files\": [\n    \"src/shop/api.py\",\n    \"src/shop/checkout.py\",\n    \"src/shop/inventory.py\"\n  ],\n  \"affected_node_ids\": [\n    \"85f16b68ab657f68:file:src/shop/api.py\",\n    \"85f16b68ab657f68:file:src/shop/checkout.py\",\n    \"85f16b68ab657f68:file:src/shop/inventory.py\",\n    \"85f16b68ab657f68:symbol:src/shop/api.py::checkout_order\",\n    \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService\",\n    \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__\",\n    \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout\",\n    \"85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory\",\n    \"85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory.reserve\"\n  ],\n  \"affected_tests\": [],\n  \"affected_wiki_pages\": [],\n  \"changed_files\": [\n    \"src/shop/inventory.py\"\n  ],\n  \"repo_id\": \"85f16b68ab657f68\",\n  \"traversed_file_count\": 2\n}\n"
+    },
+    {
+      "argv": [
+        "codewiki",
+        "update",
+        "<REPO>",
+        "--json"
+      ],
+      "json_value": {
+        "chunk_count": 0,
+        "community_count": 3,
+        "community_count_by_level": {
+          "0": 3
+        },
+        "community_naming": {
+          "community_count": 3,
+          "errors": [
+            "LLM community naming skipped because no LLM endpoint or API key is configured."
+          ],
+          "llm_run_id": null,
+          "llm_run_ids": null,
+          "renamed_count": 0,
+          "repo_id": "85f16b68ab657f68",
+          "status": "skipped"
+        },
+        "edge_count": 27,
+        "errors": [],
+        "mode": "incremental",
+        "node_count": 14,
+        "parsed_file_count": 1,
+        "plan": {
+          "affected_files": [
+            "pyproject.toml",
+            "src/shop/inventory.py"
+          ],
+          "base_commit": "f207b4f37b1375a9b9bf7fae0b89361c6e39aa86",
+          "changed_files": [
+            "src/shop/inventory.py"
+          ],
+          "deleted_files": [],
+          "detection_strategy": "git_diff+sha256",
+          "head_commit": "f207b4f37b1375a9b9bf7fae0b89361c6e39aa86",
+          "new_files": [
+            "pyproject.toml"
+          ],
+          "repo_id": "85f16b68ab657f68",
+          "unchanged_files": [
+            "src/shop/__init__.py",
+            "src/shop/api.py",
+            "src/shop/checkout.py"
+          ]
+        },
+        "repo_id": "85f16b68ab657f68",
+        "reused_file_count": 3,
+        "run_id": "a158a96e1c1b478cb32fb195f5ef2e40",
+        "scanned_count": 5,
+        "stale_pages": [],
+        "status": "done",
+        "wiki_regeneration": {
+          "errors": [],
+          "pages": [],
+          "requested": true
+        }
+      },
+      "name": "update",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\n  \"chunk_count\": 0,\n  \"community_count\": 3,\n  \"community_count_by_level\": {\n    \"0\": 3\n  },\n  \"community_naming\": {\n    \"community_count\": 3,\n    \"errors\": [\n      \"LLM community naming skipped because no LLM endpoint or API key is configured.\"\n    ],\n    \"llm_run_id\": null,\n    \"llm_run_ids\": null,\n    \"renamed_count\": 0,\n    \"repo_id\": \"85f16b68ab657f68\",\n    \"status\": \"skipped\"\n  },\n  \"edge_count\": 27,\n  \"errors\": [],\n  \"mode\": \"incremental\",\n  \"node_count\": 14,\n  \"parsed_file_count\": 1,\n  \"plan\": {\n    \"affected_files\": [\n      \"pyproject.toml\",\n      \"src/shop/inventory.py\"\n    ],\n    \"base_commit\": \"f207b4f37b1375a9b9bf7fae0b89361c6e39aa86\",\n    \"changed_files\": [\n      \"src/shop/inventory.py\"\n    ],\n    \"deleted_files\": [],\n    \"detection_strategy\": \"git_diff+sha256\",\n    \"head_commit\": \"f207b4f37b1375a9b9bf7fae0b89361c6e39aa86\",\n    \"new_files\": [\n      \"pyproject.toml\"\n    ],\n    \"repo_id\": \"85f16b68ab657f68\",\n    \"unchanged_files\": [\n      \"src/shop/__init__.py\",\n      \"src/shop/api.py\",\n      \"src/shop/checkout.py\"\n    ]\n  },\n  \"repo_id\": \"85f16b68ab657f68\",\n  \"reused_file_count\": 3,\n  \"run_id\": \"a158a96e1c1b478cb32fb195f5ef2e40\",\n  \"scanned_count\": 5,\n  \"stale_pages\": [],\n  \"status\": \"done\",\n  \"wiki_regeneration\": {\n    \"errors\": [],\n    \"pages\": [],\n    \"requested\": true\n  }\n}\n"
+    },
+    {
+      "argv": [
+        "codewiki",
+        "graph",
+        "search",
+        "CheckoutService",
+        "--repo",
+        "<REPO>",
+        "--json"
+      ],
+      "json_value": [
+        {
+          "node": {
+            "end_line": 11,
+            "file_path": "src/shop/checkout.py",
+            "hash": "d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b",
+            "id": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService",
+            "language": "python",
+            "metadata": {
+              "bases": [],
+              "calls": [
+                "ValueError",
+                "reserve"
+              ],
+              "confidence": 1.0,
+              "decorators": [],
+              "docstring": null,
+              "exported": true,
+              "exports": [],
+              "implements": [],
+              "language_enhancer": "python",
+              "provenance": {
+                "confidence": 1.0,
+                "evidence": [
+                  "type=class",
+                  "file_path=src/shop/checkout.py",
+                  "start_line=4",
+                  "end_line=11"
+                ],
+                "kind": "extracted",
+                "source": "ast_parser",
+                "version": "codewiki.provenance.v1"
+              },
+              "python_node_type": "ClassDef",
+              "references": [
+                "Inventory",
+                "ValueError",
+                "int",
+                "inventory",
+                "quantity",
+                "reserve",
+                "self",
+                "sku",
+                "str"
+              ],
+              "signature": null,
+              "tree_sitter_capture": true,
+              "tree_sitter_type": "class_definition"
+            },
+            "name": "CheckoutService",
+            "repo_id": "85f16b68ab657f68",
+            "start_line": 4,
+            "summary": null,
+            "symbol_id": "src/shop/checkout.py::CheckoutService",
+            "type": "class"
+          },
+          "reasons": [
+            "fts"
+          ],
+          "score": 3.28
+        },
+        {
+          "node": {
+            "end_line": 6,
+            "file_path": "src/shop/checkout.py",
+            "hash": "d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b",
+            "id": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__",
+            "language": "python",
+            "metadata": {
+              "bases": [],
+              "calls": [],
+              "confidence": 1.0,
+              "decorators": [],
+              "docstring": null,
+              "exported": false,
+              "exports": [],
+              "implements": [],
+              "language_enhancer": "python",
+              "provenance": {
+                "confidence": 1.0,
+                "evidence": [
+                  "type=method",
+                  "file_path=src/shop/checkout.py",
+                  "start_line=5",
+                  "end_line=6"
+                ],
+                "kind": "extracted",
+                "source": "ast_parser",
+                "version": "codewiki.provenance.v1"
+              },
+              "python_node_type": "FunctionDef",
+              "references": [
+                "Inventory",
+                "inventory",
+                "self"
+              ],
+              "signature": "def __init__(self, inventory: Inventory) -> None",
+              "tree_sitter_capture": true,
+              "tree_sitter_type": "function_definition"
+            },
+            "name": "__init__",
+            "repo_id": "85f16b68ab657f68",
+            "start_line": 5,
+            "summary": null,
+            "symbol_id": "src/shop/checkout.py::CheckoutService.__init__",
+            "type": "method"
+          },
+          "reasons": [
+            "fts"
+          ],
+          "score": 1.28
+        },
+        {
+          "node": {
+            "end_line": 11,
+            "file_path": "src/shop/checkout.py",
+            "hash": "d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b",
+            "id": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout",
+            "language": "python",
+            "metadata": {
+              "bases": [],
+              "calls": [
+                "ValueError",
+                "reserve"
+              ],
+              "confidence": 1.0,
+              "decorators": [],
+              "docstring": null,
+              "exported": false,
+              "exports": [],
+              "implements": [],
+              "language_enhancer": "python",
+              "provenance": {
+                "confidence": 1.0,
+                "evidence": [
+                  "type=method",
+                  "file_path=src/shop/checkout.py",
+                  "start_line=8",
+                  "end_line=11"
+                ],
+                "kind": "extracted",
+                "source": "ast_parser",
+                "version": "codewiki.provenance.v1"
+              },
+              "python_node_type": "FunctionDef",
+              "references": [
+                "ValueError",
+                "int",
+                "inventory",
+                "quantity",
+                "reserve",
+                "self",
+                "sku",
+                "str"
+              ],
+              "signature": "def checkout(self, sku: str, quantity: int) -> str",
+              "tree_sitter_capture": true,
+              "tree_sitter_type": "function_definition"
+            },
+            "name": "checkout",
+            "repo_id": "85f16b68ab657f68",
+            "start_line": 8,
+            "summary": null,
+            "symbol_id": "src/shop/checkout.py::CheckoutService.checkout",
+            "type": "method"
+          },
+          "reasons": [
+            "fts"
+          ],
+          "score": 1.26
+        }
+      ],
+      "name": "graph_search_after_update",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "[\n  {\n    \"node\": {\n      \"end_line\": 11,\n      \"file_path\": \"src/shop/checkout.py\",\n      \"hash\": \"d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b\",\n      \"id\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService\",\n      \"language\": \"python\",\n      \"metadata\": {\n        \"bases\": [],\n        \"calls\": [\n          \"ValueError\",\n          \"reserve\"\n        ],\n        \"confidence\": 1.0,\n        \"decorators\": [],\n        \"docstring\": null,\n        \"exported\": true,\n        \"exports\": [],\n        \"implements\": [],\n        \"language_enhancer\": \"python\",\n        \"provenance\": {\n          \"confidence\": 1.0,\n          \"evidence\": [\n            \"type=class\",\n            \"file_path=src/shop/checkout.py\",\n            \"start_line=4\",\n            \"end_line=11\"\n          ],\n          \"kind\": \"extracted\",\n          \"source\": \"ast_parser\",\n          \"version\": \"codewiki.provenance.v1\"\n        },\n        \"python_node_type\": \"ClassDef\",\n        \"references\": [\n          \"Inventory\",\n          \"ValueError\",\n          \"int\",\n          \"inventory\",\n          \"quantity\",\n          \"reserve\",\n          \"self\",\n          \"sku\",\n          \"str\"\n        ],\n        \"signature\": null,\n        \"tree_sitter_capture\": true,\n        \"tree_sitter_type\": \"class_definition\"\n      },\n      \"name\": \"CheckoutService\",\n      \"repo_id\": \"85f16b68ab657f68\",\n      \"start_line\": 4,\n      \"summary\": null,\n      \"symbol_id\": \"src/shop/checkout.py::CheckoutService\",\n      \"type\": \"class\"\n    },\n    \"reasons\": [\n      \"fts\"\n    ],\n    \"score\": 3.28\n  },\n  {\n    \"node\": {\n      \"end_line\": 6,\n      \"file_path\": \"src/shop/checkout.py\",\n      \"hash\": \"d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b\",\n      \"id\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__\",\n      \"language\": \"python\",\n      \"metadata\": {\n        \"bases\": [],\n        \"calls\": [],\n        \"confidence\": 1.0,\n        \"decorators\": [],\n        \"docstring\": null,\n        \"exported\": false,\n        \"exports\": [],\n        \"implements\": [],\n        \"language_enhancer\": \"python\",\n        \"provenance\": {\n          \"confidence\": 1.0,\n          \"evidence\": [\n            \"type=method\",\n            \"file_path=src/shop/checkout.py\",\n            \"start_line=5\",\n            \"end_line=6\"\n          ],\n          \"kind\": \"extracted\",\n          \"source\": \"ast_parser\",\n          \"version\": \"codewiki.provenance.v1\"\n        },\n        \"python_node_type\": \"FunctionDef\",\n        \"references\": [\n          \"Inventory\",\n          \"inventory\",\n          \"self\"\n        ],\n        \"signature\": \"def __init__(self, inventory: Inventory) -> None\",\n        \"tree_sitter_capture\": true,\n        \"tree_sitter_type\": \"function_definition\"\n      },\n      \"name\": \"__init__\",\n      \"repo_id\": \"85f16b68ab657f68\",\n      \"start_line\": 5,\n      \"summary\": null,\n      \"symbol_id\": \"src/shop/checkout.py::CheckoutService.__init__\",\n      \"type\": \"method\"\n    },\n    \"reasons\": [\n      \"fts\"\n    ],\n    \"score\": 1.28\n  },\n  {\n    \"node\": {\n      \"end_line\": 11,\n      \"file_path\": \"src/shop/checkout.py\",\n      \"hash\": \"d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b\",\n      \"id\": \"85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout\",\n      \"language\": \"python\",\n      \"metadata\": {\n        \"bases\": [],\n        \"calls\": [\n          \"ValueError\",\n          \"reserve\"\n        ],\n        \"confidence\": 1.0,\n        \"decorators\": [],\n        \"docstring\": null,\n        \"exported\": false,\n        \"exports\": [],\n        \"implements\": [],\n        \"language_enhancer\": \"python\",\n        \"provenance\": {\n          \"confidence\": 1.0,\n          \"evidence\": [\n            \"type=method\",\n            \"file_path=src/shop/checkout.py\",\n            \"start_line=8\",\n            \"end_line=11\"\n          ],\n          \"kind\": \"extracted\",\n          \"source\": \"ast_parser\",\n          \"version\": \"codewiki.provenance.v1\"\n        },\n        \"python_node_type\": \"FunctionDef\",\n        \"references\": [\n          \"ValueError\",\n          \"int\",\n          \"inventory\",\n          \"quantity\",\n          \"reserve\",\n          \"self\",\n          \"sku\",\n          \"str\"\n        ],\n        \"signature\": \"def checkout(self, sku: str, quantity: int) -> str\",\n        \"tree_sitter_capture\": true,\n        \"tree_sitter_type\": \"function_definition\"\n      },\n      \"name\": \"checkout\",\n      \"repo_id\": \"85f16b68ab657f68\",\n      \"start_line\": 8,\n      \"summary\": null,\n      \"symbol_id\": \"src/shop/checkout.py::CheckoutService.checkout\",\n      \"type\": \"method\"\n    },\n    \"reasons\": [\n      \"fts\"\n    ],\n    \"score\": 1.26\n  }\n]\n"
+    }
+  ],
+  "mcp": [],
+  "repository_commit": "f207b4f37b1375a9b9bf7fae0b89361c6e39aa86",
+  "schema_version": "0.1"
+}
