@@ -270,3 +270,25 @@ def test_evidence_pack_rejects_budget_overflow(
             budget=budget,
             token_counter=token_counter,
         )
+
+
+def test_evidence_pack_counts_tokens_across_distinct_excerpt_boundaries() -> None:
+    repository = make_repository()
+    evidence = [
+        make_item(repository, excerpt="one"),
+        make_item(
+            repository,
+            symbol="Inventory.reserve",
+            start_line=20,
+            end_line=21,
+            excerpt="two",
+        ),
+    ]
+
+    with pytest.raises(ValidationError, match="token"):
+        make_pack(
+            repository=repository,
+            evidence=evidence,
+            budget=EvidenceBudget(max_items=2, max_characters=10, max_tokens=1),
+            token_counter=lambda text: len(text.split()),
+        )

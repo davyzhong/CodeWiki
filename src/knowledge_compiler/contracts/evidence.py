@@ -168,9 +168,13 @@ class EvidencePack(BaseModel):
 
         context: dict[str, Any] = info.context or {}
         token_counter: TokenCounter = context.get("token_counter", _default_token_counter)
-        token_count = token_counter(model_visible_text)
-        if not isinstance(token_count, int) or isinstance(token_count, bool) or token_count < 0:
+        token_counts = [token_counter(item.excerpt) for item in self.evidence]
+        if any(
+            not isinstance(count, int) or isinstance(count, bool) or count < 0
+            for count in token_counts
+        ):
             raise ValueError("token counter must return a nonnegative integer")
+        token_count = sum(token_counts)
         if token_count > self.budget.max_tokens:
             raise ValueError("evidence token budget exceeded")
         return self
