@@ -10,6 +10,7 @@ V0.1 的 Phase 0 已完成：公开 `codewiki 0.6.5` CLI 能在不依赖内部�
 - [Phase 0 CodeWiki Adapter Spike 计划](docs/superpowers/plans/2026-08-24-codewiki-adapter-spike.md)
 - [Phase 0 公共接口报告](docs/spikes/codewiki-public-surface.md)
 - [Phase 1 Fake Provider 垂直切片计划](docs/superpowers/plans/2026-08-24-fake-provider-module-vertical-slice.md)
+- [V0.1 总执行路线图与 To-do List](docs/superpowers/plans/2026-08-25-v0-1-execution-roadmap.md)
 - [项目起源与原始素材库](docs/project-materials/README.md)
 
 后续实现必须以 Phase 0 捕获的真实公共 DTO 为依据，不能把外部 CodeWiki 的内部实现当成稳定合同。
