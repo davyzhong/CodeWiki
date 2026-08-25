@@ -337,7 +337,8 @@ class FlowKnowledge(_ContractModel):
         if unknown:
             raise ValueError(f"unknown Claim references: {', '.join(unknown)}")
         if (
-            self.validity.status == "verified"
+            self.validity is not None
+            and self.validity.status == "verified"
             and self.validity.verified_commit != self.scope.commit
         ):
             raise ValueError(
@@ -468,7 +469,8 @@ class RuleKnowledge(_ContractModel):
         if unknown:
             raise ValueError(f"unknown Claim references: {', '.join(unknown)}")
         if (
-            self.validity.status == "verified"
+            self.validity is not None
+            and self.validity.status == "verified"
             and self.validity.verified_commit != self.scope.commit
         ):
             raise ValueError(
@@ -594,7 +596,8 @@ class TechStackKnowledge(_ContractModel):
         if unknown:
             raise ValueError(f"unknown Claim references: {', '.join(unknown)}")
         if (
-            self.validity.status == "verified"
+            self.validity is not None
+            and self.validity.status == "verified"
             and self.validity.verified_commit != self.scope.commit
         ):
             raise ValueError(
@@ -748,7 +751,8 @@ class ArchitectureKnowledge(_ContractModel):
                     f"{relationship.source} -> {relationship.target}"
                 )
         if (
-            self.validity.status == "verified"
+            self.validity is not None
+            and self.validity.status == "verified"
             and self.validity.verified_commit != self.scope.commit
         ):
             raise ValueError(
@@ -788,7 +792,8 @@ class ModuleKnowledge(_ModulePayload):
     def validate_canonical_claims(self) -> ModuleKnowledge:
         self._validate_claim_references({claim.id for claim in self.claims})
         if (
-            self.validity.status == "verified"
+            self.validity is not None
+            and self.validity.status == "verified"
             and self.validity.verified_commit != self.scope.commit
         ):
             raise ValueError(
