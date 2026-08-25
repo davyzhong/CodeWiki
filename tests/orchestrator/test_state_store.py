@@ -14,6 +14,31 @@ from knowledge_compiler.orchestrator.contracts import (
 )
 
 
+def test_target_record_persists_planner_topic_and_evidence_seeds() -> None:
+    target = TargetRecord.model_validate(
+        {
+            "target_id": "architecture.shop.platform",
+            "object_type": "architecture",
+            "topic": "Shop platform boundaries",
+            "evidence_seeds": ("checkout", "inventory"),
+            "state": "queued",
+            "attempt": 1,
+            "repair_attempts": 0,
+            "required": True,
+            "priority": 1,
+            "result": None,
+            "published_object_id": None,
+            "request_digest": "sha256:" + "1" * 64,
+            "result_digest": None,
+            "diagnostics": (),
+            "lease": None,
+        }
+    )
+
+    assert target.topic == "Shop platform boundaries"
+    assert target.evidence_seeds == ("checkout", "inventory")
+
+
 class FixedClock:
     def __init__(self) -> None:
         self.now = 1_000_000

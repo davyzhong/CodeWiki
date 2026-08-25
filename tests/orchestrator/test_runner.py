@@ -86,6 +86,140 @@ class InterruptingVerificationWorker(StubWorker):
         raise KeyboardInterrupt("simulated process interruption")
 
 
+class FlexibleFixtureProvider:
+    def __init__(self, base) -> None:
+        self.base = base
+
+    def build_pack(self, repo, target, budget):
+        from knowledge_compiler.contracts.evidence import EvidencePack
+        from knowledge_compiler.contracts.repository import PlanTarget
+
+        fixture_target = PlanTarget(
+            id="module.shop.checkout",
+            type="module",
+            topic="CheckoutService",
+            evidence_seeds=("CheckoutService", "Inventory.reserve"),
+        )
+        pack = self.base.build_pack(repo, fixture_target, budget)
+        payload = pack.model_dump(mode="json")
+        payload["target"] = target.model_dump(mode="json")
+        return EvidencePack.model_validate(payload)
+
+
+class TypedFixtureWorker:
+    def __init__(self, knowledge_type: str | None = None) -> None:
+        self.knowledge_type = knowledge_type
+
+    def extract(self, request):
+        import sys
+
+        sys.path.insert(0, str(ROOT / "tests/contracts"))
+        from test_architecture_models import architecture_payload
+        from test_flow_models import flow_payload
+        from test_rule_models import rule_payload
+        from test_tech_stack_models import tech_stack_payload
+
+        from knowledge_compiler.contracts.knowledge import ExtractionResult
+
+        knowledge_type = (
+            self.knowledge_type or request.evidence_pack.target.type
+        )
+        draft = {
+            "architecture": architecture_payload,
+            "flow": flow_payload,
+            "rule": rule_payload,
+            "tech-stack": tech_stack_payload,
+        }[knowledge_type]()
+        draft["scope"] = {
+            "repository": request.evidence_pack.repository.repository_id,
+            "root": str(request.evidence_pack.repository.root),
+            "branch": request.evidence_pack.repository.branch,
+            "commit": request.evidence_pack.repository.commit,
+            "dirty": request.evidence_pack.repository.dirty,
+            "working_tree_hash": (
+                request.evidence_pack.repository.working_tree_hash
+            ),
+        }
+        evidence_id = request.evidence_pack.evidence[0].id
+        draft["claims"] = [
+            {
+                **{
+                    key: value
+                    for key, value in claim.items()
+                    if key != "verification"
+                },
+                "evidence_ids": [evidence_id],
+            }
+            for claim in draft["claims"]
+        ]
+        draft["validity"] = None
+        return ExtractionResult.model_validate(
+            {
+                "contract_version": request.contract_version,
+                "run_id": request.run_id,
+                "target_id": request.target_id,
+                "operation": request.operation,
+                "attempt": request.attempt,
+                "snapshot_id": request.snapshot_id,
+                "idempotency_key": request.idempotency_key,
+                "draft": draft,
+                "provenance": draft["provenance"],
+            }
+        )
+
+    def verify(self, request):
+        from knowledge_compiler.contracts.semantic import VerificationResult
+
+        return VerificationResult.model_validate(
+            {
+                "contract_version": request.contract_version,
+                "run_id": request.run_id,
+                "target_id": request.target_id,
+                "operation": request.operation,
+                "attempt": request.attempt,
+                "snapshot_id": request.snapshot_id,
+                "idempotency_key": request.idempotency_key,
+                "verification_request_digest": (
+                    request.verification_request_digest
+                ),
+                "verifications": [
+                    {
+                        "claim_id": claim.claim_id,
+                        "status": "supported",
+                        "verifier": "typed-fixture-verifier",
+                        "evidence_ids": [
+                            item.evidence_id for item in claim.evidence
+                        ],
+                        "excerpt_hashes": [
+                            item.excerpt_hash for item in claim.evidence
+                        ],
+                        "excerpts": [item.excerpt for item in claim.evidence],
+                        "verification_request_digest": (
+                            request.verification_request_digest
+                        ),
+                    }
+                    for claim in request.claims
+                ],
+            }
+        )
+
+
+class FiveTypeFixtureWorker:
+    def __init__(self) -> None:
+        self.module = StubWorker()
+        self.typed = TypedFixtureWorker()
+
+    def extract(self, request):
+        if request.evidence_pack.target.type == "module":
+            return self.module.extract(request)
+        return self.typed.extract(request)
+
+    def verify(self, request):
+        if request.target_id.startswith("module."):
+            return self.module.verify(request)
+        return self.typed.verify(request)
+
+
 def make_orchestrator(
     tmp_path: Path,
     worker: StubWorker | None = None,
@@ -131,6 +265,11 @@ def make_orchestrator(
                 {
                     "target_id": "module.shop.checkout",
                     "object_type": "module",
+                    "topic": "CheckoutService",
+                    "evidence_seeds": (
+                        "CheckoutService",
+                        "Inventory.reserve",
+                    ),
                     "state": "queued",
                     "attempt": 1,
                     "repair_attempts": 0,
@@ -252,6 +391,132 @@ def test_runner_resumes_semantic_verification_after_process_restart(
 
     assert outcome.status == "complete"
     assert outcome.published_object_ids == ("module.shop.checkout",)
+
+
+@pytest.mark.parametrize(
+    ("knowledge_type", "target_id", "directory"),
+    (
+        ("architecture", "architecture.shop.platform", "architecture"),
+        ("flow", "flow.shop.checkout", "flows"),
+        ("rule", "rule.shop.reservation-first", "rules"),
+        ("tech-stack", "tech-stack.shop.platform", "tech-stack"),
+    ),
+)
+def test_runner_drives_typed_targets_through_the_shared_pipeline(
+    tmp_path: Path,
+    knowledge_type: str,
+    target_id: str,
+    directory: str,
+) -> None:
+    from knowledge_compiler.orchestrator.runner import RunOrchestrator
+
+    module_runner, queue, tmp = make_orchestrator(tmp_path)
+    typed_target = queue.record().targets[0].model_copy(
+        update={
+            "target_id": target_id,
+            "object_type": knowledge_type,
+            "topic": f"{knowledge_type} fixture target",
+            "evidence_seeds": ("checkout", "inventory"),
+            "request_digest": "sha256:" + "7" * 64,
+        }
+    )
+    typed_run = queue.record().model_copy(
+        update={
+            "run_id": f"{knowledge_type}-run-001",
+            "targets": (typed_target,),
+        }
+    )
+    typed_queue = RunQueue(
+        store_root=tmp / f"{knowledge_type}-state",
+        run=typed_run,
+        clock=FixedClock(),
+    )
+    runner = RunOrchestrator(
+        queue=typed_queue,
+        snapshot=module_runner.snapshot,
+        evidence_provider=FlexibleFixtureProvider(
+            module_runner.evidence_provider
+        ),
+        worker=TypedFixtureWorker(knowledge_type),
+        output_root=tmp / f"{knowledge_type}-out",
+        run_id=typed_run.run_id,
+    )
+
+    outcome = runner.run()
+
+    assert outcome.status == "complete", outcome.diagnostics
+    assert outcome.published_object_ids == (target_id,)
+    assert (
+        tmp
+        / f"{knowledge_type}-out/.knowledge/objects/{directory}/{target_id}.yaml"
+    ).is_file()
+
+
+def test_runner_publishes_all_typed_targets_in_one_generation(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.orchestrator.runner import RunOrchestrator
+
+    module_runner, queue, tmp = make_orchestrator(tmp_path)
+    target_specs = (
+        ("module", "module.shop.checkout"),
+        ("architecture", "architecture.shop.platform"),
+        ("flow", "flow.shop.checkout"),
+        ("rule", "rule.shop.reservation-first"),
+        ("tech-stack", "tech-stack.shop.platform"),
+    )
+    template = queue.record().targets[0]
+    targets = tuple(
+        template.model_copy(
+            update={
+                "target_id": target_id,
+                "object_type": knowledge_type,
+                "topic": (
+                    "CheckoutService"
+                    if knowledge_type == "module"
+                    else f"{knowledge_type} fixture target"
+                ),
+                "evidence_seeds": (
+                    ("CheckoutService", "Inventory.reserve")
+                    if knowledge_type == "module"
+                    else ("checkout", "inventory")
+                ),
+                "request_digest": "sha256:" + str(index + 3) * 64,
+            }
+        )
+        for index, (knowledge_type, target_id) in enumerate(target_specs)
+    )
+    run = queue.record().model_copy(
+        update={"run_id": "typed-batch-run-001", "targets": targets}
+    )
+    typed_queue = RunQueue(
+        store_root=tmp / "typed-batch-state",
+        run=run,
+        clock=FixedClock(),
+    )
+    runner = RunOrchestrator(
+        queue=typed_queue,
+        snapshot=module_runner.snapshot,
+        evidence_provider=FlexibleFixtureProvider(
+            module_runner.evidence_provider
+        ),
+        worker=FiveTypeFixtureWorker(),
+        output_root=tmp / "typed-batch-out",
+        run_id=run.run_id,
+    )
+
+    outcome = runner.run()
+
+    assert outcome.status == "complete", outcome.diagnostics
+    assert outcome.published_object_ids == tuple(
+        sorted(target_id for _, target_id in target_specs)
+    )
+    import yaml
+
+    manifest = yaml.safe_load(
+        (tmp / "typed-batch-out/.knowledge/manifest.yaml").read_bytes()
+    )
+    assert len(manifest["objects"]) == 5
 
 
 def test_runner_preserves_previous_generation_on_failure(tmp_path: Path) -> None:

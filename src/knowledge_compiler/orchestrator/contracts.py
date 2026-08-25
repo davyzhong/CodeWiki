@@ -100,6 +100,8 @@ class TargetRecord(BaseModel):
 
     target_id: NonBlankString
     object_type: Literal["module", "architecture", "flow", "rule", "tech-stack"]
+    topic: NonBlankString | None = None
+    evidence_seeds: tuple[NonBlankString, ...] = ()
     state: TargetState = TargetState.QUEUED
     attempt: int = Field(strict=True, gt=0)
     repair_attempts: int = Field(strict=True, ge=0)

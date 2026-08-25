@@ -176,8 +176,9 @@ class RunOrchestrator:
                     self.snapshot,
                     PlanTarget(
                         id=target_id,
-                        topic="CheckoutService",
-                        evidence_seeds=("CheckoutService", "Inventory.reserve"),
+                        type=record.object_type,
+                        topic=record.topic or target_id,
+                        evidence_seeds=record.evidence_seeds,
                     ),
                     self.budget,
                 )
@@ -233,14 +234,33 @@ class RunOrchestrator:
                     self.snapshot.root,
                 )
                 result = self.worker.verify(verification_request)
-                verified = apply_verification_result(
-                    request,
-                    extraction,
-                    verification_request,
-                    result,
-                    self.snapshot.root,
-                )
-                if verified.is_valid and verified.module is not None:
+                if extraction.draft.type == "module":
+                    verified = apply_verification_result(
+                        request,
+                        extraction,
+                        verification_request,
+                        result,
+                        self.snapshot.root,
+                    )
+                    canonical = verified.module
+                    issue_codes = tuple(
+                        issue.code for issue in verified.issues
+                    )
+                else:
+                    from knowledge_compiler.validation.typed import (
+                        apply_typed_verification_context,
+                    )
+
+                    typed = apply_typed_verification_context(
+                        extraction_request=request,
+                        extraction=extraction,
+                        verification_request=verification_request,
+                        verification_result=result,
+                        repository_root=self.snapshot.root,
+                    )
+                    canonical = typed.canonical
+                    issue_codes = typed.issues
+                if canonical is not None:
                     record = record.transition(TargetState.VERIFICATION_LEASED)
                     self.queue.replace_record(
                         self.queue.record().with_target(record)
@@ -251,14 +271,12 @@ class RunOrchestrator:
                     self.queue.replace_record(
                         self.queue.record().with_target(record)
                     )
-                    return (verified.module, pack), tuple(diagnostics)
+                    return (canonical, pack), tuple(diagnostics)
                 record = record.transition(TargetState.VERIFICATION_LEASED)
                 self.queue.replace_record(self.queue.record().with_target(record))
                 record = record.finish(
                     TerminalResult.CONFLICTED,
-                    diagnostics=tuple(
-                        issue.code for issue in verified.issues
-                    )[:20],
+                    diagnostics=tuple(issue_codes)[:20],
                 )
                 self.queue.replace_record(
                     self.queue.record().with_target(record)

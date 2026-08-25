@@ -281,6 +281,13 @@ def _validate_structure(
         _issue(issues, "identity.operation", "operation", "extraction result operation must be extract")
     if _get(extraction, "target_id") != _get(target, "id") or _get(draft, "id") != _get(target, "id"):
         _issue(issues, "identity.target", "target_id", "extraction, draft, and evidence target must match")
+    if _get(draft, "type") != _get(target, "type"):
+        _issue(
+            issues,
+            "identity.target_type",
+            "draft.type",
+            "draft and evidence target knowledge types must match",
+        )
     if _get(extraction, "snapshot_id") != _get(repository, "snapshot_id"):
         _issue(issues, "identity.snapshot", "snapshot_id", "extraction snapshot must match evidence snapshot")
     try:
@@ -365,18 +372,19 @@ def _validate_structure(
     for location, claim_id in _claim_ids_from_payload(draft):
         if claim_id not in known_claims:
             _issue(issues, "claim.reference.unknown", location, f"unknown Claim ID: {claim_id}")
-    if not tuple(_get(draft, "responsibilities", ())):
-        _issue(issues, "responsibility.required", "draft.responsibilities", "Module requires at least one responsibility")
-    responsibility_texts = [
-        _get(item, "text") for item in tuple(_get(draft, "responsibilities", ()))
-    ]
-    if len(responsibility_texts) != len(set(responsibility_texts)):
-        _issue(
-            issues,
-            "responsibility.duplicate",
-            "draft.responsibilities",
-            "responsibility text must be unique",
-        )
+    if _get(draft, "type") == "module":
+        if not tuple(_get(draft, "responsibilities", ())):
+            _issue(issues, "responsibility.required", "draft.responsibilities", "Module requires at least one responsibility")
+        responsibility_texts = [
+            _get(item, "text") for item in tuple(_get(draft, "responsibilities", ()))
+        ]
+        if len(responsibility_texts) != len(set(responsibility_texts)):
+            _issue(
+                issues,
+                "responsibility.duplicate",
+                "draft.responsibilities",
+                "responsibility text must be unique",
+            )
     required_text = (
         ("draft.title", _get(draft, "title")),
         ("draft.summary.text", _get(_get(draft, "summary"), "text")),
@@ -384,12 +392,16 @@ def _validate_structure(
     for location, value in required_text:
         if not isinstance(value, str) or not value.strip():
             _issue(issues, "payload.required", location, "required payload text is missing or blank")
-    field_requirements = {
-        "responsibilities": ("text",),
-        "public_interfaces": ("name", "description"),
-        "dependencies": ("target", "description"),
-        "relations": ("predicate", "target"),
-    }
+    field_requirements = (
+        {
+            "responsibilities": ("text",),
+            "public_interfaces": ("name", "description"),
+            "dependencies": ("target", "description"),
+            "relations": ("predicate", "target"),
+        }
+        if _get(draft, "type") == "module"
+        else {}
+    )
     for field, names in field_requirements.items():
         entries = tuple(_get(draft, field, ()))
         keys: list[tuple[Any, ...]] = []

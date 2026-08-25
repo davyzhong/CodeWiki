@@ -173,4 +173,102 @@ def apply_typed_verification(
     return TypedVerificationOutcome(canonical, ())
 
 
-__all__ = ["TypedVerificationOutcome", "apply_typed_verification"]
+def apply_typed_verification_context(
+    *,
+    extraction_request: Any,
+    extraction: Any,
+    verification_request: Any,
+    verification_result: Any,
+    repository_root: Any,
+) -> TypedVerificationOutcome:
+    """Validate the full semantic envelope before canonicalizing a typed draft."""
+
+    from knowledge_compiler.contracts.knowledge import ExtractionResult
+    from knowledge_compiler.contracts.semantic import (
+        ExtractionRequest,
+        VerificationRequest,
+    )
+    from knowledge_compiler.validation.module import (
+        ModuleValidationError,
+        build_verification_request,
+    )
+
+    try:
+        request = ExtractionRequest.model_validate(extraction_request)
+        result = ExtractionResult.model_validate(extraction)
+        verify_request = VerificationRequest.model_validate(
+            verification_request
+        )
+        verify_result = VerificationResult.model_validate(
+            verification_result
+        )
+        expected_request = build_verification_request(
+            request, result, repository_root
+        )
+    except (ValidationError, ModuleValidationError, ValueError) as error:
+        return TypedVerificationOutcome(
+            None, (f"typed verification context is invalid: {error}",)
+        )
+
+    issues: list[str] = []
+    for field in (
+        "contract_version",
+        "run_id",
+        "target_id",
+        "operation",
+        "attempt",
+        "snapshot_id",
+        "idempotency_key",
+        "verification_request_digest",
+    ):
+        if getattr(verify_request, field) != getattr(expected_request, field):
+            issues.append(f"verification.request.{field}: mismatched")
+        if getattr(verify_result, field) != getattr(verify_request, field):
+            issues.append(f"verification.result.{field}: mismatched")
+    if verify_request.claims != expected_request.claims:
+        issues.append("verification.request.claims: mismatched")
+
+    expected_claims = {
+        claim.claim_id: claim for claim in expected_request.claims
+    }
+    actual_claims = {
+        claim.claim_id: claim for claim in verify_result.verifications
+    }
+    if set(expected_claims) != set(actual_claims):
+        issues.append("verification.result.claims: incomplete or unknown")
+    for claim_id in sorted(set(expected_claims) & set(actual_claims)):
+        expected = expected_claims[claim_id]
+        actual = actual_claims[claim_id]
+        if actual.verification_request_digest != (
+            expected_request.verification_request_digest
+        ):
+            issues.append(f"verification.claim.{claim_id}.digest: mismatched")
+        if actual.evidence_ids != tuple(
+            item.evidence_id for item in expected.evidence
+        ):
+            issues.append(f"verification.claim.{claim_id}.evidence: mismatched")
+        if actual.excerpt_hashes != tuple(
+            item.excerpt_hash for item in expected.evidence
+        ):
+            issues.append(f"verification.claim.{claim_id}.hashes: mismatched")
+        if actual.excerpts != tuple(
+            item.excerpt for item in expected.evidence
+        ):
+            issues.append(f"verification.claim.{claim_id}.excerpts: mismatched")
+    verifiers = {item.verifier for item in verify_result.verifications}
+    if len(verifiers) != 1:
+        issues.append("verification.result.verifier: must be consistent")
+    if issues:
+        return TypedVerificationOutcome(None, tuple(sorted(issues)))
+    return apply_typed_verification(
+        draft_payload=result.draft.model_dump(mode="json"),
+        verification_result=verify_result,
+        verifier=next(iter(verifiers)),
+    )
+
+
+__all__ = [
+    "TypedVerificationOutcome",
+    "apply_typed_verification",
+    "apply_typed_verification_context",
+]

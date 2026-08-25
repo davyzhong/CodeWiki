@@ -167,6 +167,11 @@ def _run_orchestrated_build(repository_root: Path):
                 {
                     "target_id": "module.shop.checkout",
                     "object_type": "module",
+                    "topic": "CheckoutService",
+                    "evidence_seeds": (
+                        "CheckoutService",
+                        "Inventory.reserve",
+                    ),
                     "state": "queued",
                     "attempt": 1,
                     "repair_attempts": 0,
