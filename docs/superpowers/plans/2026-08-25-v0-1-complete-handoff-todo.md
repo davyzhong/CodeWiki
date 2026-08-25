@@ -86,7 +86,7 @@ c865dc9 docs: reconcile human-layer revision findings
 - [ ] Run `git status --short --branch`; expect clean `main`, ahead of `origin/main` per section 0.4 unless another Agent has intentionally continued.
 - [ ] Run `git branch --all`; expect no development branch.
 - [ ] Run `git log --oneline --decorate -20`; reconcile any new commits with this handoff before proceeding.
-- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 320 passing tests.
+- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 329 passing tests.
 - [ ] Run the boundary scan:
 
 ```bash
@@ -195,20 +195,20 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [x] Run the integration test and CLI against temporary output roots.
 - [x] Run `uv run --extra dev pytest -q` (312 passed), boundary scan, `git diff --check`, and `git status --short`.
 - [x] Commit `feat: prove fake provider module vertical slice` (`397fda5`).
-- [ ] Run fresh specification review, then fresh quality review; fix and re-review until approved.
+- [x] Run fresh specification review, then fresh quality review; fix and re-review until approved. (Spec APPROVED; quality took four rounds — fixes in `2fbb3c3`, `c9e4d0a`, `9cc0f38` covering RecursionError leaks, byte-exact committed-tree verification, bounded/sanitized diagnostics — final verdict APPROVED at 329 tests.)
 
 ### M1 final slice review and exit gate
 
-- [ ] Ask a fresh reviewer to inspect the complete diff from `5b338ac` through M1 HEAD against the M1 exact plan and V0.1 design.
-- [ ] Verify every factual Module field is Claim-backed.
-- [ ] Verify every Claim Evidence ID belongs to its bounded pack.
-- [ ] Verify source bytes and redacted excerpts are independently hashed and checked.
-- [ ] Verify extraction and semantic verification are separate, fully correlated operations.
-- [ ] Verify invalid/failed runs publish no partial generation and failed updates preserve N.
-- [ ] Verify equivalent inputs compile to byte-identical outputs.
-- [ ] Verify no production CodeWiki adapter, LLM call, persisted orchestrator, incremental lifecycle, FTS, HTML, or MCP has entered M1.
-- [ ] Run the full suite twice to expose order/time dependence.
-- [ ] Run `git diff --check` and the boundary scan.
+- [x] Ask a fresh reviewer to inspect the complete diff from `5b338ac` through M1 HEAD against the M1 exact plan and V0.1 design. (Verdict PASS: every gate item evidenced; residual notes are Info plus one pre-baseline Minor about mcp sitting in production deps, to move to dev extras during M2 cleanup.)
+- [x] Verify every factual Module field is Claim-backed.
+- [x] Verify every Claim Evidence ID belongs to its bounded pack.
+- [x] Verify source bytes and redacted excerpts are independently hashed and checked.
+- [x] Verify extraction and semantic verification are separate, fully correlated operations.
+- [x] Verify invalid/failed runs publish no partial generation and failed updates preserve N.
+- [x] Verify equivalent inputs compile to byte-identical outputs.
+- [x] Verify no production CodeWiki adapter, LLM call, persisted orchestrator, incremental lifecycle, FTS, HTML, or MCP has entered M1.
+- [x] Run the full suite twice to expose order/time dependence. (329 passed both runs.)
+- [x] Run `git diff --check` and the boundary scan. (Clean; no matches.)
 - [ ] Confirm `git status --short` is empty and `git branch --all` shows main-only policy.
 - [ ] Push all reviewed M1 commits with `git push origin main`.
 - [ ] Confirm local and remote `main` resolve to the same commit.
