@@ -35,7 +35,7 @@ Each type defines its required factual fields (must be Claim-backed with `suppor
 | Module (M1) | summary, responsibilities (≥1), public interfaces, dependencies | relations | `insufficient_evidence` target result | `conflicted` target result |
 | Architecture | summary, components (≥1), system boundaries, typed relationships | component dependencies, responsibilities per component | `insufficient_evidence` | `conflicted` |
 | Flow | summary, trigger, ordered steps (≥1 with stable IDs), participants | data/control transitions, failure paths | `insufficient_evidence` | `conflicted` |
-| Rule | summary, statement, severity, applicability | constraints, exceptions, related modules/flows | `insufficient_evidence` | `conflicted` |
+| Rule | summary, statement, applicability | severity (closed-vocabulary presentation label per design §6.3), constraints, exceptions, related modules/flows | `insufficient_evidence` | `conflicted` |
 | TechStack | summary, entries (≥1) with category and scope | version identity (explicit `unknown` when unproven), configuration evidence | `insufficient_evidence` | `conflicted` |
 
 ## Planned file structure

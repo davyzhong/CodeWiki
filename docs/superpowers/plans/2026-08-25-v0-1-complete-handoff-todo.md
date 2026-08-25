@@ -86,7 +86,7 @@ c865dc9 docs: reconcile human-layer revision findings
 - [ ] Run `git status --short --branch`; expect clean `main`, ahead of `origin/main` per section 0.4 unless another Agent has intentionally continued.
 - [ ] Run `git branch --all`; expect no development branch.
 - [ ] Run `git log --oneline --decorate -20`; reconcile any new commits with this handoff before proceeding.
-- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 456 passing tests.
+- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 466 passing tests.
 - [ ] Run the boundary scan:
 
 ```bash
@@ -394,6 +394,8 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Review and commit.
 
 ### M3.8 Five-type integration and exit gate
+
+> Deferred follow-up (explicit, milestone-review disposition): per-type extraction fixtures driving all four new types through the CodeWiki FIXTURE provider end-to-end were not built; the fake-fixture world plus the Module's CodeWiki-fixture path (M2) cover the shared EvidencePack contract today. Build the per-type harnesses when M4's orchestrator introduces per-type pipelines, before the M7 views consume them.
 
 - [ ] Run all five types through Fake and CodeWiki fixture providers, extraction, separate verification, canonicalization, and publication.
 - [ ] Prove every factual payload field is Claim-backed or deterministically derived from Claim-backed data.

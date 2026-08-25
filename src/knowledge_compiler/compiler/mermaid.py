@@ -55,14 +55,17 @@ def compile_flow_sequence(flow) -> bytes:
     validated = FlowKnowledge.model_validate(flow.model_dump(mode="json"))
     lines = ["sequenceDiagram"]
     for step in validated.steps:
-        lines.append(
-            f"    {mermaid_label(step.step_id)}: {mermaid_label(step.description)}"
-        )
-        participants = list(step.participants)
+        participants = [mermaid_identifier(p) for p in step.participants]
+        for participant in participants:
+            lines.append(f"    participant {participant}")
         if len(participants) >= 2:
             lines.append(
-                f"    {mermaid_identifier(participants[0])}->>"
-                f"{mermaid_identifier(participants[1])}: "
+                f"    {participants[0]}->>{participants[1]}: "
+                f"{mermaid_label(step.description)}"
+            )
+        else:
+            lines.append(
+                f"    Note over {participants[0]}: "
                 f"{mermaid_label(step.description)}"
             )
     return ("\n".join(lines) + "\n").encode("utf-8")

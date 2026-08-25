@@ -31,15 +31,15 @@ def draft_for(type_name: str) -> tuple:
     return payload, claims
 
 
-def verification_for(claims: list[dict], digest: str) -> dict:
+def verification_for(claims: list[dict], digest: str, target_id: str) -> dict:
     return {
         "contract_version": "0.1",
         "run_id": "typed-run-001",
-        "target_id": "typed-target",
+        "target_id": target_id,
         "operation": "verify",
         "attempt": 1,
         "snapshot_id": "typed-snapshot",
-        "idempotency_key": "typed-run-001:typed-target:verify:1:typed-snapshot",
+        "idempotency_key": f"typed-run-001:{target_id}:verify:1:typed-snapshot",
         "verification_request_digest": digest,
         "verifications": [
             {
@@ -75,7 +75,7 @@ def test_typed_apply_builds_canonical_from_supported_draft(type_name: str) -> No
     }
     payload, claims = draft_for(type_name)
     digest = "sha256:" + "4" * 64
-    verification = verification_for(claims, digest)
+    verification = verification_for(claims, digest, payload["id"])
 
     result = apply_typed_verification(
         draft_payload=payload,
@@ -94,7 +94,7 @@ def test_typed_apply_rejects_unsupported_claims() -> None:
 
     payload, claims = draft_for("rule")
     digest = "sha256:" + "4" * 64
-    verification = verification_for(claims, digest)
+    verification = verification_for(claims, digest, payload["id"])
     verification["verifications"][0]["status"] = "unsupported"
 
     result = apply_typed_verification(
@@ -106,12 +106,29 @@ def test_typed_apply_rejects_unsupported_claims() -> None:
     assert any("unsupported" in issue for issue in result.issues)
 
 
+def test_typed_apply_rejects_foreign_target_verification() -> None:
+    from knowledge_compiler.validation.typed import apply_typed_verification
+
+    payload, claims = draft_for("architecture")
+    digest = "sha256:" + "4" * 64
+    verification = verification_for(claims, digest, payload["id"])
+    verification["target_id"] = "architecture.other.target"
+
+    result = apply_typed_verification(
+        draft_payload=payload,
+        verification_result=verification,
+        verifier="typed-verifier-v1",
+    )
+    assert result.canonical is None
+    assert any("target_id" in issue for issue in result.issues)
+
+
 def test_typed_apply_rejects_missing_claim_verification() -> None:
     from knowledge_compiler.validation.typed import apply_typed_verification
 
     payload, claims = draft_for("flow")
     digest = "sha256:" + "4" * 64
-    verification = verification_for(claims, digest)
+    verification = verification_for(claims, digest, payload["id"])
     verification["verifications"].pop()
 
     result = apply_typed_verification(

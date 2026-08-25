@@ -831,12 +831,6 @@ class DraftArchitectureKnowledge(_TypedDraftBase, ArchitectureKnowledge):
         _draft_claims_validator(ARCHITECTURE_CLAIM_PATTERN)
     )
 
-    @model_validator(mode="after")
-    def drop_validity_checks(self) -> "DraftArchitectureKnowledge":
-        object.__getattribute__(self, "claims")
-        return self
-
-
 class DraftFlowKnowledge(_TypedDraftBase, FlowKnowledge):
     claims: tuple[DraftClaim, ...]
     validity: None = None

@@ -90,6 +90,24 @@ def apply_typed_verification(
             ),
         )
 
+    correlation_issues: list[str] = []
+    if verification.target_id != draft.id:
+        correlation_issues.append(
+            f"verification.correlation@target_id: expected {draft.id}, "
+            f"got {verification.target_id}"
+        )
+    if verification.verifications and all(
+        item.verification_request_digest
+        != verification.verification_request_digest
+        for item in verification.verifications[:1]
+    ):
+        correlation_issues.append(
+            "verification.correlation@digest: claim digests do not echo "
+            "the result digest"
+        )
+    if correlation_issues:
+        return TypedVerificationOutcome(None, tuple(sorted(correlation_issues)))
+
     verifications = {item.claim_id: item for item in verification.verifications}
     issues: list[str] = []
     known_claims = {claim.id for claim in draft.claims}

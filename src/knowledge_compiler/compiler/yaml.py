@@ -244,7 +244,7 @@ def compile_tech_stack_card(stack: object) -> bytes:
     ]
     for entry in canonical.entries:
         lines.append(
-            f"- {_code(entry.name)} — {entry.category} · version "
+            f"- {_code(entry.name)} — {_text(entry.category)} · version "
             f"{_code(entry.version)} · {_text(entry.scope)}"
         )
     if canonical.configurations:

@@ -32,9 +32,8 @@ def test_sequence_diagram_renders_verified_steps_only() -> None:
     diagram = compile_flow_sequence(flow).decode("utf-8")
     assert diagram.startswith("sequenceDiagram")
     assert "Reserve inventory for the SKU." in diagram
-    assert "checkout_service" in diagram
-    assert "inventory_service" in diagram
-    assert "step.create-order" in diagram
+    assert "participant checkout_service" in diagram
+    assert "participant inventory_service" in diagram
     assert diagram.endswith("\n")
 
 
