@@ -1,0 +1,84 @@
+{
+  "contract_version": "0.1",
+  "repository": {
+    "repository_id": "fixture/probe-shop",
+    "snapshot_id": "sha256:3690a4e1a183d8c9be6bb8160652eee4b09a806f3ea1d419b0b68d2f5f0c9f2a",
+    "root": ".",
+    "branch": "main",
+    "commit": "probe-fixture-v1",
+    "dirty": false,
+    "working_tree_hash": null,
+    "eligible_files": [
+      "pyproject.toml",
+      "src/shop/__init__.py",
+      "src/shop/api.py",
+      "src/shop/checkout.py",
+      "src/shop/inventory.py"
+    ]
+  },
+  "target": {
+    "id": "module.shop.checkout",
+    "type": "module",
+    "topic": "CheckoutService",
+    "evidence_seeds": ["CheckoutService", "Inventory.reserve"]
+  },
+  "budget": {
+    "max_items": 2,
+    "max_characters": 800,
+    "max_tokens": 100
+  },
+  "evidence": [
+    {
+      "id": "sha256:c8cd0d0073f4e56a91c72ba39fa84474f3cda29cc6fbb3c187fdb22bb1325e86",
+      "provider": "fake-codewiki-0.6.5",
+      "kind": "source",
+      "path": "src/shop/checkout.py",
+      "symbol": "CheckoutService",
+      "start_line": 4,
+      "end_line": 11,
+      "commit": "probe-fixture-v1",
+      "content_hash": "sha256:f76e3d872dd8ccf7eb5844bdeedb1fc1f2fa7b260588f64d11ab695dfac8dd89",
+      "excerpt_hash": "sha256:93294a20b03a9650da7f73734ee89b8c81b6882c791f344f34d57835415fc15d",
+      "excerpt": "class CheckoutService:\n    def __init__(self, inventory: Inventory) -> None:\n        self.inventory = inventory\n\n    def checkout(self, sku: str, quantity: int) -> str:\n        if not self.inventory.reserve(sku, quantity):\n            raise ValueError(\"[REDACTED]\")\n        return \"[REDACTED]\"\n",
+      "relationship": "defines checkout orchestration and calls Inventory.reserve",
+      "strength": "direct"
+    },
+    {
+      "id": "sha256:f1b845403796fbb82ba18467e09e6539d56014c7cd4f0bbc05b890d666357a96",
+      "provider": "fake-codewiki-0.6.5",
+      "kind": "source",
+      "path": "src/shop/inventory.py",
+      "symbol": "Inventory.reserve",
+      "start_line": 1,
+      "end_line": 3,
+      "commit": "probe-fixture-v1",
+      "content_hash": "sha256:2b26a767812a850889b0255dfa7f1c9af4cd46da7d4d34187fe8891d3c7ff1d2",
+      "excerpt_hash": "sha256:9e1186333062291b2556e3ac6c6098828b78c95c0ed71df4803ab6bf772922db",
+      "excerpt": "class Inventory:\n    def reserve(self, sku: str, quantity: int) -> bool:\n        return [REDACTED]\n",
+      "relationship": "provides the inventory reservation dependency",
+      "strength": "direct"
+    }
+  ],
+  "graph_facts": [
+    {
+      "source": "checkout_order",
+      "predicate": "calls",
+      "target": "CheckoutService.checkout",
+      "confidence": "deterministic",
+      "provenance": {
+        "provider": "fake-codewiki-0.6.5",
+        "contract_shape": "graph-trace"
+      }
+    },
+    {
+      "source": "CheckoutService.checkout",
+      "predicate": "calls",
+      "target": "Inventory.reserve",
+      "confidence": "deterministic",
+      "provenance": {
+        "provider": "fake-codewiki-0.6.5",
+        "contract_shape": "graph-trace"
+      }
+    }
+  ]
+}

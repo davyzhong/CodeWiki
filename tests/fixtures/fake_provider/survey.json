@@ -1,0 +1,26 @@
+{
+  "repository_id": "fixture/probe-shop",
+  "snapshot_id": "sha256:3690a4e1a183d8c9be6bb8160652eee4b09a806f3ea1d419b0b68d2f5f0c9f2a",
+  "files": [
+    "pyproject.toml",
+    "src/shop/__init__.py",
+    "src/shop/api.py",
+    "src/shop/checkout.py",
+    "src/shop/inventory.py"
+  ],
+  "languages": ["Python", "TOML"],
+  "symbols": [
+    "checkout_order",
+    "CheckoutService",
+    "CheckoutService.checkout",
+    "Inventory",
+    "Inventory.reserve"
+  ],
+  "graph_communities": [
+    ["checkout_order", "CheckoutService", "Inventory.reserve"]
+  ],
+  "configuration_facts": {
+    "provider_contract": "codewiki-0.6.5-sanitized",
+    "python_requires": ">=3.12"
+  }
+}
