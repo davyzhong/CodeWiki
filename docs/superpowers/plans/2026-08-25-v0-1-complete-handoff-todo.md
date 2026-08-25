@@ -86,7 +86,7 @@ c865dc9 docs: reconcile human-layer revision findings
 - [ ] Run `git status --short --branch`; expect clean `main`, ahead of `origin/main` per section 0.4 unless another Agent has intentionally continued.
 - [ ] Run `git branch --all`; expect no development branch.
 - [ ] Run `git log --oneline --decorate -20`; reconcile any new commits with this handoff before proceeding.
-- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 449 passing tests.
+- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 456 passing tests.
 - [ ] Run the boundary scan:
 
 ```bash
@@ -330,7 +330,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 ### M3.1 Write and approve the exact shared/type plans — completed
 
-> The five-types plan is `docs/superpowers/plans/2026-08-25-five-knowledge-types.md`, reviewed CHANGES REQUIRED then APPROVED at `b53f327`. Progress: Task 1 shared base (`b3b8e53`), Task 1b typed envelopes seeded (`3ea0a03`), Task 2 Architecture contracts+Mermaid+YAML golden (`6158acc`, `bb01a87`), Task 3 Flow contracts+sequence+golden (`f996818`, `e6d0e0c`), Task 4 Rule contracts+card+golden (`4349267`+fixes), Task 5 TechStack contracts+card+golden (`5aedab6`+fixes), Task 6 cross-type relations (`60e01ba`+fixes, 449 tests). REMAINING for M3.8: (a) Draft variants for the four new types added to the DraftKnowledge union; (b) typed structural/source validation generalizing validation/module.py; (c) a typed slice harness through publication over fake AND CodeWiki fixture providers; (d) milestone reviews, gate ×2 suites, boundary scan, push.
+> The five-types plan is `docs/superpowers/plans/2026-08-25-five-knowledge-types.md`, reviewed CHANGES REQUIRED then APPROVED at `b53f327`. Progress: Task 1 shared base (`b3b8e53`), Task 1b typed envelopes seeded (`3ea0a03`), Task 2 Architecture contracts+Mermaid+YAML golden (`6158acc`, `bb01a87`), Task 3 Flow contracts+sequence+golden (`f996818`, `e6d0e0c`), Task 4 Rule contracts+card+golden (`4349267`+fixes), Task 5 TechStack contracts+card+golden (`5aedab6`+fixes), Task 6 cross-type relations (`60e01ba`+fixes, 449 tests). REMAINING for M3.8: (a) Draft variants for the four new types added to the DraftKnowledge union; (b) typed structural/source validation generalizing validation/module.py; (c) a typed slice harness through publication over fake AND CodeWiki fixture providers; (d) typed publication: generalize GenerationPublisher outputs per type (objects/architecture|flows|rules|tech-stack/ per design §8) with type-dispatched compilers; (e) the five-type integration test across BOTH fake and CodeWiki fixture providers through publication; (f) milestone reviews, gate ×2 suites, boundary scan, push. Progress update: typed drafts in the union and apply_typed_verification landed in `2894f8d`/`6c8281b`/`abe8840` (456 tests).
 
 - [ ] Create one shared-IR plan plus focused subsections or child plans for Architecture, Flow, Rule, and TechStack.
 - [ ] Map every factual typed field to required Claim IDs and Evidence support.
