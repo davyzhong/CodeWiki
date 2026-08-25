@@ -245,7 +245,9 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Do not implement `diff` beyond an explicit `NotImplemented`/deferred boundary until M5.
 - [ ] Run focused/full tests, review, and commit.
 
-### M2.3 Production CodeWikiEvidenceProvider via public interfaces
+### M2.3 Production CodeWikiEvidenceProvider via public interfaces — completed
+
+> Combined independent review APPROVED (with two Medium follow-ups — get_evidence cross-target state and version-probe environment assumption — plus Low items, all fixed in `44e6add` with strengthened tests).
 
 **Suggested files:** `providers/codewiki.py`, `providers/codewiki_cli.py`, `providers/preflight.py`, `tests/providers/test_codewiki_contract.py`.
 
@@ -262,7 +264,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Keep live CodeWiki tests opt-in; deterministic CI uses captured fixtures.
 - [ ] Run focused/full/boundary tests, review, and commit.
 
-### M2.4 Preflight and repository configuration
+### M2.4 Preflight and repository configuration — implemented, review pending
 
 **Suggested files:** `config.py`, `preflight.py`, `cli.py`, `tests/test_config.py`, `tests/cli/test_init.py`.
 
