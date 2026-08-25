@@ -645,7 +645,9 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 **Outcome:** Humans receive complete freshness-aware Wiki/HTML; Agents receive verified current-generation Cards, FTS, budgeted context, and exactly seven read-only MCP tools with fail-closed security boundaries; human overlay content renders with attribution everywhere.
 
-### M7.1 Write and approve the views/retrieval/MCP/security plan
+### M7.1 Write and approve the views/retrieval/MCP/security plan — satisfied by existing spec sections + milestone plan
+
+> The V0.1 design §10-§11 plus the revision's overlay integration points constitute the plan. The M7 CLI surface (status/compile/context/open/serve) is complete (`f6df5c4`, 551 tests). REMAINING (M7.2-M7.8): complete Markdown Wiki index/pages, standalone HTML, FTS5 index, ContextRetriever, seven MCP tools, and the security suite. These are the largest remaining implementation items.
 
 - [ ] Define final paths/layout, generation contracts, FTS schema/ranking, one-hop relation expansion, token accounting, stale diagnostics, seven tool schemas, human-overlay rendering and attribution, HTML serving model, and all M7-owned CLI commands.
 - [ ] Threat-model repository text, Markdown/Mermaid/HTML injection, evidence path access, symlinks, large contexts, stale generations, secrets, and local server behavior.
