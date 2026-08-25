@@ -111,18 +111,6 @@ def _fake_to_pack_evidence_ids(pack) -> dict:
     return translation
 
 
-class RecordingPlannerWorker(StubRealWorker):
-    def extract(self, request):
-        from knowledge_compiler.planning.module import plan_one_module
-
-        survey = getattr(self, "_survey", None)
-        if survey is not None:
-            self.planner_output = plan_one_module(
-                getattr(self, "_plan_request"), survey
-            )
-        return super().extract(request)
-
-
 def make_world(tmp_path: Path):
     from knowledge_compiler.providers.codewiki import CodeWikiEvidenceProvider
     from knowledge_compiler.providers.codewiki_cli import FixtureCodewikiRunner

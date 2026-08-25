@@ -159,6 +159,35 @@ def test_preflight_stops_in_order_before_any_model_call(tmp_path: Path) -> None:
         run_preflight(good, config_path=None, missing_model_profile=True)
 
 
+def test_preflight_stops_on_scope_limits_and_codewiki_version(tmp_path: Path) -> None:
+    import subprocess
+
+    from knowledge_compiler.preflight import PreflightFailure, run_preflight
+
+    repo = tmp_path / "limited"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", "-b", "main", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.email", "t@e.com"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.name", "T"], check=True)
+    (repo / "core.py").write_text("x = 1\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "init"], check=True)
+
+    config_path = tmp_path / "config.yaml"
+    write_config(config_path, KnowledgeConfig.model_validate(base_payload()))
+
+    with pytest.raises(PreflightFailure, match="scope_limit_exceeded"):
+        run_preflight(repo, config_path=config_path, inventory_size=99999)
+    with pytest.raises(PreflightFailure, match="scope_limit_exceeded"):
+        run_preflight(repo, config_path=config_path, inventory_bytes=999999999)
+    with pytest.raises(PreflightFailure, match="unsupported codewiki"):
+        run_preflight(repo, config_path=config_path, codewiki_version="codewiki 0.7.0")
+    result = run_preflight(
+        repo, config_path=config_path, inventory_size=1, inventory_bytes=10
+    )
+    assert result["validation_profile_mode"] == "reuses-extraction-profile"
+
+
 def test_preflight_reports_validation_profile_reuse(tmp_path: Path) -> None:
     from knowledge_compiler.preflight import run_preflight
 

@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 
 from pydantic import ValidationError
 
-from knowledge_compiler.contracts.planning import PlanRequest
 from knowledge_compiler.contracts.semantic import (
     ExtractionRequest,
     ExtractionResult,
@@ -120,8 +119,6 @@ class LiteLLMWorker:
         self._verification_model = verification_model or extraction_model
 
     def plan(self, request: PlanRequest) -> object:
-        from knowledge_compiler.planning.module import plan_one_module
-
         raise NotImplementedError(
             "model-backed planning arrives with the orchestrator; use the "
             "deterministic planner directly in M2"

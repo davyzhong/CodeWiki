@@ -106,14 +106,6 @@ def make_worker(transport):
     )
 
 
-def draft_reply() -> str:
-    payload = json.loads(
-        (FIXTURES / "module-extraction.json").read_text(encoding="utf-8")
-    )
-    payload["draft"]["scope"]["root"] = None  # worker binds request pack root
-    return json.dumps(payload)
-
-
 def test_extract_success_round_trips_contract() -> None:
     request = make_request()
     reply = json.loads(

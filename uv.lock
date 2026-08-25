@@ -1520,6 +1520,7 @@ name = "knowledge-compiler"
 version = "0.1.0.dev0"
 source = { editable = "." }
 dependencies = [
+    { name = "litellm" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "typer" },
@@ -1536,6 +1537,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "codewiki", marker = "extra == 'dev'", specifier = ">=0.6,<0.7" },
+    { name = "litellm", specifier = ">=1.98,<2" },
     { name = "mcp", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },

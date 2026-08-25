@@ -40,6 +40,9 @@ def run_preflight(
     missing_model_profile: bool = False,
     dry_run: bool = False,
     profiles: dict[str, Any] | None = None,
+    codewiki_version: str | None = "codewiki 0.6.5",
+    inventory_size: int | None = None,
+    inventory_bytes: int | None = None,
 ) -> dict[str, Any]:
     """Run ordered checks; every unsupported prerequisite stops before models."""
 
@@ -58,11 +61,31 @@ def run_preflight(
             provider.resolve(root)
         except RepositoryResolutionError as error:
             raise PreflightFailure(str(error)) from error
+        config: KnowledgeConfig | None = None
         if config_path is not None:
             try:
-                load_config(config_path)
+                config = load_config(config_path)
             except ValueError as error:
                 raise PreflightFailure(f"invalid config: {error}") from error
+        limits = config.scope_limits if config else None
+        if limits is not None:
+            if inventory_size is not None and inventory_size > limits.max_files:
+                raise PreflightFailure(
+                    f"scope_limit_exceeded: {inventory_size} files > {limits.max_files}"
+                )
+            if inventory_bytes is not None and inventory_bytes > limits.max_bytes:
+                raise PreflightFailure(
+                    f"scope_limit_exceeded: {inventory_bytes} bytes > {limits.max_bytes}"
+                )
+        if codewiki_version is not None:
+            try:
+                from knowledge_compiler.providers.codewiki_cli import (
+                    require_supported_version,
+                )
+
+                require_supported_version(codewiki_version)
+            except Exception as error:
+                raise PreflightFailure(f"unsupported codewiki: {error}") from error
 
     resolved_profiles = profiles or {
         "extraction_profile": "extraction-v1",

@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-import yaml
 
 from knowledge_compiler.config import KnowledgeConfig, load_config, write_config
 
@@ -162,10 +161,3 @@ def _short(text: str) -> str:
 
 
 __all__ = ["app"]
-
-
-def _load_existing_language(path: Path) -> str | None:
-    try:
-        return str(yaml.safe_load(path.read_text(encoding="utf-8")).get("language"))
-    except (OSError, ValueError, yaml.YAMLError, AttributeError):
-        return None

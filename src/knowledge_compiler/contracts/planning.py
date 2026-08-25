@@ -35,11 +35,6 @@ class PlanTargetSpec(BaseModel):
     priority: int = Field(strict=True, ge=1, le=9)
     required: bool = True
 
-    @model_validator(mode="after")
-    def ordering_key_is_deterministic(self) -> "PlanTargetSpec":
-        object.__getattribute__(self, "target")
-        return self
-
 
 class KnowledgePlan(BaseModel):
     model_config = ConfigDict(
