@@ -223,11 +223,11 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 ### M2.1 Write and approve the exact M2 implementation plan
 
-- [ ] Create `docs/superpowers/plans/2026-08-25-codewiki-module-vertical-slice.md` using the writing-plans skill.
+- [x] Create `docs/superpowers/plans/2026-08-25-codewiki-module-vertical-slice.md` using the writing-plans skill. (Review CHANGES REQUIRED with 1 Critical + 8 smaller findings, all applied; re-review APPROVED at `955eb44`.)
 - [ ] Derive every adapter field from `docs/spikes/codewiki-public-surface.md` and `tests/fixtures/codewiki/0.6/cli-observations.json`; do not assume undocumented JSON.
 - [ ] Include minimal `LocalGitRepositoryProvider`, preflight, one-Module `PlanRequest/KnowledgePlan`, public CodeWiki adapter, `SemanticWorker.plan/extract/verify`, LiteLLM worker, configuration, and `knowledge init`.
 - [ ] Explicitly exclude RunOrchestrator queues/leases/retries (M4), ChangeSet/update behavior (M5), five-type expansion (M3), the human overlay layer (M6), and MCP/FTS/HTML (M7).
-- [ ] Run an independent plan-document review against the V0.1 design and fix until approved.
+- [x] Run an independent plan-document review against the V0.1 design and fix until approved. (CHANGES REQUIRED with 1 Critical + 8 smaller findings, all applied; re-review APPROVED at `955eb44`.)
 - [ ] Commit the approved plan before implementation.
 
 ### M2.2 Local Git repository identity and eligible-file inventory
