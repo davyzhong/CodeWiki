@@ -98,6 +98,69 @@ def init(
     _update_gitignore(root)
 
 
+@app.command()
+def realslice(
+    repository_root: Annotated[Path, typer.Option(help="Local Git repository root")],
+    output_root: Annotated[Path, typer.Option(help="Publication output root")],
+    config_path: Annotated[
+        Path | None, typer.Option(help="Optional .knowledge/config.yaml")
+    ] = None,
+) -> None:
+    """Run the real-provider module slice (live CodeWiki + LiteLLM)."""
+
+    import os
+
+    from knowledge_compiler.providers.codewiki import CodeWikiEvidenceProvider
+    from knowledge_compiler.providers.codewiki_cli import CodewikiRunner
+    from knowledge_compiler.real_slice import run_real_module_slice
+    from knowledge_compiler.workers.litellm_worker import LiteLLMWorker
+
+    extraction_model = os.environ.get("KNOWLEDGE_EXTRACTION_MODEL")
+    if not extraction_model:
+        typer.secho(
+            "model failure: KNOWLEDGE_EXTRACTION_MODEL is not configured",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+    def transport(*, system: str, user: str, model: str) -> str:
+        import litellm
+
+        response = litellm.completion(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        )
+        return response.choices[0].message.content or ""
+
+    provider = CodeWikiEvidenceProvider(
+        CodewikiRunner(), repository_root=repository_root.resolve()
+    )
+    worker = LiteLLMWorker(
+        transport=transport, extraction_model=extraction_model
+    )
+    outcome = run_real_module_slice(
+        repository_root=repository_root.resolve(),
+        evidence_provider=provider,
+        worker=worker,
+        output_root=output_root,
+        config_path=config_path,
+    )
+    if getattr(outcome, "reason", None):
+        typer.secho(
+            f"{outcome.reason}: {_short(outcome.message)}", fg=typer.colors.RED
+        )
+        raise typer.Exit(code=1)
+    typer.echo(f"published {outcome.object_id} generation {outcome.generation}")
+    typer.echo(str(outcome.manifest_path))
+
+
+def _short(text: str) -> str:
+    return text[:2000]
+
+
 __all__ = ["app"]
 
 
