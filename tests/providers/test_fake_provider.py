@@ -150,7 +150,7 @@ def test_fake_provider_rejects_repository_and_snapshot_mismatch() -> None:
         )
 
 
-def test_fake_provider_rejects_target_and_budget_mismatch() -> None:
+def test_fake_provider_rejects_target_mismatch() -> None:
     fake = provider()
     repo = repository()
 
@@ -161,12 +161,42 @@ def test_fake_provider_rejects_target_and_budget_mismatch() -> None:
             budget(),
         )
 
-    with pytest.raises(ValueError, match="budget mismatch"):
-        fake.build_pack(
-            repo,
-            target(),
+
+def test_fake_provider_accepts_a_larger_caller_budget() -> None:
+    requested = EvidenceBudget(
+        max_items=3,
+        max_characters=900,
+        max_tokens=150,
+    )
+
+    pack = provider().build_pack(repository(), target(), requested)
+
+    assert pack.budget == requested
+
+
+@pytest.mark.parametrize(
+    ("requested", "message"),
+    [
+        (
             EvidenceBudget(max_items=1, max_characters=800, max_tokens=100),
-        )
+            "evidence item budget exceeded",
+        ),
+        (
+            EvidenceBudget(max_items=2, max_characters=392, max_tokens=100),
+            "evidence character budget exceeded",
+        ),
+        (
+            EvidenceBudget(max_items=2, max_characters=800, max_tokens=38),
+            "evidence token budget exceeded",
+        ),
+    ],
+)
+def test_fake_provider_uses_caller_budget_for_each_overflow_dimension(
+    requested: EvidenceBudget,
+    message: str,
+) -> None:
+    with pytest.raises(ValidationError, match=message):
+        provider().build_pack(repository(), target(), requested)
 
 
 def test_fake_provider_rejects_unknown_evidence_id() -> None:
@@ -215,6 +245,32 @@ def test_fake_provider_rejects_fixture_paths_escaping_bound_root(
         provider(fixture_dir)
 
 
+@pytest.mark.parametrize(
+    "fixture_path",
+    [
+        "docs/unrelated.md",
+        "/tmp/absolute.py",
+        "C:\\outside.py",
+        "../outside.py",
+        "src/shop/./api.py",
+        "src\\shop\\api.py",
+        "src/shop/api.py\x00suffix",
+    ],
+)
+def test_fake_provider_rejects_invalid_or_unrelated_survey_files(
+    tmp_path: Path,
+    fixture_path: str,
+) -> None:
+    fixture_dir = copy_fixtures(tmp_path)
+    rewrite_json(
+        fixture_dir / "survey.json",
+        lambda payload: payload["files"].append(fixture_path),
+    )
+
+    with pytest.raises(ValueError, match="survey file"):
+        provider(fixture_dir)
+
+
 def test_fake_provider_preserves_immutability_and_revalidates_inputs() -> None:
     fake = provider()
     repo = repository()
@@ -232,15 +288,24 @@ def test_fake_provider_preserves_immutability_and_revalidates_inputs() -> None:
 
 
 def test_fixture_is_portable_and_contains_no_secret_or_absolute_path() -> None:
-    serialized = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in sorted(FIXTURE_DIR.glob("*.json"))
+    survey = json.loads((FIXTURE_DIR / "survey.json").read_text(encoding="utf-8"))
+    pack = json.loads(
+        (FIXTURE_DIR / "evidence-pack.json").read_text(encoding="utf-8")
     )
+    serialized = json.dumps([survey, pack], ensure_ascii=False)
+    portable_paths = [
+        *survey["files"],
+        *pack["repository"]["eligible_files"],
+        *(item["path"] for item in pack["evidence"]),
+    ]
 
     assert str(PROJECT_ROOT) not in serialized
     assert "inventory reservation failed" not in serialized
     assert '"order-created"' not in serialized
-    assert '"root": "."' in serialized
+    assert pack["repository"]["root"] == "."
+    assert all(not Path(path).is_absolute() for path in portable_paths)
+    assert all("\\" not in path and "\x00" not in path for path in portable_paths)
+    assert all(".." not in Path(path).parts for path in portable_paths)
 
 
 def test_build_pack_returns_a_fresh_revalidated_project_dto() -> None:

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 from json import JSONDecodeError
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from knowledge_compiler.contracts import (
@@ -78,12 +79,36 @@ class FakeEvidenceProvider:
             raise ValueError("fixture repository identity mismatch")
         if self._survey.snapshot_id != repository.snapshot_id:
             raise ValueError("fixture snapshot mismatch")
+        eligible_files = set(repository.eligible_files)
+        for survey_file in self._survey.files:
+            self._validate_survey_path(survey_file)
+            if survey_file not in eligible_files:
+                raise ValueError(
+                    f"survey file is not repository-eligible: {survey_file}"
+                )
         for item in self._pack.evidence:
             candidate = self._repository_root.joinpath(*Path(item.path).parts)
             if not candidate.is_relative_to(self._repository_root):
                 raise ValueError(
                     f"fixture evidence path escapes bound repository root: {item.path}"
                 )
+
+    @staticmethod
+    def _validate_survey_path(path: str) -> None:
+        parsed = PurePosixPath(path)
+        if (
+            not path
+            or "\x00" in path
+            or "\\" in path
+            or re.match(r"^[A-Za-z]:", path)
+            or parsed.is_absolute()
+            or ".." in parsed.parts
+            or parsed.as_posix() in {"", "."}
+            or parsed.as_posix() != path
+        ):
+            raise ValueError(
+                f"survey file must be a normalized repository-relative POSIX path: {path}"
+            )
 
     def _validate_repository(self, repo: RepositorySnapshot) -> RepositorySnapshot:
         repo = RepositorySnapshot.model_validate(repo)
@@ -120,10 +145,9 @@ class FakeEvidenceProvider:
         budget = EvidenceBudget.model_validate(budget)
         if target != self._pack.target:
             raise ValueError("target mismatch")
-        if budget != self._pack.budget:
-            raise ValueError("budget mismatch")
         payload = self._pack.model_dump()
         payload["repository"] = validated_repo
+        payload["budget"] = budget
         return EvidencePack.model_validate(payload)
 
     def get_evidence(
