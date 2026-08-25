@@ -235,7 +235,9 @@ class RunOrchestrator:
                     self.queue.replace_record(
                         self.queue.record().with_target(record)
                     )
-                    record = record.transition(TargetState.VERIFIED)
+                    record = record.transition(TargetState.VERIFIED).model_copy(
+                        update={"lease": None}
+                    )
                     self.queue.replace_record(
                         self.queue.record().with_target(record)
                     )

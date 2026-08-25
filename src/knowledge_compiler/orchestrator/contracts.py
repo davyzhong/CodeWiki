@@ -44,7 +44,14 @@ _LEGAL_TRANSITIONS: dict[TargetState, frozenset[TargetState]] = {
         {TargetState.EXTRACTION_LEASED, TargetState.DONE}
     ),
     TargetState.EXTRACTION_LEASED: frozenset(
-        {TargetState.DRAFT_SUBMITTED, TargetState.REPAIR_PENDING, TargetState.DONE}
+        {
+            TargetState.DRAFT_SUBMITTED,
+            TargetState.REPAIR_PENDING,
+            # Lease-expiry rollback returns the target to its pre-lease
+            # queue state without losing accepted results.
+            TargetState.EVIDENCE_READY,
+            TargetState.DONE,
+        }
     ),
     TargetState.DRAFT_SUBMITTED: frozenset(
         {TargetState.STRUCTURAL_VALIDATED, TargetState.REPAIR_PENDING, TargetState.DONE}
@@ -56,7 +63,12 @@ _LEGAL_TRANSITIONS: dict[TargetState, frozenset[TargetState]] = {
         {TargetState.VERIFICATION_LEASED, TargetState.DONE}
     ),
     TargetState.VERIFICATION_LEASED: frozenset(
-        {TargetState.VERIFIED, TargetState.REPAIR_PENDING, TargetState.DONE}
+        {
+            TargetState.VERIFIED,
+            TargetState.REPAIR_PENDING,
+            TargetState.SEMANTIC_PENDING,
+            TargetState.DONE,
+        }
     ),
     TargetState.REPAIR_PENDING: frozenset(
         {TargetState.EXTRACTION_LEASED, TargetState.DONE}

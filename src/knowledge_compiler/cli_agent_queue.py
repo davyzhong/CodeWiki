@@ -158,6 +158,9 @@ def submit_extraction(
         record = queue.submit_draft(
             target_id=target_id, lease_token=lease, draft_digest=digest
         )
+        # Structural validation is orchestrator-owned: advance the target
+        # to semantic_pending so the verification lease becomes grantable.
+        record = queue.accept_structural_validation(target_id)
     except (QueueError, RunStoreError, OSError) as error:
         _fail(f"submit-extraction failed: {error}")
         return
@@ -199,14 +202,14 @@ def submit_verification(
     try:
         queue = _load_queue()
         target_id = queue.record().targets[0].target_id
-        record = queue.target(target_id)
         import hashlib
 
         digest = "sha256:" + hashlib.sha256(
             result.read_bytes()
         ).hexdigest()
-        record = record.model_copy(update={"result_digest": digest})
-        queue.replace_record(queue.record().with_target(record))
+        record = queue.submit_verification(
+            target_id=target_id, lease_token=lease, result_digest=digest
+        )
     except (QueueError, RunStoreError, OSError) as error:
         _fail(f"submit-verification failed: {error}")
         return

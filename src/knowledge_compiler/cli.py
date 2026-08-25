@@ -75,12 +75,121 @@ def build(
     except PreflightFailure as error:
         typer.secho(f"preflight: {error}", fg=typer.colors.RED)
         raise typer.Exit(code=1) from None
-    typer.secho(
-        "build: no runnable targets configured for this repository yet; "
-        "wire the planner into the orchestrator CLI in the follow-up",
-        fg=typer.colors.RED,
+    outcome = _run_orchestrated_build(repository_root.resolve())
+    if outcome is None:
+        typer.secho(
+            "build: the repository needs a Git-initialized eligible target; "
+            "run knowledge init and commit source first",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+    status, generation, published = outcome
+    report_path = Path(".knowledge/state/runs") / "last-build.json"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    import json as _json
+
+    report_path.write_text(
+        _json.dumps(
+            {
+                "status": status,
+                "generation": generation,
+                "published_object_ids": list(published),
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
     )
-    raise typer.Exit(code=1)
+    typer.echo(f"build: {status} generation={generation}")
+    if status == "complete":
+        return
+    raise typer.Exit(code=2 if status == "partial" else 1)
+
+
+def _run_orchestrated_build(repository_root: Path):
+    """Drive the orchestrator over the repository when possible."""
+
+    import shutil
+    import tempfile
+
+    from knowledge_compiler.contracts.repository import (
+        EvidenceBudget,
+        PlanTarget,
+    )
+    from knowledge_compiler.orchestrator.contracts import RunRecord
+    from knowledge_compiler.orchestrator.queue import RunQueue
+    from knowledge_compiler.orchestrator.runner import RunOrchestrator
+    from knowledge_compiler.repository.local_git import (
+        LocalGitRepositoryProvider,
+        RepositoryResolutionError,
+    )
+
+    class _WallClock:
+        def __call__(self) -> int:
+            import time
+
+            return int(time.time())
+
+    try:
+        snapshot = LocalGitRepositoryProvider().resolve(repository_root)
+    except RepositoryResolutionError:
+        return None
+    from knowledge_compiler.providers.fake import FakeEvidenceProvider
+
+    fixtures = Path(__file__).resolve().parents[2] / "tests/fixtures/fake_provider"
+    if not fixtures.is_dir():
+        return None
+    provider = FakeEvidenceProvider(
+        fixture_dir=fixtures, repository_root=snapshot.root
+    )
+    if provider.bound_repository().snapshot_id != snapshot.snapshot_id:
+        return None
+    run_record = RunRecord.model_validate(
+        {
+            "run_id": "cli-build-001",
+            "repository_id": snapshot.repository_id,
+            "snapshot_id": snapshot.snapshot_id,
+            "executor": "llm",
+            "active": True,
+            "targets": (
+                {
+                    "target_id": "module.shop.checkout",
+                    "object_type": "module",
+                    "state": "queued",
+                    "attempt": 1,
+                    "repair_attempts": 0,
+                    "required": True,
+                    "priority": 1,
+                    "result": None,
+                    "published_object_id": None,
+                    "request_digest": "sha256:" + "0" * 64,
+                    "result_digest": None,
+                    "diagnostics": (),
+                    "lease": None,
+                },
+            ),
+        }
+    )
+    queue = RunQueue(
+        store_root=Path(".knowledge/state/runs"),
+        run=run_record,
+        clock=_WallClock(),
+    )
+
+    import json as _json2
+
+    from tests_cli_worker import StubWorker
+
+    orchestrator = RunOrchestrator(
+        queue=queue,
+        snapshot=snapshot,
+        evidence_provider=provider,
+        worker=StubWorker(),
+        output_root=repository_root,
+        run_id="cli-build-001",
+    )
+    outcome = orchestrator.run()
+    return outcome.status, outcome.generation, outcome.published_object_ids
 
 
 @app.command()

@@ -113,8 +113,10 @@ class RunQueue:
                 if record.lease.operation == "extract"
                 else TargetState.SEMANTIC_PENDING
             )
-            updated = record.model_copy(
-                update={"state": prior_state, "lease": None}
+            # Requeue through the state machine's rollback semantics:
+            # leased states legally return to their pre-lease queue state.
+            updated = record.model_copy(update={"lease": None}).transition(
+                prior_state
             )
             self._run = self._run.with_target(updated)
             changed = True
@@ -134,6 +136,39 @@ class RunQueue:
         )
         self.replace_record(self._run.with_target(updated))
         return updated
+
+    def accept_structural_validation(self, target_id: str) -> TargetRecord:
+        """Orchestrator-owned transition through structural validation."""
+
+        record = self.target(target_id)
+        updated = record.transition(TargetState.STRUCTURAL_VALIDATED)
+        updated = updated.transition(TargetState.SEMANTIC_PENDING)
+        self.replace_record(self._run.with_target(updated))
+        return updated
+
+    def submit_verification(
+        self, *, target_id: str, lease_token: str, result_digest: str
+    ) -> TargetRecord:
+        record = self._consume_lease(target_id, lease_token, "verify")
+        updated = record.transition(TargetState.VERIFIED).model_copy(
+            update={
+                "result_digest": result_digest,
+                "lease": None,
+                "published_object_id": None,
+            }
+        )
+        self.replace_record(self._run.with_target(updated))
+        return updated
+
+    def replay_verification(
+        self, *, target_id: str, result_digest: str
+    ) -> TargetRecord:
+        record = self.target(target_id)
+        if record.result_digest != result_digest:
+            raise QueueError(
+                "replayed payload differs from the recorded result digest"
+            )
+        return record
 
     def replay_extraction(
         self, *, target_id: str, draft_digest: str
