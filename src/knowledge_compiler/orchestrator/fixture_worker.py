@@ -4,17 +4,21 @@ import json
 from pathlib import Path
 
 
-class StubWorker:
-    """Deterministic CLI worker over the fixture drafts."""
+def _fixtures() -> Path:
+    candidate = (Path(__file__).resolve().parents[3] / "tests/fixtures/fake_provider").resolve()
+    if candidate.is_dir():
+        return candidate
+    raise FileNotFoundError("fixture world unavailable in this checkout")
+
+
+class FixtureWorker:
+    """Deterministic semantic worker over the fixture drafts."""
 
     def extract(self, request):
         from knowledge_compiler.contracts.knowledge import ExtractionResult
 
-        fixtures = (
-            Path(__file__).resolve().parents[1] / "fixtures/fake_provider"
-        )
         payload = json.loads(
-            (fixtures / "module-extraction.json").read_text(encoding="utf-8")
+            (_fixtures() / "module-extraction.json").read_text(encoding="utf-8")
         )
         payload["draft"]["scope"] = {
             "repository": request.evidence_pack.repository.repository_id,
@@ -34,11 +38,8 @@ class StubWorker:
     def verify(self, request):
         from knowledge_compiler.contracts.semantic import VerificationResult
 
-        fixtures = (
-            Path(__file__).resolve().parents[1] / "fixtures/fake_provider"
-        )
         payload = json.loads(
-            (fixtures / "module-verification.json").read_text(encoding="utf-8")
+            (_fixtures() / "module-verification.json").read_text(encoding="utf-8")
         )
         for field in (
             "contract_version", "run_id", "target_id", "operation",
@@ -48,4 +49,4 @@ class StubWorker:
         return VerificationResult.model_validate(payload)
 
 
-__all__ = ["StubWorker"]
+__all__ = ["FixtureWorker"]

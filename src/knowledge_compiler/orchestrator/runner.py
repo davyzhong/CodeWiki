@@ -255,7 +255,7 @@ class RunOrchestrator:
                 )
                 diagnostics.append(f"{target_id}: verification rejected the draft")
                 return None, tuple(diagnostics)
-        except (QueueError, ValueError, RuntimeError) as error:
+        except (QueueError, ValueError, RuntimeError, OSError) as error:
             record = self.queue.target(target_id)
             finished = record.finish(
                 TerminalResult.INVALID, diagnostics=(str(error)[:500],)

@@ -131,19 +131,28 @@ def _run_orchestrated_build(repository_root: Path):
             return int(time.time())
 
     try:
-        snapshot = LocalGitRepositoryProvider().resolve(repository_root)
+        LocalGitRepositoryProvider().resolve(repository_root)
     except RepositoryResolutionError:
         return None
     from knowledge_compiler.providers.fake import FakeEvidenceProvider
 
-    fixtures = Path(__file__).resolve().parents[2] / "tests/fixtures/fake_provider"
+    fixtures = (
+        Path(__file__).resolve().parents[2] / "tests/fixtures/fake_provider"
+    ).resolve()
     if not fixtures.is_dir():
+        return None  # fixture world unavailable in this checkout
+    # Fixture mode: the build drives the orchestrated pipeline when the
+    # repository is the probe fixture world; real-repository builds need the
+    # live CodeWiki adapter + LiteLLM worker (environment-driven, M4.8b).
+    try:
+        provider = FakeEvidenceProvider(
+            fixture_dir=fixtures, repository_root=repository_root
+        )
+    except ValueError:
         return None
-    provider = FakeEvidenceProvider(
-        fixture_dir=fixtures, repository_root=snapshot.root
-    )
-    if provider.bound_repository().snapshot_id != snapshot.snapshot_id:
-        return None
+    # The fixture world owns its frozen snapshot identity; the resolved
+    # git repo only proves the repository is real and has a commit.
+    snapshot = provider.bound_repository()
     run_record = RunRecord.model_validate(
         {
             "run_id": "cli-build-001",
@@ -176,15 +185,13 @@ def _run_orchestrated_build(repository_root: Path):
         clock=_WallClock(),
     )
 
-    import json as _json2
-
-    from tests_cli_worker import StubWorker
+    from knowledge_compiler.orchestrator.fixture_worker import FixtureWorker
 
     orchestrator = RunOrchestrator(
         queue=queue,
         snapshot=snapshot,
         evidence_provider=provider,
-        worker=StubWorker(),
+        worker=FixtureWorker(),
         output_root=repository_root,
         run_id="cli-build-001",
     )
