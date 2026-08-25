@@ -127,8 +127,32 @@ def compile_architecture_yaml(architecture: object) -> bytes:
     return text.encode("utf-8")
 
 
+def compile_flow_yaml(flow: object) -> bytes:
+    """Compile canonical FlowKnowledge to deterministic YAML bytes."""
+
+    from knowledge_compiler.contracts.knowledge import FlowKnowledge
+
+    if not isinstance(flow, FlowKnowledge):
+        raise CompilerInputError("input must be a verified canonical FlowKnowledge")
+    try:
+        canonical = FlowKnowledge.model_validate(flow.model_dump(mode="json"))
+    except (PydanticSerializationError, TypeError, ValueError) as error:
+        raise CompilerInputError("flow contract dump/revalidation failed") from error
+    if canonical.validity.status != "verified":
+        raise CompilerInputError("flow validity must be verified")
+    text = yaml.safe_dump(
+        canonical.model_dump(mode="json"),
+        sort_keys=False,
+        allow_unicode=True,
+        default_flow_style=False,
+        width=1000,
+    )
+    return text.encode("utf-8")
+
+
 __all__ = [
     "CompilerInputError",
     "compile_architecture_yaml",
+    "compile_flow_yaml",
     "compile_module_yaml",
 ]

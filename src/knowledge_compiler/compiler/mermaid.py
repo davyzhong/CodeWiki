@@ -16,9 +16,13 @@ def mermaid_identifier(value: str) -> str:
     return cleaned
 
 
+_URL_SCHEME = re.compile(r"https?://")
+
+
 def mermaid_label(value: str) -> str:
     cleaned = _SAFE_LABEL.sub("", value)
     cleaned = cleaned.replace('"', "'")
+    cleaned = _URL_SCHEME.sub("", cleaned)
     return cleaned[:120]
 
 
@@ -43,4 +47,30 @@ def compile_architecture_graph(architecture: ArchitectureKnowledge) -> bytes:
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
-__all__ = ["compile_architecture_graph", "mermaid_identifier", "mermaid_label"]
+def compile_flow_sequence(flow) -> bytes:
+    """Render a deterministic, escaped Mermaid sequence diagram."""
+
+    from knowledge_compiler.contracts.knowledge import FlowKnowledge
+
+    validated = FlowKnowledge.model_validate(flow.model_dump(mode="json"))
+    lines = ["sequenceDiagram"]
+    for step in validated.steps:
+        lines.append(
+            f"    {mermaid_label(step.step_id)}: {mermaid_label(step.description)}"
+        )
+        participants = list(step.participants)
+        if len(participants) >= 2:
+            lines.append(
+                f"    {mermaid_identifier(participants[0])}->>"
+                f"{mermaid_identifier(participants[1])}: "
+                f"{mermaid_label(step.description)}"
+            )
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
+__all__ = [
+    "compile_architecture_graph",
+    "compile_flow_sequence",
+    "mermaid_identifier",
+    "mermaid_label",
+]
