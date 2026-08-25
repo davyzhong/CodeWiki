@@ -86,7 +86,7 @@ c865dc9 docs: reconcile human-layer revision findings
 - [ ] Run `git status --short --branch`; expect clean `main`, ahead of `origin/main` per section 0.4 unless another Agent has intentionally continued.
 - [ ] Run `git branch --all`; expect no development branch.
 - [ ] Run `git log --oneline --decorate -20`; reconcile any new commits with this handoff before proceeding.
-- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 394 passing tests.
+- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 402 passing tests.
 - [ ] Run the boundary scan:
 
 ```bash
@@ -264,7 +264,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Keep live CodeWiki tests opt-in; deterministic CI uses captured fixtures.
 - [ ] Run focused/full/boundary tests, review, and commit.
 
-### M2.4 Preflight and repository configuration — implemented, review pending
+### M2.4 Preflight and repository configuration — completed (review APPROVED in the M2.4-2.7 round, fixes in `2b821bc`)
 
 **Suggested files:** `config.py`, `preflight.py`, `cli.py`, `tests/test_config.py`, `tests/cli/test_init.py`.
 
@@ -278,7 +278,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Add help, invalid input, exit-code, and sanitized error tests.
 - [ ] Run focused/full tests, review, and commit.
 
-### M2.5 One-Module Planner and KnowledgePlan contracts — implemented, review pending
+### M2.5 One-Module Planner and KnowledgePlan contracts — completed (review APPROVED in the M2.4-2.7 round)
 
 **Suggested files:** `contracts/planning.py`, `planning/module.py`, `tests/planning/test_module_plan.py`.
 
@@ -290,7 +290,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Add `insufficient_evidence`/empty-plan behavior without fabricating a Module.
 - [ ] Run focused/full tests, review, and commit.
 
-### M2.6 Built-in LiteLLM SemanticWorker — implemented, review pending
+### M2.6 Built-in LiteLLM SemanticWorker — completed (review APPROVED in the M2.4-2.7 round)
 
 **Suggested files:** `workers/base.py`, `workers/litellm.py`, `prompts/`, `tests/workers/test_litellm_worker.py`.
 
@@ -307,7 +307,9 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Make paid/live tests opt-in and skipped without credentials.
 - [ ] Run focused/full/security tests, review, and commit.
 
-### M2.7 Real-provider one-Module integration harness and gate
+### M2.7 Real-provider one-Module integration harness and gate — completed
+
+> M2.4-2.7 combined review: first round CHANGES REQUIRED (litellm dependency reach, missing scope-limit and version stops, dead code) — all fixed in `2b821bc`; re-review APPROVED. M2 exit gate: full suite 402×2, boundary scan and diff check clean; the fixture path proves the complete pipeline and the live path stays opt-in. M3 backlog notes from the review: wire resolved inventory counts into the scope-limit stop when the orchestrator lands, and sanitize the realslice CLI's provider-construction failures.
 
 - [ ] Build a non-orchestrated integration harness that performs preflight → resolve → index/survey → plan one Module → bounded pack → built-in extraction → local validation → separate verification → canonicalization → M1 publication.
 - [ ] Run the same normalized repository/Module scenario through Fake and CodeWiki fixture adapters and compare contract-level results.
