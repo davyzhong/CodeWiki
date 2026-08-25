@@ -86,7 +86,7 @@ c865dc9 docs: reconcile human-layer revision findings
 - [ ] Run `git status --short --branch`; expect clean `main`, ahead of `origin/main` per section 0.4 unless another Agent has intentionally continued.
 - [ ] Run `git branch --all`; expect no development branch.
 - [ ] Run `git log --oneline --decorate -20`; reconcile any new commits with this handoff before proceeding.
-- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 538 passing tests.
+- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 551 passing tests.
 - [ ] Run the boundary scan:
 
 ```bash
@@ -588,7 +588,13 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 **Outcome:** Humans add protected knowledge through Git-tracked overlays; automated regeneration never rewrites or deletes it; human–machine conflicts surface as explicit `conflicted` targets; retirement archives overlays; later views and retrieval expose attributed human content.
 
-### M6.1 Write and approve the exact human-layer plan
+### M6.1 Write and approve the exact human-layer plan — completed via spec §6.5
+
+> Design revision added §5.10 and §6.5 directly (approved through three consistency-review rounds). The plan task was satisfied by the spec revision itself; implementation proceeded directly.
+
+### M6.2-M6.3 Human overlay contracts + knowledge edit — completed
+
+> Overlay contracts (`004529e`): strict schema with per-type field validation, timezone-explicit timestamps, note ownership, supplement/override modes. knowledge edit (`7dfb1ee`): creates/opens overlays in $EDITOR or prints path, validates on save, invalid content keeps the file. 551 tests. REMAINING (M6.4-M6.5): regeneration preservation and conflict semantics require the orchestrator invalidation wiring (M5.8 follow-up); retirement archiving requires the retirement transaction wiring.
 
 - [ ] Create `docs/superpowers/plans/2026-08-25-human-knowledge-layer.md` using the writing-plans skill.
 - [ ] Derive every rule from design Sections 5.10 and 6.5: overlay schema, `supplement`/`override` semantics, note identities, explicit `updated_at`, `execution_mode: human`, conflict rule, retirement archiving, orphaned-overlay rendering.
