@@ -275,6 +275,19 @@ def test_rejects_unsafe_object_id_defense_in_depth(value: object) -> None:
         GenerationPublisher._validate_object_id(value)
 
 
+def test_rejects_generation_id_reuse_with_differing_content(tmp_path: Path) -> None:
+    module, pack = _verified_inputs()
+    publisher = GenerationPublisher(tmp_path)
+    publisher.publish("generation-001", module, pack)
+    before = _visible(tmp_path)
+    replacement = _with_summary(module, "Differing summary under a reused id.")
+
+    with pytest.raises(PublicationError, match="generation id reuse"):
+        publisher.publish("generation-001", replacement, pack)
+
+    assert _visible(tmp_path) == before
+
+
 def test_recovery_is_idempotent_after_interruption(tmp_path: Path) -> None:
     module, pack = _verified_inputs()
     GenerationPublisher(tmp_path).publish("generation-001", module, pack)

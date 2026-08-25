@@ -90,9 +90,22 @@ class GenerationPublisher:
         except Exception as error:
             raise PublicationError(f"generation compilation failed: {error}") from error
 
+        payloads = {**compiled, "manifest": manifest}
         module_id = self._safe_object_id(module)
         destinations = self._destinations(module_id)
         transaction = self.transactions_root / generation
+        # A generation id names one committed content set. Republishing the
+        # same id with differing bytes would let a later recovery mistake a
+        # partially replaced tree for a committed one, so reject the
+        # ambiguity before the first mutation.
+        if self._manifest_generation() == generation:
+            for name, destination in destinations.items():
+                if not self._lexists(destination) or self._read_regular(
+                    destination
+                ) != payloads[name]:
+                    raise PublicationError(
+                        "generation id reuse with differing content: " + name
+                    )
         try:
             self._assert_safe_roots(create=True)
             if transaction.exists() or transaction.is_symlink():
@@ -105,7 +118,6 @@ class GenerationPublisher:
             self._mkdir(stage)
             self._mkdir(backup)
 
-            payloads = {**compiled, "manifest": manifest}
             staged: dict[str, Path] = {}
             for name, data in payloads.items():
                 path = stage / name
