@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, ClassVar, Literal
 
 from pydantic import (
@@ -220,6 +220,10 @@ class _ModulePayload(_ContractModel):
             raise ValueError(f"unknown Claim references: {', '.join(unknown)}")
 
 
+KNOWLEDGE_OBJECT_ID_PATTERN = re.compile(
+    r"^(module|architecture|flow|rule|tech-stack)"
+    r"\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$"
+)
 FLOW_ID_PATTERN = re.compile(
     r"^flow\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$"
 )
@@ -326,6 +330,137 @@ class FlowKnowledge(_ContractModel):
         referenced: list[str] = list(self.summary.claim_ids)
         referenced.extend(self.trigger.claim_ids)
         for collection in (self.steps, self.failure_paths):
+            for item in collection:
+                referenced.extend(item.claim_ids)
+        known = {claim.id for claim in self.claims}
+        unknown = sorted(set(referenced) - known)
+        if unknown:
+            raise ValueError(f"unknown Claim references: {', '.join(unknown)}")
+        if (
+            self.validity.status == "verified"
+            and self.validity.verified_commit != self.scope.commit
+        ):
+            raise ValueError(
+                "verified validity verified_commit must match the scope commit"
+            )
+        return self
+
+
+RULE_ID_PATTERN = re.compile(
+    r"^rule\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$"
+)
+RULE_CLAIM_PATTERN = re.compile(
+    r"^rule\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*"
+    r"\.claim\.[a-z0-9][a-z0-9_-]*$"
+)
+
+
+class RuleConstraint(_ClaimBacked):
+    description: NonBlankString
+
+
+class RuleException(_ClaimBacked):
+    description: NonBlankString
+
+
+class RuleApplicability(_ClaimBacked):
+    paths: tuple[str, ...]
+
+    @field_validator("paths")
+    @classmethod
+    def normalize_paths(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if not value:
+            raise ValueError("rule applicability requires at least one path")
+        for path in value:
+            parsed = PurePosixPath(path) if path and "/" in path else None
+            if (
+                not path
+                or path.startswith("/")
+                or (parsed is not None and ".." in parsed.parts)
+            ):
+                raise ValueError(
+                    "rule applicability paths must be safe relative paths"
+                )
+        if len(value) != len(set(value)):
+            raise ValueError("duplicate applicability paths are not allowed")
+        return tuple(sorted(value))
+
+
+class RuleKnowledge(_ContractModel):
+    schema_version: Literal["0.1"] = "0.1"
+    id: str
+    type: Literal["rule"] = "rule"
+    title: NonBlankString
+    scope: Scope
+    summary: ClaimBackedText
+    statement: ClaimBackedText
+    severity: Literal["must", "should", "may"]
+    applicability: RuleApplicability
+    constraints: tuple[RuleConstraint, ...] = ()
+    exceptions: tuple[RuleException, ...] = ()
+    related_objects: tuple[str, ...] = ()
+    claims: tuple[Claim, ...]
+    provenance: Provenance
+    validity: Validity
+
+    @field_validator("id")
+    @classmethod
+    def validate_rule_id(cls, value: str) -> str:
+        if not RULE_ID_PATTERN.fullmatch(value):
+            raise ValueError("rule ID must match rule.<domain>.<name>")
+        return value
+
+    @field_validator("related_objects")
+    @classmethod
+    def normalize_related(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if len(value) != len(set(value)):
+            raise ValueError("duplicate related objects are not allowed")
+        for target in value:
+            if not KNOWLEDGE_OBJECT_ID_PATTERN.fullmatch(target):
+                raise ValueError(
+                    f"related object id has an unsafe shape: {target}"
+                )
+        return tuple(sorted(value))
+
+    @field_validator("constraints")
+    @classmethod
+    def normalize_constraints(
+        cls, value: tuple[RuleConstraint, ...]
+    ) -> tuple[RuleConstraint, ...]:
+        descriptions = [item.description for item in value]
+        if len(descriptions) != len(set(descriptions)):
+            raise ValueError("duplicate rule constraints are not allowed")
+        return tuple(sorted(value, key=lambda item: item.description))
+
+    @field_validator("exceptions")
+    @classmethod
+    def normalize_exceptions(
+        cls, value: tuple[RuleException, ...]
+    ) -> tuple[RuleException, ...]:
+        descriptions = [item.description for item in value]
+        if len(descriptions) != len(set(descriptions)):
+            raise ValueError("duplicate rule exceptions are not allowed")
+        return tuple(sorted(value, key=lambda item: item.description))
+
+    @field_validator("claims")
+    @classmethod
+    def normalize_rule_claims(cls, value: tuple[Claim, ...]) -> tuple[Claim, ...]:
+        ids = [claim.id for claim in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate Claim IDs are not allowed")
+        for claim in value:
+            if not RULE_CLAIM_PATTERN.fullmatch(claim.id):
+                raise ValueError(
+                    "Claim ID must match rule.<domain>.<name>.claim.<slug>"
+                )
+        return tuple(sorted(value, key=lambda claim: claim.id))
+
+    @model_validator(mode="after")
+    def validate_rule_references(self) -> RuleKnowledge:
+        referenced: list[str] = list(self.summary.claim_ids)
+        referenced.extend(self.statement.claim_ids)
+        referenced.extend(self.applicability.claim_ids)
+        for collection in (self.constraints, self.exceptions):
             for item in collection:
                 referenced.extend(item.claim_ids)
         known = {claim.id for claim in self.claims}
@@ -537,6 +672,10 @@ class ModuleKnowledge(_ModulePayload):
 
 
 __all__ = [
+    "RuleApplicability",
+    "RuleConstraint",
+    "RuleException",
+    "RuleKnowledge",
     "FlowFailurePath",
     "FlowKnowledge",
     "FlowStep",

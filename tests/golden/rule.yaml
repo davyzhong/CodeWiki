@@ -1,0 +1,95 @@
+schema_version: '0.1'
+id: rule.shop.reservation-first
+type: rule
+title: Reserve before charging
+scope:
+  repository: fixture/probe-shop
+  root: /fixture/probe_repo
+  branch: main
+  commit: probe-fixture-v1
+  dirty: false
+  working_tree_hash: null
+summary:
+  claim_ids:
+  - rule.shop.reservation-first.claim.summary
+  text: Checkout must reserve inventory before charging.
+statement:
+  claim_ids:
+  - rule.shop.reservation-first.claim.statement
+  text: Always reserve inventory before creating an order.
+severity: must
+applicability:
+  claim_ids:
+  - rule.shop.reservation-first.claim.applicability
+  paths:
+  - src/shop/checkout.py
+constraints:
+- claim_ids:
+  - rule.shop.reservation-first.claim.statement
+  description: Reservation failures abort checkout.
+exceptions: []
+related_objects:
+- flow.shop.checkout
+- module.shop.checkout
+claims:
+- id: rule.shop.reservation-first.claim.applicability
+  statement: The rule applies to checkout code.
+  evidence_ids:
+  - sha256:1111111111111111111111111111111111111111111111111111111111111111
+  confidence:
+    score: 0.9
+    basis: structure
+  required: true
+  verification:
+    status: supported
+    verifier: fixture-verifier-v1
+    evidence_ids:
+    - sha256:1111111111111111111111111111111111111111111111111111111111111111
+    excerpt_hashes:
+    - sha256:2222222222222222222222222222222222222222222222222222222222222222
+    verification_request_digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+- id: rule.shop.reservation-first.claim.statement
+  statement: Reservation failures abort checkout.
+  evidence_ids:
+  - sha256:1111111111111111111111111111111111111111111111111111111111111111
+  confidence:
+    score: 0.9
+    basis: structure
+  required: true
+  verification:
+    status: supported
+    verifier: fixture-verifier-v1
+    evidence_ids:
+    - sha256:1111111111111111111111111111111111111111111111111111111111111111
+    excerpt_hashes:
+    - sha256:2222222222222222222222222222222222222222222222222222222222222222
+    verification_request_digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+- id: rule.shop.reservation-first.claim.summary
+  statement: Checkout must reserve inventory before charging.
+  evidence_ids:
+  - sha256:1111111111111111111111111111111111111111111111111111111111111111
+  confidence:
+    score: 0.9
+    basis: structure
+  required: true
+  verification:
+    status: supported
+    verifier: fixture-verifier-v1
+    evidence_ids:
+    - sha256:1111111111111111111111111111111111111111111111111111111111111111
+    excerpt_hashes:
+    - sha256:2222222222222222222222222222222222222222222222222222222222222222
+    verification_request_digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+provenance:
+  execution_mode: fake
+  model: fixture-model-v1
+  prompt_version: rule-extraction-v1
+  schema_version: '0.1'
+  generated_at: '2026-08-25T09:30:00Z'
+validity:
+  status: verified
+  verified_commit: probe-fixture-v1
+  stale_reason: null
+  validation_report:
+  - structural
+  - semantic
