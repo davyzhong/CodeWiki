@@ -477,6 +477,132 @@ class RuleKnowledge(_ContractModel):
         return self
 
 
+TECH_STACK_ID_PATTERN = re.compile(
+    r"^tech-stack\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$"
+)
+TECH_STACK_CLAIM_PATTERN = re.compile(
+    r"^tech-stack\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*"
+    r"\.claim\.[a-z0-9][a-z0-9_-]*$"
+)
+_VERSION_PATTERN = re.compile(
+    r"^(unknown|\d+[0-9A-Za-z.+-]*(?:/[0-9A-Za-z.+-]+)*)$"
+)
+
+
+class TechEntry(_ClaimBacked):
+    name: NonBlankString
+    category: NonBlankString
+    version: str
+    scope: NonBlankString
+
+    @field_validator("version")
+    @classmethod
+    def validate_version(cls, value: str) -> str:
+        if not _VERSION_PATTERN.fullmatch(value):
+            raise ValueError(
+                "version must be an explicit identifier or the literal "
+                "'unknown'; never a guess"
+            )
+        return value
+
+
+class TechConfiguration(_ClaimBacked):
+    path: str
+    description: NonBlankString
+
+    @field_validator("path")
+    @classmethod
+    def validate_config_path(cls, value: str) -> str:
+        parsed = PurePosixPath(value)
+        if (
+            not value
+            or value.startswith("/")
+            or ".." in parsed.parts
+            or parsed.as_posix() != value
+        ):
+            raise ValueError(
+                "configuration path must be a safe relative POSIX path"
+            )
+        return value
+
+
+class TechStackKnowledge(_ContractModel):
+    schema_version: Literal["0.1"] = "0.1"
+    id: str
+    type: Literal["tech-stack"] = "tech-stack"
+    title: NonBlankString
+    scope: Scope
+    summary: ClaimBackedText
+    entries: tuple[TechEntry, ...]
+    configurations: tuple[TechConfiguration, ...] = ()
+    claims: tuple[Claim, ...]
+    provenance: Provenance
+    validity: Validity
+
+    @field_validator("id")
+    @classmethod
+    def validate_tech_stack_id(cls, value: str) -> str:
+        if not TECH_STACK_ID_PATTERN.fullmatch(value):
+            raise ValueError(
+                "tech-stack ID must match tech-stack.<domain>.<name>"
+            )
+        return value
+
+    @field_validator("entries")
+    @classmethod
+    def normalize_entries(
+        cls, value: tuple[TechEntry, ...]
+    ) -> tuple[TechEntry, ...]:
+        keys = [(entry.category, entry.name) for entry in value]
+        if len(keys) != len(set(keys)):
+            raise ValueError("duplicate technology aliases are not allowed")
+        if not value:
+            raise ValueError("tech-stack requires at least one entry")
+        return tuple(sorted(value, key=lambda entry: (entry.category, entry.name)))
+
+    @field_validator("configurations")
+    @classmethod
+    def normalize_configurations(
+        cls, value: tuple[TechConfiguration, ...]
+    ) -> tuple[TechConfiguration, ...]:
+        paths = [item.path for item in value]
+        if len(paths) != len(set(paths)):
+            raise ValueError("duplicate configuration paths are not allowed")
+        return tuple(sorted(value, key=lambda item: item.path))
+
+    @field_validator("claims")
+    @classmethod
+    def normalize_tech_claims(cls, value: tuple[Claim, ...]) -> tuple[Claim, ...]:
+        ids = [claim.id for claim in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate Claim IDs are not allowed")
+        for claim in value:
+            if not TECH_STACK_CLAIM_PATTERN.fullmatch(claim.id):
+                raise ValueError(
+                    "Claim ID must match tech-stack.<domain>.<name>.claim.<slug>"
+                )
+        return tuple(sorted(value, key=lambda claim: claim.id))
+
+    @model_validator(mode="after")
+    def validate_tech_references(self) -> TechStackKnowledge:
+        referenced: list[str] = list(self.summary.claim_ids)
+        for collection in (self.entries, self.configurations):
+            for item in collection:
+                referenced.extend(item.claim_ids)
+        known = {claim.id for claim in self.claims}
+        unknown = sorted(set(referenced) - known)
+        if unknown:
+            raise ValueError(f"unknown Claim references: {', '.join(unknown)}")
+        if (
+            self.validity.status == "verified"
+            and self.validity.verified_commit != self.scope.commit
+        ):
+            raise ValueError(
+                "verified validity verified_commit must match the scope commit"
+            )
+        return self
+
+
 class DraftModuleKnowledge(_ModulePayload):
     claims: tuple[DraftClaim, ...]
 
@@ -672,6 +798,9 @@ class ModuleKnowledge(_ModulePayload):
 
 
 __all__ = [
+    "TechConfiguration",
+    "TechEntry",
+    "TechStackKnowledge",
     "RuleApplicability",
     "RuleConstraint",
     "RuleException",

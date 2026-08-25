@@ -1,0 +1,95 @@
+schema_version: '0.1'
+id: tech-stack.shop.platform
+type: tech-stack
+title: Shop platform stack
+scope:
+  repository: fixture/probe-shop
+  root: /fixture/probe_repo
+  branch: main
+  commit: probe-fixture-v1
+  dirty: false
+  working_tree_hash: null
+summary:
+  claim_ids:
+  - tech-stack.shop.platform.claim.summary
+  text: The shop runs on Python with Pydantic.
+entries:
+- claim_ids:
+  - tech-stack.shop.platform.claim.python-version
+  name: python
+  category: language
+  version: '3.12'
+  scope: runtime
+- claim_ids:
+  - tech-stack.shop.platform.claim.pydantic-usage
+  name: pydantic
+  category: library
+  version: unknown
+  scope: dependency
+configurations:
+- claim_ids:
+  - tech-stack.shop.platform.claim.python-version
+  path: pyproject.toml
+  description: Declares the runtime and dependencies.
+claims:
+- id: tech-stack.shop.platform.claim.pydantic-usage
+  statement: The project uses the technology.
+  evidence_ids:
+  - sha256:1111111111111111111111111111111111111111111111111111111111111111
+  confidence:
+    score: 0.9
+    basis: manifest
+  required: true
+  verification:
+    status: supported
+    verifier: fixture-verifier-v1
+    evidence_ids:
+    - sha256:1111111111111111111111111111111111111111111111111111111111111111
+    excerpt_hashes:
+    - sha256:2222222222222222222222222222222222222222222222222222222222222222
+    verification_request_digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+- id: tech-stack.shop.platform.claim.python-version
+  statement: The project uses the technology.
+  evidence_ids:
+  - sha256:1111111111111111111111111111111111111111111111111111111111111111
+  confidence:
+    score: 0.9
+    basis: manifest
+  required: true
+  verification:
+    status: supported
+    verifier: fixture-verifier-v1
+    evidence_ids:
+    - sha256:1111111111111111111111111111111111111111111111111111111111111111
+    excerpt_hashes:
+    - sha256:2222222222222222222222222222222222222222222222222222222222222222
+    verification_request_digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+- id: tech-stack.shop.platform.claim.summary
+  statement: The project uses the technology.
+  evidence_ids:
+  - sha256:1111111111111111111111111111111111111111111111111111111111111111
+  confidence:
+    score: 0.9
+    basis: manifest
+  required: true
+  verification:
+    status: supported
+    verifier: fixture-verifier-v1
+    evidence_ids:
+    - sha256:1111111111111111111111111111111111111111111111111111111111111111
+    excerpt_hashes:
+    - sha256:2222222222222222222222222222222222222222222222222222222222222222
+    verification_request_digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+provenance:
+  execution_mode: fake
+  model: fixture-model-v1
+  prompt_version: tech-stack-extraction-v1
+  schema_version: '0.1'
+  generated_at: '2026-08-25T09:30:00Z'
+validity:
+  status: verified
+  verified_commit: probe-fixture-v1
+  stale_reason: null
+  validation_report:
+  - structural
+  - semantic

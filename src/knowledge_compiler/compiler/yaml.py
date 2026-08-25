@@ -220,6 +220,43 @@ def compile_rule_card(rule: object) -> bytes:
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
+def compile_tech_stack_yaml(stack: object) -> bytes:
+    from knowledge_compiler.contracts.knowledge import TechStackKnowledge
+
+    return _compile_typed_yaml(TechStackKnowledge, stack, "TechStackKnowledge")
+
+
+def compile_tech_stack_card(stack: object) -> bytes:
+    from knowledge_compiler.compiler.markdown import _code, _text
+    from knowledge_compiler.contracts.knowledge import TechStackKnowledge
+
+    canonical = TechStackKnowledge.model_validate(stack.model_dump(mode="json"))
+    lines = [
+        f"# {_text(canonical.title)}",
+        "",
+        f"{_code(canonical.id)} · verified at "
+        f"{_code(canonical.validity.verified_commit)}",
+        "",
+        _text(canonical.summary.text),
+        "",
+        "## Technologies",
+        "",
+    ]
+    for entry in canonical.entries:
+        lines.append(
+            f"- {_code(entry.name)} — {entry.category} · version "
+            f"{_code(entry.version)} · {_text(entry.scope)}"
+        )
+    if canonical.configurations:
+        lines.extend(["", "## Configuration evidence", ""])
+        for configuration in canonical.configurations:
+            lines.append(
+                f"- {_code(configuration.path)} — "
+                f"{_text(configuration.description)}"
+            )
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
 __all__ = [
     "CompilerInputError",
     "compile_architecture_yaml",
@@ -227,4 +264,6 @@ __all__ = [
     "compile_module_yaml",
     "compile_rule_card",
     "compile_rule_yaml",
+    "compile_tech_stack_card",
+    "compile_tech_stack_yaml",
 ]
