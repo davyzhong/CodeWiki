@@ -86,7 +86,7 @@ c865dc9 docs: reconcile human-layer revision findings
 - [ ] Run `git status --short --branch`; expect clean `main`, ahead of `origin/main` per section 0.4 unless another Agent has intentionally continued.
 - [ ] Run `git branch --all`; expect no development branch.
 - [ ] Run `git log --oneline --decorate -20`; reconcile any new commits with this handoff before proceeding.
-- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 509 passing tests.
+- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 538 passing tests.
 - [ ] Run the boundary scan:
 
 ```bash
@@ -508,7 +508,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 ### M5.1 Write and approve the incremental lifecycle plan — completed
 
-> Plan: `docs/superpowers/plans/2026-08-25-incremental-lifecycle.md`, review CHANGES REQUIRED (5 findings) then APPROVED at `c54f78a`. Implementation Tasks 2-7 remain.
+> Plan: `docs/superpowers/plans/2026-08-25-incremental-lifecycle.md`, APPROVED at `c54f78a`. Milestone review APPROVED with recorded follow-ups: baseline+ChangeSet (`2cbc119`), invalidation library (`433a96a`), pending targets (`708d098`), deterministic retirement (`9f8a758`), update CLI (`833c5b6`), 538 tests. FOLLOW-UPS (M5.8): (a) /knowledge-update Skill extension was claimed but not delivered — add with protocol-pinned tests; (b) corrupt baseline silently no-ops instead of triggering full refresh; (c) rename proof uses content hash alone, not blob+hash; (d) update CLI always exits 0, never 1/2; (e) invalidation/pending/retirement are library-level only, not wired as full transactions with Card removal, manifest binding, and retirement_pending creation.
 
 - [ ] Specify baseline inventory schema/version, ChangeSet semantics, invalidation transaction, affected-target derivation, pending retry behavior, retirement proof, provider failure, branch/dirty/shallow behavior, and `knowledge update` CLI.
 - [ ] Specify how M5 generation metadata will later bind M7 FTS.
