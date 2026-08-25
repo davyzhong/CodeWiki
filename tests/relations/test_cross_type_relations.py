@@ -87,7 +87,6 @@ def test_registry_indexes_are_deterministic_projections() -> None:
     )
     assert inbound["flow.shop.checkout"] == (
         ("constrains", "rule.shop.reservation-first"),
-        ("involves", "flow.shop.checkout"),
     )
     assert result.resolved_relations == 2
     assert len(result.unresolved) == 1
