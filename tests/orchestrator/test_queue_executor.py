@@ -22,10 +22,12 @@ def test_executor_completes_and_resumes_after_interruption(
     assert first.status == "failed"
 
     # A fresh executor over a fresh run resumes the same target cleanly.
+    from knowledge_compiler.orchestrator.contracts import TargetState
+
     resumed_targets = tuple(
         record.model_copy(
             update={
-                "state": "queued",
+                "state": TargetState.QUEUED,
                 "result": None,
                 "result_digest": None,
                 "published_object_id": None,
@@ -51,6 +53,7 @@ def test_executor_completes_and_resumes_after_interruption(
         evidence_provider=failing.evidence_provider,
         worker=StubWorker(),
         output_root=tmp_path / "out",
+        run_id="orch-run-002",
     )
     outcome = executor.execute_all()
     assert outcome.status == "complete"

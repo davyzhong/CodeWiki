@@ -234,10 +234,12 @@ def test_runner_preserves_previous_generation_on_failure(tmp_path: Path) -> None
             ),
         }
     )
+    from knowledge_compiler.orchestrator.contracts import TargetState as _TS
+
     fresh_targets = tuple(
         record.model_copy(
             update={
-                "state": "queued",
+                "state": _TS.QUEUED,
                 "result": None,
                 "result_digest": None,
                 "published_object_id": None,
