@@ -16,10 +16,13 @@
 
 ## Gate 2 — Atomic multi-object generation
 
-- [ ] Add a failing test publishing at least two different object types in one generation.
-- [ ] Replace per-object publication with one precompiled, journaled generation transaction.
-- [ ] Preserve manifest-last commit, byte-exact replay, N+1 rollback, and recovery idempotency.
-- [ ] Prove removal and replacement of a complete generation cannot expose a mixed tree.
+- [x] Add a failing test publishing at least two different object types in one generation.
+- [x] Replace per-object publication with one precompiled, journaled generation transaction.
+- [x] Preserve manifest-last commit, byte-exact replay, N+1 rollback, and recovery idempotency.
+- [x] Prove removal and replacement of a complete generation cannot expose a mixed tree.
+- [x] Switch RunOrchestrator publication ownership to the batch transaction.
+- [x] Run storage/orchestrator focused suites (104 passed) and the full suite (561 passed).
+- [x] Commit and push `ddb1f63`.
 
 ## Gate 3 — Generic persisted orchestrator
 
