@@ -198,7 +198,7 @@ Exposes read-only knowledge and evidence retrieval over stdio. It does not perfo
 
 ### 5.10 Human knowledge layer
 
-Loads and validates Git-tracked human overlays under `.knowledge/human/`. An overlay carries human-authored supplements, field overrides, and notes with an explicit timestamp and optional evidence pointers. The layer is a read-only input to compilation, retrieval, and regeneration: no automated process rewrites, regenerates, or deletes overlay content. `knowledge edit <object-id>` is the supported edit surface.
+Loads and validates Git-tracked human overlays under `.knowledge/human/`. An overlay carries human-authored supplements, field overrides, and notes with an explicit timestamp and optional evidence pointers. No automated path modifies, rewrites, or deletes overlay content; the single sanctioned automated mutation is the retirement archive move defined in Section 12.1, which relocates the file byte-identically to `.knowledge/human/archive/<type>/<object-id>.yaml`. `knowledge edit <object-id>` is the supported edit surface for humans.
 
 ## 6. Canonical Knowledge IR
 
@@ -275,7 +275,7 @@ Run targets, which are stored in the plan and run report rather than as canonica
 
 - `verified`: a canonical object was published;
 - `invalid`: schema, reference, or validation failure;
-- `conflicted`: supplied evidence supports incompatible conclusions;
+- `conflicted`: supplied evidence supports incompatible conclusions, or a human `override` covers a machine field whose regenerated evidence changed (Section 6.5);
 - `insufficient_evidence`: the worker declined to create an object;
 - `retired`: a deterministic retirement check removed a previously published object;
 - `skipped`: an optional target was deliberately omitted by policy.
@@ -309,10 +309,10 @@ Protection rules:
 
 - `supplement` adds attributed human content to an object and is always preserved by regeneration.
 - `override` replaces the rendered text of one factual field; the machine-verified Claim remains recorded and is rendered as a collapsible original so verified knowledge is never hidden from review.
-- Human entries carry `execution_mode: human` provenance and an explicit `updated_at` supplied by the edit tool; compilers never invent timestamps.
+- Human entries carry `execution_mode: human` provenance at render and retrieval boundaries (derived from the overlay source, not a stored schema field) and an explicit `updated_at` supplied by the edit tool; compilers never invent timestamps.
 - When regeneration produces changed evidence for a machine field that carries a human override, the target result is `conflicted`: the previous generation and the overlay both remain until a human resolves the conflict. Neither direction wins silently.
 - Overlays live under `.knowledge/` and are therefore outside the eligible-file snapshot; editing knowledge never dirties the repository scan.
-- Overlay files are never automatically deleted. Retiring an object archives its overlay; an overlay without a live canonical object still renders in the Wiki under an orphaned-human-knowledge warning rather than disappearing.
+- Overlay files are never automatically deleted or edited in place. Retiring an object archives its overlay byte-identically under `.knowledge/human/archive/`; an archived overlay without a live canonical object still renders in the Wiki under an orphaned-human-knowledge warning rather than disappearing.
 - Human text is untrusted data: the same escaping and prompt-injection-as-data rules apply as for repository text.
 - The edit surface is `knowledge edit <object-id>` plus direct editing of the Git-tracked overlay file. Compiled Markdown is never parsed back into IR.
 
@@ -364,6 +364,13 @@ The pack has explicit item, character, and token budgets. A worker may request a
 ├── plan.yaml
 ├── baseline/
 │   └── eligible-files.json
+├── human/
+│   ├── modules/<object-id>.yaml
+│   ├── architecture/
+│   ├── flows/
+│   ├── rules/
+│   ├── tech-stack/
+│   └── archive/<type>/<object-id>.yaml
 ├── objects/
 │   ├── architecture/
 │   ├── modules/
@@ -387,6 +394,7 @@ Tracked by default:
 - `config.yaml` without secrets;
 - `manifest.yaml` and `plan.yaml`;
 - `baseline/eligible-files.json` so incremental comparison survives cache deletion and machine changes;
+- `human/**/*.yaml` overlays including `human/archive/`, so protected human knowledge and its retirement record are versioned with the repository;
 - canonical `objects/**/*.yaml`;
 - compiled `views/wiki/**/*.md` and `views/cards/**/*.md`.
 
@@ -592,7 +600,7 @@ Passing all checks yields target result `retired`. The core publish transaction 
 
 A semantic re-extraction may run before the deterministic check to discover replacement knowledge. A verified replacement cancels retirement, but `insufficient_evidence` or any other model result never authorizes deletion.
 
-If regeneration fails, previous content remains visible as stale, default task context excludes it, the Wiki renders an expiry warning, and the command returns `partial`. V0.1 updates only on an explicit command or Skill action; there is no watcher or Git hook. Invalidation and retirement never modify human overlays: overlays survive stale marking and pending retries, retiring an object archives its overlay, and an overlay whose object is retired renders under the Wiki orphaned-human-knowledge warning until a human edits or removes it.
+If regeneration fails, previous content remains visible as stale, default task context excludes it, the Wiki renders an expiry warning, and the command returns `partial`. V0.1 updates only on an explicit command or Skill action; there is no watcher or Git hook. Invalidation and retirement never modify overlay content: overlays survive stale marking and pending retries unchanged, retiring an object relocates its overlay byte-identically to `.knowledge/human/archive/<type>/<object-id>.yaml`, and an archived overlay renders under the Wiki orphaned-human-knowledge warning until a human edits or removes it.
 
 ## 13. CLI and configuration
 
@@ -659,7 +667,8 @@ Every mutating run writes a structured report under `state/runs/<run-id>/`. Stat
 | Missing or changed evidence | Mark affected objects stale |
 | Conflicting evidence | Publish no verified replacement; record conflicted result |
 | Compiler failure | Keep canonical IR; return partial and allow deterministic retry |
-| Invalid or conflicting human overlay | Stop the affected build or update with typed overlay issues; never silently drop protected content |
+| Malformed or schema-invalid human overlay | Fail the next build or update with typed overlay issues; prior generations remain readable |
+| Human override over changed machine evidence | Publish no verified replacement; record a `conflicted` target result, preserve the previous generation and the overlay |
 | Interrupted run | Leave staging and report for diagnosis; canonical objects remain intact |
 
 ## 16. Edge-case behavior

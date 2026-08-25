@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Continue from the paused M1 implementation, complete M1 acceptance, then deliver M2 through M7 in gated order until CodeWiki V0.1 has a measured product-gate result.
+**Goal:** Continue from the in-review M1 implementation, complete M1 acceptance, then deliver M2 through M8 in gated order until CodeWiki V0.1 has a measured product-gate result.
 
 **Architecture:** Canonical Claim/Evidence-backed Knowledge IR is the only knowledge source. CodeWiki supplies bounded public-interface code evidence; semantic workers plan, extract, and independently verify through versioned contracts; deterministic compilers produce human and Agent views; a recoverable store and persisted orchestrator own lifecycle, safety, and publication. Each milestone must pass independent specification review, code-quality review, full verification, and its exit gate before the next milestone begins.
 
@@ -25,7 +25,7 @@
 
 - [ ] Work only in `/Users/qiming/workspace/CodeWiki`.
 - [ ] Work directly on `main`; do not create feature branches, development branches, or additional worktrees.
-- [ ] Do not push the currently paused M1 commits until M1.6 review, M1.7, final M1 review, and verification all pass.
+- [ ] Do not push the in-review M1 commits until M1.6/M1.7 reviews, the final M1 review, and verification all pass.
 - [ ] After a milestone passes its exit gate, push the reviewed commits to `origin/main`.
 - [ ] Start each implementation task with a failing focused test; record the RED reason.
 - [ ] Make one coherent commit per task or review fix.
@@ -221,7 +221,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Create `docs/superpowers/plans/2026-08-25-codewiki-module-vertical-slice.md` using the writing-plans skill.
 - [ ] Derive every adapter field from `docs/spikes/codewiki-public-surface.md` and `tests/fixtures/codewiki/0.6/cli-observations.json`; do not assume undocumented JSON.
 - [ ] Include minimal `LocalGitRepositoryProvider`, preflight, one-Module `PlanRequest/KnowledgePlan`, public CodeWiki adapter, `SemanticWorker.plan/extract/verify`, LiteLLM worker, configuration, and `knowledge init`.
-- [ ] Explicitly exclude RunOrchestrator queues/leases/retries (M4), ChangeSet/update behavior (M5), five-type expansion (M3), and MCP/FTS/HTML (M7).
+- [ ] Explicitly exclude RunOrchestrator queues/leases/retries (M4), ChangeSet/update behavior (M5), five-type expansion (M3), the human overlay layer (M6), and MCP/FTS/HTML (M7).
 - [ ] Run an independent plan-document review against the V0.1 design and fix until approved.
 - [ ] Commit the approved plan before implementation.
 
@@ -578,9 +578,10 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 **Suggested files:** `contracts/human.py`, `tests/contracts/test_human_overlays.py`.
 
-- [ ] Define versioned `HumanOverlay(schema_version, object_id, updated_at, sections, notes)`, `HumanSection(field, mode: supplement|override, text, basis)`, and `HumanNote(id <object>.note.<slug>, text, basis, evidence pointers)`.
+- [ ] Define versioned `HumanOverlay(schema_version, object_id, updated_at, sections, notes)`, `HumanSection(field, mode: supplement|override, text, basis)`, and `HumanNote(id <object>.note.<slug>, text, basis, evidence pointers)`; `execution_mode: human` is derived from the overlay source at render/retrieval boundaries, not a stored schema field.
 - [ ] Enforce strict schema, typed issues for malformed input, deterministic ordering, immutable nested values, timezone-explicit timestamps, and copied-model revalidation at public boundaries.
 - [ ] Add failing tests for invalid ids/modes/fields, duplicate note ids, unknown field names for each knowledge type, invalid timestamps, and round-trip YAML.
+- [ ] Enforce the same length and character limits on overlay text as other untrusted inputs during loading; full escaping and injection tests land with the M7 view surfaces.
 - [ ] Run focused/full tests, review, and commit.
 
 ### M6.3 `knowledge edit` CLI
@@ -595,7 +596,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 ### M6.4 Regeneration preservation and conflict semantics
 
-- [ ] Prove no build, update, or orchestrator path writes `.knowledge/human/`; overlays are read-only inputs everywhere.
+- [ ] Prove no build, update, or orchestrator path modifies, rewrites, or deletes overlay content; the only sanctioned automated mutation is the retirement archive move, which relocates the file byte-identically to `.knowledge/human/archive/<type>/<object-id>.yaml`.
 - [ ] Apply `supplement`/`override` at compilation and retrieval boundaries only; canonical IR stays machine-verified.
 - [ ] Implement the conflict rule: regenerated machine content with changed evidence under a human `override` yields a `conflicted` target result, preserves the previous generation and the overlay, and records the conflict for human resolution.
 - [ ] Add fixtures for preservation across full and incremental runs, conflict creation, human resolution (edit or drop override), and re-verification afterwards.
@@ -603,9 +604,9 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 ### M6.5 Retirement archiving and exit gate
 
-- [ ] Retirement moves the overlay to an archive location instead of deleting it; orphaned overlays render under the Wiki warning (rendering itself lands in M7).
+- [ ] Retirement relocates the overlay byte-identically to `.knowledge/human/archive/<type>/<object-id>.yaml` and records the archive state instead of deleting anything; orphaned overlays render under the Wiki warning (rendering itself lands in M7).
 - [ ] Add fixtures proving overlays survive invalidation, retirement, and crash recovery.
-- [ ] Prove invalid overlays fail closed with typed issues and never block reading existing generations.
+- [ ] Prove invalid overlays fail closed with typed issues and never block store-level reads of existing generations (direct store loads and `knowledge validate`); primary read surfaces arrive in M7.
 - [ ] Run the full suite, boundary scan, spec/quality reviews, and push approved M6 to `origin/main`.
 
 ---
@@ -620,7 +621,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 - [ ] Define final paths/layout, generation contracts, FTS schema/ranking, one-hop relation expansion, token accounting, stale diagnostics, seven tool schemas, human-overlay rendering and attribution, HTML serving model, and all M7-owned CLI commands.
 - [ ] Threat-model repository text, Markdown/Mermaid/HTML injection, evidence path access, symlinks, large contexts, stale generations, secrets, and local server behavior.
-- [ ] Review against design Sections 5.7–5.9, 8, 9.7, 10, 11, 13, 14, 15, and 18.
+- [ ] Review against design Sections 5.7–5.10, 6.5, 8, 9.7, 10, 11, 13, 14, 15, and 18.
 
 ### M7.2 Complete Markdown Wiki, Cards, source index, and Mermaid
 
@@ -842,7 +843,7 @@ For every unchecked implementation task above:
 When handing completed work back for acceptance, provide:
 
 - [ ] Final local and remote `main` commit IDs.
-- [ ] Ordered commit list grouped by M1–M7 task.
+- [ ] Ordered commit list grouped by M1–M8 task.
 - [ ] Exact focused/full test commands and pass counts.
 - [ ] Boundary/security/crash/CLI/MCP test outputs.
 - [ ] Specification and code-quality review conclusions, including resolved findings.

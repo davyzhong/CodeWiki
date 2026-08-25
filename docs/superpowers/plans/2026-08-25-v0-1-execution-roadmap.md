@@ -31,19 +31,17 @@
 - [x] The spike harness and evaluator have 15 passing tests.
 - [x] The Fake Provider + Module vertical-slice implementation plan is written and reviewed.
 - [x] Git workflow is `main` only; remote and local have no development branch.
+- [x] M1 implemented (2026-08-25): project-owned Repository/Evidence/Knowledge/semantic contracts, Claim/Evidence-backed canonical Module IR, structural and semantic validators, FakeEvidenceProvider, deterministic YAML/Card/Wiki compilers with goldens, and recoverable generation publication; the vertical slice is wired end to end with 320 passing tests. Independent reviews are in flight.
+- [x] Design revision (2026-08-25, user decision): human edit protection enters V0.1 as the new M6 human knowledge layer; views/retrieval/MCP shifts to M7 and the benchmark to M8; multi-language stays one-language-per-build.
 
 ### Not implemented yet
 
-- [ ] Project-owned Repository, Evidence, Knowledge, and semantic worker contracts.
-- [ ] Canonical Claim/Evidence-backed Knowledge IR objects.
-- [ ] Structural and semantic validators.
-- [ ] FakeEvidenceProvider product contract implementation.
 - [ ] Production CodeWiki adapter.
 - [ ] Built-in LiteLLM executor or Codex Skill executor.
-- [ ] Canonical YAML, Wiki, Card, HTML, or task-context product compilers.
-- [ ] Recoverable generation publication and manifest lifecycle.
+- [ ] HTML, FTS, task-context, and MCP surfaces.
 - [ ] Persisted RunOrchestrator, leases, retries, repair, and interruption recovery.
 - [ ] Incremental stale marking, selective regeneration, and deterministic retirement.
+- [ ] Human overlay layer, `knowledge edit`, and edit protection.
 - [ ] FTS retrieval, seven read-only MCP tools, or security boundary suite.
 - [ ] Agent A/B benchmark or product hypothesis result.
 
@@ -92,7 +90,7 @@ No milestone may add a temporary command with the same name but weaker safety se
 
 ## 4. M1 — Fake Provider + one verified Module vertical slice
 
-**Status:** Detailed implementation plan is ready; execution becomes unblocked after this roadmap/README change is reviewed, committed, pushed, and `main` is clean.
+**Status:** Implemented (M1.1–M1.7, 320 tests passing at commit time); M1.6 specification review approved with fixes applied, remaining independent reviews and the M1 exit gate pending.
 
 **Exact plan:** `docs/superpowers/plans/2026-08-24-fake-provider-module-vertical-slice.md`
 
@@ -270,7 +268,7 @@ No milestone may add a temporary command with the same name but weaker safety se
 - [ ] Implement `knowledge edit <object-id>`: create/open the overlay in `$EDITOR`, or print the path with `--print-path`; validate on save; invalid content keeps the file and reports typed issues; editor content is data and is never executed.
 - [ ] Prove regeneration preserves overlays: no build/update/orchestration path rewrites or deletes overlay files; overlays are excluded from the eligible-file snapshot by the existing `.knowledge/` exclusion.
 - [ ] Implement field-level conflict semantics: regenerated machine content with changed evidence under a human `override` produces a `conflicted` target result, preserves the prior generation and the overlay, and lists the conflict for human resolution.
-- [ ] Retirement archives overlays instead of deleting them; an overlay without a live object renders under an orphaned-human-knowledge warning.
+- [ ] Retirement archives overlays byte-identically under `.knowledge/human/archive/` instead of deleting them; the archive state is recorded so M7 can render orphaned overlays with their warning.
 - [ ] Treat human text as untrusted data with the same escaping and redaction rules as repository text.
 
 ### M6 exit gate
@@ -290,6 +288,7 @@ No milestone may add a temporary command with the same name but weaker safety se
 ### Planned deliverables
 
 - [ ] Compile complete Markdown Wiki, Cards, source index, Mermaid diagrams, and standalone HTML.
+- [ ] Render human overlay sections and notes with explicit attribution; `override` fields show the machine-verified original as a collapsible alternative; archived orphaned overlays render with their warning.
 - [ ] Make Wiki staleness visible at object/page level and globally when `wiki_generation` lags.
 - [ ] Build verified-only SQLite FTS5 with deterministic indexing and one-hop typed relation expansion.
 - [ ] Integrate FTS invalidation/republication into the M5 generation contract so stale objects are removed and index generation matches `active_generation`/`agent_views_generation`.
@@ -347,14 +346,13 @@ These items may shape interfaces but must not enter V0.1 implementation without 
 
 ## 13. Immediate next work session
 
-The next session starts with M1 only:
+The next session finishes M1 acceptance:
 
 1. [ ] Re-read the M1 exact plan and confirm `main` is clean.
-2. [ ] Execute M1 Task 1 with TDD: repository and bounded Evidence contracts.
-3. [ ] Run focused tests and full suite.
-4. [ ] Commit and push the first green product contract directly to `origin/main`.
-5. [ ] Continue M1 Tasks 2–7 in order, one tested commit per task.
-6. [ ] Stop at the M1 exit gate; do not begin production CodeWiki/LiteLLM integration until the fake vertical slice is proven.
+2. [ ] Re-run the M1.6 code-quality and M1.7 specification/quality review cycles until every reviewer approves.
+3. [ ] Run the M1 final whole-slice review, the full suite twice, the boundary scan, and `git diff --check`.
+4. [ ] Push all reviewed M1 commits to `origin/main` and confirm local and remote `main` match.
+5. [ ] Stop at the M1 exit gate; do not begin production CodeWiki/LiteLLM integration (M2) until the fake vertical slice is proven.
 
 ## 14. V0.1 final Definition of Done
 

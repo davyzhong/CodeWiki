@@ -11,7 +11,7 @@ V0.1 的 Phase 0 已完成，Gate 结论为 `go`。M1（Fake Provider + Module �
 - [Phase 0 公共接口报告](docs/spikes/codewiki-public-surface.md)
 - [Phase 1 Fake Provider 垂直切片计划](docs/superpowers/plans/2026-08-24-fake-provider-module-vertical-slice.md)
 - [V0.1 总执行路线图与 To-do List](docs/superpowers/plans/2026-08-25-v0-1-execution-roadmap.md)
-- [V0.1 完整跨 Agent 接续 To-do（M1–M7）](docs/superpowers/plans/2026-08-25-v0-1-complete-handoff-todo.md)
+- [V0.1 完整跨 Agent 接续 To-do（M1–M8）](docs/superpowers/plans/2026-08-25-v0-1-complete-handoff-todo.md)
 - [2026-08-25 项目接续归档清单](docs/project-materials/archives/2026-08-25-archive-manifest.md)
 - [2026-08-25 M1 实施会话归档](docs/project-materials/archives/2026-08-25-m1-implementation-session.md)
 - [项目起源与原始素材库](docs/project-materials/README.md)
