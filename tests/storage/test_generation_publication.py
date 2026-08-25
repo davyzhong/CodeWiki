@@ -288,6 +288,124 @@ def test_rejects_generation_id_reuse_with_differing_content(tmp_path: Path) -> N
     assert _visible(tmp_path) == before
 
 
+def test_rejects_publish_while_unrecovered_transactions_exist(tmp_path: Path) -> None:
+    module, pack = _verified_inputs()
+    publisher = GenerationPublisher(tmp_path)
+    publisher.publish("generation-000", module, pack)
+    generation_zero = _visible(tmp_path)
+    replacement = _with_summary(module, "First crash leaves a journal behind.")
+
+    def crash_first(point: str) -> None:
+        if point == "publish.card.replace":
+            raise OSError("injected at publish.card.replace")
+
+    with pytest.raises(PublicationError):
+        GenerationPublisher(tmp_path, fault_injector=crash_first).publish(
+            "generation-001", replacement, pack
+        )
+    assert (tmp_path / ".knowledge/state/transactions/generation-001").exists()
+
+    second = _with_summary(module, "Second publication must wait for recovery.")
+    with pytest.raises(PublicationError, match="unrecovered transactions"):
+        GenerationPublisher(tmp_path).publish("generation-002", second, pack)
+
+    GenerationPublisher(tmp_path).recover()
+    assert _visible(tmp_path) == generation_zero
+    published = GenerationPublisher(tmp_path).publish("generation-002", second, pack)
+    assert "Second publication must wait for recovery." in published.canonical_path.read_text()
+
+
+def test_recover_rejects_symlinked_transactions_root(tmp_path: Path) -> None:
+    module, pack = _verified_inputs()
+    GenerationPublisher(tmp_path).publish("generation-001", module, pack)
+
+    precious = tmp_path / "precious"
+    (precious / "subdir" / "deeper").mkdir(parents=True)
+    (precious / "subdir" / "deeper" / "data.txt").write_text("keep me", encoding="utf-8")
+    transactions = tmp_path / ".knowledge/state/transactions"
+    transactions.rmdir()
+    transactions.symlink_to(precious, target_is_directory=True)
+
+    with pytest.raises(PublicationError, match="symlink"):
+        GenerationPublisher(tmp_path).recover()
+
+    assert (precious / "subdir" / "deeper" / "data.txt").exists()
+
+
+def test_reuse_guard_wraps_unreadable_destination_as_typed_error(
+    tmp_path: Path,
+) -> None:
+    module, pack = _verified_inputs()
+    publisher = GenerationPublisher(tmp_path)
+    publisher.publish("generation-001", module, pack)
+    outside = tmp_path / "outside.txt"
+    outside.write_text("decoy", encoding="utf-8")
+    wiki = tmp_path / ".knowledge/views/wiki/module.shop.checkout.md"
+    wiki.unlink()
+    wiki.symlink_to(outside)
+
+    with pytest.raises(PublicationError, match="reuse check failed"):
+        publisher.publish("generation-001", module, pack)
+
+
+def test_recover_reports_symlinked_manifest_as_typed_error(tmp_path: Path) -> None:
+    module, pack = _verified_inputs()
+    GenerationPublisher(tmp_path).publish("generation-001", module, pack)
+
+    def crash(point: str) -> None:
+        if point == "publish.card.replace":
+            raise OSError("injected at publish.card.replace")
+
+    with pytest.raises(PublicationError):
+        GenerationPublisher(tmp_path, fault_injector=crash).publish(
+            "generation-002", module, pack
+        )
+
+    manifest = tmp_path / ".knowledge/manifest.yaml"
+    decoy = tmp_path / "decoy.yaml"
+    decoy.write_text("active_generation: forged", encoding="utf-8")
+    manifest.unlink()
+    manifest.symlink_to(decoy)
+
+    with pytest.raises(PublicationError, match="unreadable"):
+        GenerationPublisher(tmp_path).recover()
+
+
+def test_recover_skips_stray_entries_but_publish_fails_closed(tmp_path: Path) -> None:
+    module, pack = _verified_inputs()
+    publisher = GenerationPublisher(tmp_path)
+    publisher.publish("generation-001", module, pack)
+    generation_one = _visible(tmp_path)
+    replacement = _with_summary(module, "Crash to leave one journal.")
+
+    def crash(point: str) -> None:
+        if point == "publish.card.replace":
+            raise OSError("injected at publish.card.replace")
+
+    with pytest.raises(PublicationError):
+        GenerationPublisher(tmp_path, fault_injector=crash).publish(
+            "generation-002", replacement, pack
+        )
+
+    stray = tmp_path / ".knowledge/state/transactions/planted-file"
+    stray.write_text("not a transaction", encoding="utf-8")
+
+    GenerationPublisher(tmp_path).recover()
+
+    assert stray.exists()
+    assert _visible(tmp_path) == generation_one
+    with pytest.raises(PublicationError, match="unrecovered transactions"):
+        GenerationPublisher(tmp_path).publish("generation-003", module, pack)
+
+
+@pytest.mark.parametrize("generation", ("gen.", "trailing.dot."))
+def test_rejects_trailing_punctuation_generation_ids(tmp_path: Path, generation: str) -> None:
+    module, pack = _verified_inputs()
+    with pytest.raises(PublicationError, match="generation"):
+        GenerationPublisher(tmp_path).publish(generation, module, pack)
+    assert not (tmp_path / ".knowledge").exists()
+
+
 def test_recovery_is_idempotent_after_interruption(tmp_path: Path) -> None:
     module, pack = _verified_inputs()
     GenerationPublisher(tmp_path).publish("generation-001", module, pack)

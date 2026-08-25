@@ -352,6 +352,44 @@ def test_budget_rejection_precedes_semantic_consumption(tmp_path: Path) -> None:
     assert visible(tmp_path / "out") == {}
 
 
+def test_cli_reports_provider_failures_with_exit_one(tmp_path: Path) -> None:
+    from knowledge_compiler.vertical_slice import app
+
+    result = Runner.invoke(
+        app,
+        [
+            "--repository-root", str(REPOSITORY_ROOT),
+            "--fixtures", "relative/fixtures/path",
+            "--extraction", str(FIXTURES / "module-extraction.json"),
+            "--verification", str(FIXTURES / "module-verification.json"),
+            "--output-root", str(tmp_path / "out"),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "provider failure" in result.output
+    assert "Traceback" not in result.output
+    assert not (tmp_path / "out/.knowledge/manifest.yaml").exists()
+
+    fixtures = tmp_path / "fixtures"
+    shutil.copytree(FIXTURES, fixtures)
+    (fixtures / "survey.json").write_text("{broken", encoding="utf-8")
+    malformed = Runner.invoke(
+        app,
+        [
+            "--repository-root", str(REPOSITORY_ROOT),
+            "--fixtures", str(fixtures),
+            "--extraction", str(FIXTURES / "module-extraction.json"),
+            "--verification", str(FIXTURES / "module-verification.json"),
+            "--output-root", str(tmp_path / "out"),
+        ],
+    )
+
+    assert malformed.exit_code == 1
+    assert "provider failure" in malformed.output
+    assert "Traceback" not in malformed.output
+
+
 def test_cli_help_and_missing_options() -> None:
     from knowledge_compiler.vertical_slice import app
 

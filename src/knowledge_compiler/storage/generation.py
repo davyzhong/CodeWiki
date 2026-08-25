@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import json
 import os
 import re
@@ -21,7 +22,9 @@ from knowledge_compiler.contracts.evidence import EvidencePack
 from knowledge_compiler.contracts.knowledge import ModuleKnowledge
 
 
-_GENERATION = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
+_GENERATION = re.compile(
+    r"[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9_-])?\Z"
+)
 _OUTPUTS = (
     ("canonical", "objects/modules", ".yaml"),
     ("card", "views/cards", ".md"),
@@ -98,19 +101,28 @@ class GenerationPublisher:
         # same id with differing bytes would let a later recovery mistake a
         # partially replaced tree for a committed one, so reject the
         # ambiguity before the first mutation.
-        if self._manifest_generation() == generation:
-            for name, destination in destinations.items():
-                if not self._lexists(destination) or self._read_regular(
-                    destination
-                ) != payloads[name]:
-                    raise PublicationError(
-                        "generation id reuse with differing content: " + name
-                    )
+        try:
+            if self._manifest_generation() == generation:
+                for name, destination in destinations.items():
+                    if not self._lexists(destination) or self._read_regular(
+                        destination
+                    ) != payloads[name]:
+                        raise PublicationError(
+                            "generation id reuse with missing or differing "
+                            "content: " + name
+                        )
+        except PublicationError:
+            raise
+        except OSError as error:
+            raise PublicationError(f"generation reuse check failed: {error}") from error
         try:
             self._assert_safe_roots(create=True)
-            if transaction.exists() or transaction.is_symlink():
+            # Any pending journal must be recovered before a new publication:
+            # layering transactions would let a later recovery roll a committed
+            # generation back or accept a mixed tree.
+            if any(self.transactions_root.iterdir()):
                 raise PublicationError(
-                    f"generation transaction already exists: {generation}"
+                    "unrecovered transactions exist; run recovery before publishing"
                 )
             self._mkdir(transaction)
             stage = transaction / "stage"
@@ -199,7 +211,9 @@ class GenerationPublisher:
                 return
             for transaction in sorted(self.transactions_root.iterdir()):
                 if transaction.is_symlink() or not transaction.is_dir():
-                    raise PublicationError("transaction entry is not a safe directory")
+                    # Leave stray entries untouched; the next publish refuses
+                    # to run until they are investigated and removed.
+                    continue
                 self._recover_transaction(transaction)
         except Exception as error:
             if isinstance(error, PublicationError):
@@ -215,7 +229,11 @@ class GenerationPublisher:
             journal = json.loads(self._read_regular(journal_path))
             generation = journal["generation"]
             self._validate_generation(generation)
-            if generation != transaction.name or journal.get("schema_version") != 1:
+            if (
+                generation != transaction.name
+                or type(journal.get("schema_version")) is not int
+                or journal.get("schema_version") != 1
+            ):
                 raise PublicationError("transaction journal identity is invalid")
             module_id = journal["object_id"]
             expected = self._destinations(self._validate_object_id(module_id))
@@ -301,8 +319,19 @@ class GenerationPublisher:
             self._mkdir(self.knowledge_root)
             self._mkdir(self.knowledge_root / "state")
             self._mkdir(self.transactions_root)
-        elif self.knowledge_root.is_symlink():
-            raise PublicationError(".knowledge root must not be a symlink")
+        else:
+            if self.knowledge_root.is_symlink():
+                raise PublicationError(".knowledge root must not be a symlink")
+            current = self.knowledge_root
+            for part in ("state", "transactions"):
+                current = current / part
+                if self._lexists(current) and (
+                    current.is_symlink() or not current.is_dir()
+                ):
+                    raise PublicationError(
+                        "transaction path must not be a symlink or "
+                        f"non-directory: {current}"
+                    )
         if self.knowledge_root.exists() and not self.knowledge_root.is_dir():
             raise PublicationError(".knowledge root is not a directory")
 
@@ -381,8 +410,12 @@ class GenerationPublisher:
             return None
         try:
             value = yaml.safe_load(self._read_regular(path))
-        except (OSError, ValueError, yaml.YAMLError):
+        except (ValueError, yaml.YAMLError):
             return None
+        except OSError as error:
+            if error.errno == errno.ENOENT:
+                return None
+            raise PublicationError(f"manifest is unreadable: {error}") from error
         return value.get("active_generation") if isinstance(value, dict) else None
 
     @staticmethod
