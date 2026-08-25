@@ -86,7 +86,7 @@ c865dc9 docs: reconcile human-layer revision findings
 - [ ] Run `git status --short --branch`; expect clean `main`, ahead of `origin/main` per section 0.4 unless another Agent has intentionally continued.
 - [ ] Run `git branch --all`; expect no development branch.
 - [ ] Run `git log --oneline --decorate -20`; reconcile any new commits with this handoff before proceeding.
-- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 485 passing tests.
+- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 491 passing tests.
 - [ ] Run the boundary scan:
 
 ```bash
@@ -422,7 +422,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 ### M4.2 Persisted run, target, lease, and report contracts — completed
 
-> M4 plan (`docs/superpowers/plans/2026-08-25-run-orchestrator.md`) reviewed and APPROVED at `6aed8bc`. Task 2 landed as `d6283de` (state machine, leases with injected-clock expiry, atomic single-active-run store, tamper rejection). Task 3 landed as `44b3fb9`+`ea3ba8c` (exclusive operation-scoped leases, expiry returning to queue, stale-token/wrong-domain rejection, digest-bound idempotent replay). 485 tests. REMAINING: Tasks 4-8b per the plan.
+> M4 plan (`docs/superpowers/plans/2026-08-25-run-orchestrator.md`) APPROVED at `6aed8bc`. Landed: Task 2 `d6283de` (state machine/leases/atomic single-active-run store), Task 3 `44b3fb9`+`ea3ba8c` (leases/expiry/idempotent replay), Task 4 `129e604`+`3747e0d` (runner: full pipeline, complete/partial/failed, previous-generation preservation, re-entry without repeated work), Task 5 `d58c276`+`edfa220` (QueueExecutor built-in transport with resume + idempotent re-entry). 491 tests. REMAINING: Task 6 (agent queue CLI, 8 commands incl. verify-next fresh context), Task 7 (/knowledge-build Skill), Task 8 (build/validate + M4 milestone reviews + gate + push), Task 8b (per-type CodeWiki harnesses + backlog).
 
 **Suggested files:** `orchestrator/contracts.py`, `orchestrator/store.py`, `tests/orchestrator/test_state_store.py`.
 
