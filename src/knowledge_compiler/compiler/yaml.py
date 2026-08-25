@@ -98,4 +98,37 @@ def compile_module_yaml(
     return text.encode("utf-8")
 
 
-__all__ = ["CompilerInputError", "compile_module_yaml"]
+def compile_architecture_yaml(architecture: object) -> bytes:
+    """Compile canonical ArchitectureKnowledge to deterministic YAML bytes."""
+
+    from knowledge_compiler.contracts.knowledge import ArchitectureKnowledge
+
+    if not isinstance(architecture, ArchitectureKnowledge):
+        raise CompilerInputError(
+            "input must be a verified canonical ArchitectureKnowledge"
+        )
+    try:
+        canonical = ArchitectureKnowledge.model_validate(
+            architecture.model_dump(mode="json")
+        )
+    except (PydanticSerializationError, TypeError, ValueError) as error:
+        raise CompilerInputError(
+            "architecture contract dump/revalidation failed"
+        ) from error
+    if canonical.validity.status != "verified":
+        raise CompilerInputError("architecture validity must be verified")
+    text = yaml.safe_dump(
+        canonical.model_dump(mode="json"),
+        sort_keys=False,
+        allow_unicode=True,
+        default_flow_style=False,
+        width=1000,
+    )
+    return text.encode("utf-8")
+
+
+__all__ = [
+    "CompilerInputError",
+    "compile_architecture_yaml",
+    "compile_module_yaml",
+]
