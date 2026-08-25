@@ -55,6 +55,85 @@ def _update_gitignore(root: Path) -> None:
     )
 
 
+@app.command()
+def build(
+    executor: Annotated[str, typer.Option()] = "llm",
+    repository_root: Annotated[Path, typer.Option()] = Path("."),
+    report_validation_profile: Annotated[bool, typer.Option()] = False,
+) -> None:
+    """Run the full build through the orchestrator (exit 0/1/2)."""
+
+    from knowledge_compiler.preflight import PreflightFailure, run_preflight
+
+    if report_validation_profile:
+        result = run_preflight(None, dry_run=True)
+        typer.echo(
+            "validation-profile: " + result["validation_profile_mode"]
+        )
+    try:
+        run_preflight(repository_root.resolve())
+    except PreflightFailure as error:
+        typer.secho(f"preflight: {error}", fg=typer.colors.RED)
+        raise typer.Exit(code=1) from None
+    typer.secho(
+        "build: no runnable targets configured for this repository yet; "
+        "wire the planner into the orchestrator CLI in the follow-up",
+        fg=typer.colors.RED,
+    )
+    raise typer.Exit(code=1)
+
+
+@app.command()
+def validate() -> None:
+    """Validate the canonical store consistency (exit 0/1)."""
+
+    import yaml
+
+    knowledge = Path(".knowledge")
+    manifest_path = knowledge / "manifest.yaml"
+    if not manifest_path.is_file():
+        typer.secho(
+            "validate: no committed generation found", fg=typer.colors.RED
+        )
+        raise typer.Exit(code=1)
+    try:
+        manifest = yaml.safe_load(manifest_path.read_bytes())
+    except (OSError, ValueError) as error:
+        typer.secho(f"validate: manifest unreadable: {error}", fg=typer.colors.RED)
+        raise typer.Exit(code=1) from None
+    generations = {
+        "active_generation",
+        "agent_views_generation",
+        "wiki_generation",
+    }
+    values = {key: manifest.get(key) for key in generations}
+    if any(value is None for value in values.values()) or len(set(values.values())) != 1:
+        typer.secho(
+            "validate: generation markers disagree: " + json_dumps(values),
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+    expected_files = [
+        knowledge / "objects/modules/module.shop.checkout.yaml",
+        knowledge / "views/cards/module.shop.checkout.md",
+        knowledge / "views/wiki/module.shop.checkout.md",
+    ]
+    missing = [str(path) for path in expected_files if not path.is_file()]
+    if missing:
+        typer.secho(
+            "validate: missing published files: " + ", ".join(missing),
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+    typer.echo(f"validate: generation {values['active_generation']} consistent")
+
+
+def json_dumps(payload: dict) -> str:
+    import json as _json
+
+    return _json.dumps(payload, sort_keys=True)
+
+
 from knowledge_compiler import cli_agent_queue as _agent_queue  # noqa: E402
 from knowledge_compiler.cli_agent_queue import (  # noqa: E402,F401
     evidence as _agent_evidence,
