@@ -86,7 +86,7 @@ c865dc9 docs: reconcile human-layer revision findings
 - [ ] Run `git status --short --branch`; expect clean `main`, ahead of `origin/main` per section 0.4 unless another Agent has intentionally continued.
 - [ ] Run `git branch --all`; expect no development branch.
 - [ ] Run `git log --oneline --decorate -20`; reconcile any new commits with this handoff before proceeding.
-- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 497 passing tests.
+- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 509 passing tests.
 - [ ] Run the boundary scan:
 
 ```bash
@@ -420,7 +420,9 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Use the skill-creator/writing-skills instructions when creating `/knowledge-build` artifacts.
 - [ ] Review the plan against design Sections 5.4, 9, 13, 15, 16, and 18.
 
-### M4.2 Persisted run, target, lease, and report contracts — completed
+### M4.2 Persisted run, target, lease, and report contracts — COMPLETED (gate passed)
+
+> M4 milestone review: first round CHANGES REQUIRED (agent protocol dead-end, lease-ignored verification, unwired build), second round found the build green path unreachable — all fixed through `4b8590c`+`8258d98`; final re-review APPROVED. Gate: full suite 509×2, boundary scan and diff check clean, pushed with the milestone. M4.8b follow-up recorded below.
 
 > M4 plan (`docs/superpowers/plans/2026-08-25-run-orchestrator.md`) APPROVED at `6aed8bc`. Landed: Task 2 `d6283de` (state machine/leases/atomic single-active-run store), Task 3 `44b3fb9`+`ea3ba8c` (leases/expiry/idempotent replay), Task 4 `129e604`+`3747e0d` (runner: full pipeline, complete/partial/failed, previous-generation preservation, re-entry without repeated work), Task 5 `d58c276`+`edfa220` (QueueExecutor built-in transport with resume + idempotent re-entry), Task 6 `0a271d7` (agent queue CLI: 8 hidden commands, fresh-context verify-next, single-active-run rejection). 497 tests. REMAINING: Task 7 (/knowledge-build Skill), Task 8 (build/validate + M4 milestone reviews + gate + push), Task 8b (per-type CodeWiki harnesses + backlog).
 
