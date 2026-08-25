@@ -200,6 +200,90 @@ def _run_orchestrated_build(repository_root: Path):
 
 
 @app.command()
+def edit(
+    object_id: Annotated[str, typer.Argument()],
+    print_path: Annotated[bool, typer.Option("--print-path")] = False,
+    repository_root: Annotated[Path, typer.Option()] = Path("."),
+) -> None:
+    """Create or open the object's human overlay for editing."""
+
+    import os
+    import subprocess
+
+    object_type = object_id.split(".", 1)[0]
+    if object_type not in ("module", "architecture", "flow", "rule", "tech-stack"):
+        typer.secho(
+            f"unknown knowledge type in object id: {object_id}",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+    _type_directories = {
+        "module": "modules",
+        "architecture": "architecture",
+        "flow": "flows",
+        "rule": "rules",
+        "tech-stack": "tech-stack",
+    }
+    overlay_dir = (
+        repository_root / ".knowledge/human" / _type_directories[object_type]
+    )
+    overlay_path = overlay_dir / f"{object_id}.yaml"
+
+    if print_path:
+        typer.echo(str(overlay_path))
+        return
+
+    overlay_dir.mkdir(parents=True, exist_ok=True)
+    if not overlay_path.exists():
+        import datetime as _datetime
+
+        import yaml as _yaml
+
+        template = {
+            "schema_version": "0.1",
+            "object_id": object_id,
+            "updated_at": _datetime.datetime.now(
+                _datetime.timezone.utc
+            ).isoformat(),
+            "sections": [],
+            "notes": [],
+        }
+        overlay_path.write_text(
+            _yaml.safe_dump(template, sort_keys=False, allow_unicode=True),
+            encoding="utf-8",
+        )
+
+    editor = os.environ.get("EDITOR", "vi")
+    try:
+        result = subprocess.run([editor, str(overlay_path)], check=False)
+        if result.returncode != 0:
+            typer.secho(f"editor exited {result.returncode}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+    except FileNotFoundError:
+        typer.secho(f"editor not found: {editor}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    from knowledge_compiler.contracts.human import HumanOverlay
+
+    import yaml as _yaml_validate
+
+    try:
+        payload = _yaml_validate.safe_load(
+            overlay_path.read_text(encoding="utf-8")
+        )
+        HumanOverlay.model_validate(payload)
+    except (OSError, ValueError, Exception) as error:
+        typer.secho(
+            f"overlay validation failed (file kept for correction): {error}",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1) from None
+
+    typer.echo(f"overlay valid: {overlay_path}")
+
+
+@app.command()
 def update(
     executor: Annotated[str, typer.Option()] = "llm",
     repository_root: Annotated[Path, typer.Option()] = Path("."),
