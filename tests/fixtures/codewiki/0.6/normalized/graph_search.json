@@ -1,0 +1,185 @@
+{
+  "argv_template": [
+    "codewiki",
+    "graph",
+    "search",
+    "CheckoutService",
+    "--repo",
+    "<REPO>",
+    "--json"
+  ],
+  "command": "graph_search",
+  "json_value": [
+    {
+      "node": {
+        "end_line": 11,
+        "file_path": "src/shop/checkout.py",
+        "hash": "d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b",
+        "id": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService",
+        "language": "python",
+        "metadata": {
+          "bases": [],
+          "calls": [
+            "ValueError",
+            "reserve"
+          ],
+          "confidence": 1.0,
+          "decorators": [],
+          "docstring": null,
+          "exported": true,
+          "exports": [],
+          "implements": [],
+          "language_enhancer": "python",
+          "provenance": {
+            "confidence": 1.0,
+            "evidence": [
+              "type=class",
+              "file_path=src/shop/checkout.py",
+              "start_line=4",
+              "end_line=11"
+            ],
+            "kind": "extracted",
+            "source": "ast_parser",
+            "version": "codewiki.provenance.v1"
+          },
+          "python_node_type": "ClassDef",
+          "references": [
+            "Inventory",
+            "ValueError",
+            "int",
+            "inventory",
+            "quantity",
+            "reserve",
+            "self",
+            "sku",
+            "str"
+          ],
+          "signature": null,
+          "tree_sitter_capture": true,
+          "tree_sitter_type": "class_definition"
+        },
+        "name": "CheckoutService",
+        "repo_id": "85f16b68ab657f68",
+        "start_line": 4,
+        "summary": null,
+        "symbol_id": "src/shop/checkout.py::CheckoutService",
+        "type": "class"
+      },
+      "reasons": [
+        "fts"
+      ],
+      "score": 3.28
+    },
+    {
+      "node": {
+        "end_line": 6,
+        "file_path": "src/shop/checkout.py",
+        "hash": "d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b",
+        "id": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__",
+        "language": "python",
+        "metadata": {
+          "bases": [],
+          "calls": [],
+          "confidence": 1.0,
+          "decorators": [],
+          "docstring": null,
+          "exported": false,
+          "exports": [],
+          "implements": [],
+          "language_enhancer": "python",
+          "provenance": {
+            "confidence": 1.0,
+            "evidence": [
+              "type=method",
+              "file_path=src/shop/checkout.py",
+              "start_line=5",
+              "end_line=6"
+            ],
+            "kind": "extracted",
+            "source": "ast_parser",
+            "version": "codewiki.provenance.v1"
+          },
+          "python_node_type": "FunctionDef",
+          "references": [
+            "Inventory",
+            "inventory",
+            "self"
+          ],
+          "signature": "def __init__(self, inventory: Inventory) -> None",
+          "tree_sitter_capture": true,
+          "tree_sitter_type": "function_definition"
+        },
+        "name": "__init__",
+        "repo_id": "85f16b68ab657f68",
+        "start_line": 5,
+        "summary": null,
+        "symbol_id": "src/shop/checkout.py::CheckoutService.__init__",
+        "type": "method"
+      },
+      "reasons": [
+        "fts"
+      ],
+      "score": 1.28
+    },
+    {
+      "node": {
+        "end_line": 11,
+        "file_path": "src/shop/checkout.py",
+        "hash": "d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b",
+        "id": "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout",
+        "language": "python",
+        "metadata": {
+          "bases": [],
+          "calls": [
+            "ValueError",
+            "reserve"
+          ],
+          "confidence": 1.0,
+          "decorators": [],
+          "docstring": null,
+          "exported": false,
+          "exports": [],
+          "implements": [],
+          "language_enhancer": "python",
+          "provenance": {
+            "confidence": 1.0,
+            "evidence": [
+              "type=method",
+              "file_path=src/shop/checkout.py",
+              "start_line=8",
+              "end_line=11"
+            ],
+            "kind": "extracted",
+            "source": "ast_parser",
+            "version": "codewiki.provenance.v1"
+          },
+          "python_node_type": "FunctionDef",
+          "references": [
+            "ValueError",
+            "int",
+            "inventory",
+            "quantity",
+            "reserve",
+            "self",
+            "sku",
+            "str"
+          ],
+          "signature": "def checkout(self, sku: str, quantity: int) -> str",
+          "tree_sitter_capture": true,
+          "tree_sitter_type": "function_definition"
+        },
+        "name": "checkout",
+        "repo_id": "85f16b68ab657f68",
+        "start_line": 8,
+        "summary": null,
+        "symbol_id": "src/shop/checkout.py::CheckoutService.checkout",
+        "type": "method"
+      },
+      "reasons": [
+        "fts"
+      ],
+      "score": 1.26
+    }
+  ],
+  "returncode": 0
+}

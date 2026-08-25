@@ -1,0 +1,19 @@
+{
+  "argv_template": [
+    "codewiki",
+    "repos",
+    "add",
+    "<REPO>",
+    "--json"
+  ],
+  "command": "repos_add",
+  "json_value": {
+    "commit_hash": "f207b4f37b1375a9b9bf7fae0b89361c6e39aa86",
+    "git_url": null,
+    "id": "85f16b68ab657f68",
+    "name": "probe-repository",
+    "path": "<REPO>",
+    "source_type": "local"
+  },
+  "returncode": 0
+}

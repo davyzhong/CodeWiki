@@ -268,6 +268,25 @@ def test_diff_is_deferred_until_m5(tmp_path: Path) -> None:
         provider.diff((), ())
 
 
+def test_git_timeout_fails_typed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess as subprocess_module
+
+    from knowledge_compiler.repository import local_git
+    from knowledge_compiler.repository.local_git import (
+        LocalGitRepositoryProvider,
+        RepositoryResolutionError,
+    )
+
+    root = make_repo(tmp_path)
+
+    def hang(*_args: object, **_kwargs: object) -> object:
+        raise subprocess_module.TimeoutExpired(cmd=["git"], timeout=1)
+
+    monkeypatch.setattr(local_git.subprocess, "run", hang)
+    with pytest.raises(RepositoryResolutionError, match="timed out"):
+        LocalGitRepositoryProvider().resolve(root)
+
+
 def test_resolve_rejects_non_repository(tmp_path: Path) -> None:
     from knowledge_compiler.repository.local_git import (
         LocalGitRepositoryProvider,

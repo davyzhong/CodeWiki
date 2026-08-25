@@ -1,0 +1,66 @@
+{
+  "argv_template": [
+    "codewiki",
+    "update",
+    "<REPO>",
+    "--json"
+  ],
+  "command": "update",
+  "json_value": {
+    "chunk_count": 0,
+    "community_count": 3,
+    "community_count_by_level": {
+      "0": 3
+    },
+    "community_naming": {
+      "community_count": 3,
+      "errors": [
+        "LLM community naming skipped because no LLM endpoint or API key is configured."
+      ],
+      "llm_run_id": null,
+      "llm_run_ids": null,
+      "renamed_count": 0,
+      "repo_id": "85f16b68ab657f68",
+      "status": "skipped"
+    },
+    "edge_count": 27,
+    "errors": [],
+    "mode": "incremental",
+    "node_count": 14,
+    "parsed_file_count": 1,
+    "plan": {
+      "affected_files": [
+        "pyproject.toml",
+        "src/shop/inventory.py"
+      ],
+      "base_commit": "f207b4f37b1375a9b9bf7fae0b89361c6e39aa86",
+      "changed_files": [
+        "src/shop/inventory.py"
+      ],
+      "deleted_files": [],
+      "detection_strategy": "git_diff+sha256",
+      "head_commit": "f207b4f37b1375a9b9bf7fae0b89361c6e39aa86",
+      "new_files": [
+        "pyproject.toml"
+      ],
+      "repo_id": "85f16b68ab657f68",
+      "unchanged_files": [
+        "src/shop/__init__.py",
+        "src/shop/api.py",
+        "src/shop/checkout.py"
+      ]
+    },
+    "repo_id": "85f16b68ab657f68",
+    "reused_file_count": 3,
+    "run_id": "a158a96e1c1b478cb32fb195f5ef2e40",
+    "scanned_count": 5,
+    "stale_pages": [],
+    "status": "done",
+    "wiki_regeneration": {
+      "errors": [],
+      "pages": [],
+      "requested": true
+    }
+  },
+  "returncode": 0
+}

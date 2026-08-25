@@ -1,0 +1,37 @@
+{
+  "argv_template": [
+    "codewiki",
+    "analyze",
+    "<REPO>",
+    "--json"
+  ],
+  "command": "analyze",
+  "json_value": {
+    "community_count": 3,
+    "community_count_by_level": {
+      "0": 3
+    },
+    "community_naming": {
+      "community_count": 3,
+      "errors": [
+        "LLM community naming skipped because no LLM endpoint or API key is configured."
+      ],
+      "llm_run_id": null,
+      "llm_run_ids": null,
+      "renamed_count": 0,
+      "repo_id": "85f16b68ab657f68",
+      "status": "skipped"
+    },
+    "edge_count": 29,
+    "errors": [],
+    "mode": "full",
+    "node_count": 14,
+    "parsed_file_count": 4,
+    "repo_id": "85f16b68ab657f68",
+    "reused_file_count": 0,
+    "run_id": "935c5d57c36849a989586129d7934dfd",
+    "scanned_count": 5,
+    "status": "done"
+  },
+  "returncode": 0
+}

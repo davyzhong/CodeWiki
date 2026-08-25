@@ -81,13 +81,22 @@ _SUPPORTED_LANGUAGES = frozenset(
 _DEFAULT_MAX_BYTES = 1_000_000
 
 
+_GIT_TIMEOUT_SECONDS = 120
+
+
 def _run_git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", "-C", str(root), *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        return subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise RepositoryResolutionError(
+            "git command timed out: " + " ".join(args[:2])
+        ) from error
 
 
 def _git_text(root: Path, *args: str) -> str:

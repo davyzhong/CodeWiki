@@ -1,0 +1,10 @@
+{
+  "argv_template": [
+    "python",
+    "-c",
+    "from importlib.metadata import version; print('codewiki ' + version('codewiki'))"
+  ],
+  "command": "package_version",
+  "json_value": null,
+  "returncode": 0
+}

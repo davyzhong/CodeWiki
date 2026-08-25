@@ -1,0 +1,38 @@
+{
+  "argv_template": [
+    "codewiki",
+    "graph",
+    "affected",
+    "--repo",
+    "<REPO>",
+    "--stdin",
+    "--json"
+  ],
+  "command": "graph_affected",
+  "json_value": {
+    "affected_files": [
+      "src/shop/api.py",
+      "src/shop/checkout.py",
+      "src/shop/inventory.py"
+    ],
+    "affected_node_ids": [
+      "85f16b68ab657f68:file:src/shop/api.py",
+      "85f16b68ab657f68:file:src/shop/checkout.py",
+      "85f16b68ab657f68:file:src/shop/inventory.py",
+      "85f16b68ab657f68:symbol:src/shop/api.py::checkout_order",
+      "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService",
+      "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.__init__",
+      "85f16b68ab657f68:symbol:src/shop/checkout.py::CheckoutService.checkout",
+      "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory",
+      "85f16b68ab657f68:symbol:src/shop/inventory.py::Inventory.reserve"
+    ],
+    "affected_tests": [],
+    "affected_wiki_pages": [],
+    "changed_files": [
+      "src/shop/inventory.py"
+    ],
+    "repo_id": "85f16b68ab657f68",
+    "traversed_file_count": 2
+  },
+  "returncode": 0
+}
