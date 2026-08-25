@@ -56,6 +56,26 @@ class RunQueue:
             self._run.run_id, target_id, request, result
         )
 
+    def save_evidence_pack(self, target_id: str, pack: object) -> None:
+        self._store.save_evidence_pack(self._run.run_id, target_id, pack)
+
+    def load_evidence_pack(self, target_id: str) -> object:
+        return self._store.load_evidence_pack(self._run.run_id, target_id)
+
+    def save_verified_artifact(
+        self, target_id: str, canonical: object, pack: object
+    ) -> None:
+        self._store.save_verified_artifact(
+            self._run.run_id, target_id, canonical, pack
+        )
+
+    def load_verified_artifact(
+        self, target_id: str
+    ) -> tuple[object, object]:
+        return self._store.load_verified_artifact(
+            self._run.run_id, target_id
+        )
+
     def load_extraction_context(
         self, target_id: str
     ) -> tuple[object, object]:

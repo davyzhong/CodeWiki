@@ -41,14 +41,16 @@ def _extraction_prompt(request: ExtractionRequest) -> tuple[str, str]:
         for fact in pack.graph_facts
     )
     system = (
-        "You extract one module knowledge draft from bounded evidence. "
+        f"You extract one {pack.target.type} knowledge draft from bounded "
+        "evidence. The draft type and ID must exactly match the target. "
         "Return ONLY JSON matching the ExtractionResult contract. Never "
         "invent evidence; if the evidence is insufficient, return an error "
         "object with reason insufficient_evidence."
     )
     user = (
         f"Repository {pack.repository.repository_id} commit {pack.repository.commit}\n"
-        f"Target {pack.target.id} topic {pack.target.topic}\n\n"
+        f"Target {pack.target.id} type={pack.target.type} "
+        f"topic {pack.target.topic}\n\n"
         "Evidence (redacted excerpts only):\n"
         + "\n".join(evidence_lines)
         + "\n\nGraph facts:\n"
@@ -188,7 +190,7 @@ class LiteLLMWorker:
                 if operation == "extraction"
                 else self._verification_model
             ),
-            "prompt_version": "module-extraction-v1"
+            "prompt_version": "typed-extraction-v1"
             if operation == "extraction"
             else "module-verification-v1",
             "schema_version": "0.1",

@@ -63,6 +63,15 @@ def build(
 ) -> None:
     """Run the full build through the orchestrator (exit 0/1/2)."""
 
+    if executor not in {"llm", "agent"}:
+        typer.secho(
+            f"build: unsupported executor {executor!r}; expected llm or agent",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+    root = repository_root.resolve()
+    config_path = root / ".knowledge/config.yaml"
     from knowledge_compiler.preflight import PreflightFailure, run_preflight
 
     if report_validation_profile:
@@ -71,140 +80,52 @@ def build(
             "validation-profile: " + result["validation_profile_mode"]
         )
     try:
-        run_preflight(repository_root.resolve())
+        preflight = run_preflight(root, config_path=config_path)
     except PreflightFailure as error:
         typer.secho(f"preflight: {error}", fg=typer.colors.RED)
         raise typer.Exit(code=1) from None
-    outcome = _run_orchestrated_build(repository_root.resolve())
-    if outcome is None:
-        typer.secho(
-            "build: the repository needs a Git-initialized eligible target; "
-            "run knowledge init and commit source first",
-            fg=typer.colors.RED,
+    try:
+        config = load_config(config_path)
+        from knowledge_compiler.building import run_configured_build
+
+        outcome = run_configured_build(
+            repository_root=root,
+            executor=executor,
+            config=config,
         )
-        raise typer.Exit(code=1)
-    status, generation, published = outcome
-    report_path = (
-        repository_root.resolve()
-        / ".knowledge/state/runs/last-build.json"
-    )
+    except (OSError, RuntimeError, ValueError) as error:
+        typer.secho(f"build: {_short(str(error))}", fg=typer.colors.RED)
+        raise typer.Exit(code=1) from None
+
+    report_path = root / ".knowledge/state/runs/last-build.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     import json as _json
 
     report_path.write_text(
         _json.dumps(
             {
-                "status": status,
-                "generation": generation,
-                "published_object_ids": list(published),
+                "status": outcome.status,
+                "generation": outcome.generation,
+                "published_object_ids": list(outcome.published_object_ids),
+                "diagnostics": list(outcome.diagnostics),
+                "run_id": outcome.run_id,
+                "executor": executor,
+                "validation_profile_mode": preflight[
+                    "validation_profile_mode"
+                ],
             },
             sort_keys=True,
         )
         + "\n",
         encoding="utf-8",
     )
-    typer.echo(f"build: {status} generation={generation}")
-    if status == "complete":
+    typer.echo(
+        f"build: {outcome.status} generation={outcome.generation} "
+        f"run={outcome.run_id}"
+    )
+    if outcome.status == "complete":
         return
-    raise typer.Exit(code=2 if status == "partial" else 1)
-
-
-def _run_orchestrated_build(repository_root: Path):
-    """Drive the orchestrator over the repository when possible."""
-
-    import shutil
-    import tempfile
-
-    from knowledge_compiler.contracts.repository import (
-        EvidenceBudget,
-        PlanTarget,
-    )
-    from knowledge_compiler.orchestrator.contracts import RunRecord
-    from knowledge_compiler.orchestrator.queue import RunQueue
-    from knowledge_compiler.orchestrator.runner import RunOrchestrator
-    from knowledge_compiler.repository.local_git import (
-        LocalGitRepositoryProvider,
-        RepositoryResolutionError,
-    )
-
-    class _WallClock:
-        def __call__(self) -> int:
-            import time
-
-            return int(time.time())
-
-    try:
-        LocalGitRepositoryProvider().resolve(repository_root)
-    except RepositoryResolutionError:
-        return None
-    from knowledge_compiler.providers.fake import FakeEvidenceProvider
-
-    fixtures = (
-        Path(__file__).resolve().parents[2] / "tests/fixtures/fake_provider"
-    ).resolve()
-    if not fixtures.is_dir():
-        return None  # fixture world unavailable in this checkout
-    # Fixture mode: the build drives the orchestrated pipeline when the
-    # repository is the probe fixture world; real-repository builds need the
-    # live CodeWiki adapter + LiteLLM worker (environment-driven, M4.8b).
-    try:
-        provider = FakeEvidenceProvider(
-            fixture_dir=fixtures, repository_root=repository_root
-        )
-    except ValueError:
-        return None
-    # The fixture world owns its frozen snapshot identity; the resolved
-    # git repo only proves the repository is real and has a commit.
-    snapshot = provider.bound_repository()
-    run_record = RunRecord.model_validate(
-        {
-            "run_id": "cli-build-001",
-            "repository_id": snapshot.repository_id,
-            "snapshot_id": snapshot.snapshot_id,
-            "executor": "llm",
-            "active": True,
-            "targets": (
-                {
-                    "target_id": "module.shop.checkout",
-                    "object_type": "module",
-                    "topic": "CheckoutService",
-                    "evidence_seeds": (
-                        "CheckoutService",
-                        "Inventory.reserve",
-                    ),
-                    "state": "queued",
-                    "attempt": 1,
-                    "repair_attempts": 0,
-                    "required": True,
-                    "priority": 1,
-                    "result": None,
-                    "published_object_id": None,
-                    "request_digest": "sha256:" + "0" * 64,
-                    "result_digest": None,
-                    "diagnostics": (),
-                    "lease": None,
-                },
-            ),
-        }
-    )
-    queue = RunQueue(
-        store_root=repository_root / ".knowledge/state/runs",
-        run=run_record,
-        clock=_WallClock(),
-    )
-
-    from knowledge_compiler.orchestrator.fixture_worker import FixtureWorker
-
-    orchestrator = RunOrchestrator(
-        queue=queue,
-        snapshot=snapshot,
-        evidence_provider=provider,
-        worker=FixtureWorker(),
-        output_root=repository_root,
-        run_id="cli-build-001",
-    )
-    outcome = orchestrator.run()
-    return outcome.status, outcome.generation, outcome.published_object_ids
+    raise typer.Exit(code=2 if outcome.status == "partial" else 1)
 
 
 @app.command()

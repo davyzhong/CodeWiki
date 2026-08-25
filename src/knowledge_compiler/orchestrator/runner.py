@@ -91,14 +91,18 @@ class RunOrchestrator:
                     any_required_failed = True
                 continue
             if record.state is TargetState.VERIFIED:
-                # Verified in an earlier invocation but never published:
-                # the canonical object is not persisted in V0.1, so this
-                # run reports the gap instead of guessing.
-                diagnostics.append(
-                    f"{record.target_id}: verified but unpublished; "
-                    "re-run the target"
-                )
-                any_required_failed = any_required_failed or record.required
+                try:
+                    canonical, pack = self.queue.load_verified_artifact(
+                        record.target_id
+                    )
+                except (QueueError, ValueError, OSError) as error:
+                    diagnostics.append(
+                        f"{record.target_id}: verified artifact unavailable: {error}"
+                    )
+                    any_required_failed = any_required_failed or record.required
+                    continue
+                published.append(canonical)
+                packs[canonical.id] = pack
                 continue
             outcome = self._drive_target(record)
             diagnostics.extend(outcome[1])
@@ -261,6 +265,9 @@ class RunOrchestrator:
                     canonical = typed.canonical
                     issue_codes = typed.issues
                 if canonical is not None:
+                    self.queue.save_verified_artifact(
+                        target_id, canonical, pack
+                    )
                     record = record.transition(TargetState.VERIFICATION_LEASED)
                     self.queue.replace_record(
                         self.queue.record().with_target(record)

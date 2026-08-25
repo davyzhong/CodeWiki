@@ -106,6 +106,85 @@ class RunStore:
         temporary.write_text(payload + "\n", encoding="utf-8")
         os.replace(temporary, target_dir / "extraction.json")
 
+    def save_evidence_pack(
+        self, run_id: str, target_id: str, pack: object
+    ) -> None:
+        from knowledge_compiler.contracts.evidence import EvidencePack
+
+        validated = EvidencePack.model_validate(pack.model_dump(mode="json"))
+        if validated.target.id != target_id:
+            raise RunStoreError("evidence pack identity does not match its target")
+        target_dir = self._target_dir(run_id, target_id)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(
+            validated.model_dump(mode="json"),
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        temporary = target_dir / "evidence.json.tmp"
+        temporary.write_text(payload + "\n", encoding="utf-8")
+        os.replace(temporary, target_dir / "evidence.json")
+
+    def load_evidence_pack(self, run_id: str, target_id: str) -> object:
+        from knowledge_compiler.contracts.evidence import EvidencePack
+
+        path = self._target_dir(run_id, target_id) / "evidence.json"
+        try:
+            pack = EvidencePack.model_validate_json(
+                path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError) as error:
+            raise RunStoreError(f"evidence pack unreadable: {error}") from error
+        if pack.target.id != target_id:
+            raise RunStoreError("evidence pack identity does not match its target")
+        return pack
+
+    def save_verified_artifact(
+        self,
+        run_id: str,
+        target_id: str,
+        canonical: object,
+        pack: object,
+    ) -> None:
+        from knowledge_compiler.contracts.evidence import EvidencePack
+
+        validated_pack = EvidencePack.model_validate(pack.model_dump(mode="json"))
+        validated_object = _canonical_object(canonical.model_dump(mode="json"))
+        if (
+            validated_object.id != target_id
+            or validated_pack.target.id != target_id
+        ):
+            raise RunStoreError("verified artifact identity does not match its target")
+        target_dir = self._target_dir(run_id, target_id)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(
+            {
+                "canonical": validated_object.model_dump(mode="json"),
+                "evidence_pack": validated_pack.model_dump(mode="json"),
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        temporary = target_dir / "verified.json.tmp"
+        temporary.write_text(payload + "\n", encoding="utf-8")
+        os.replace(temporary, target_dir / "verified.json")
+
+    def load_verified_artifact(
+        self, run_id: str, target_id: str
+    ) -> tuple[object, object]:
+        from knowledge_compiler.contracts.evidence import EvidencePack
+
+        path = self._target_dir(run_id, target_id) / "verified.json"
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            canonical = _canonical_object(payload["canonical"])
+            pack = EvidencePack.model_validate(payload["evidence_pack"])
+        except (KeyError, OSError, ValueError) as error:
+            raise RunStoreError(f"verified artifact unreadable: {error}") from error
+        if canonical.id != target_id or pack.target.id != target_id:
+            raise RunStoreError("verified artifact identity does not match its target")
+        return canonical, pack
+
     def load_extraction_context(
         self, run_id: str, target_id: str
     ) -> tuple[object, object]:
@@ -154,6 +233,30 @@ class RunStore:
             if record.active:
                 return record
         return None
+
+
+def _canonical_object(payload: object) -> object:
+    from knowledge_compiler.contracts.knowledge import (
+        ArchitectureKnowledge,
+        FlowKnowledge,
+        ModuleKnowledge,
+        RuleKnowledge,
+        TechStackKnowledge,
+    )
+
+    if not isinstance(payload, dict):
+        raise ValueError("canonical object must be a mapping")
+    models = {
+        "architecture": ArchitectureKnowledge,
+        "module": ModuleKnowledge,
+        "flow": FlowKnowledge,
+        "rule": RuleKnowledge,
+        "tech-stack": TechStackKnowledge,
+    }
+    model = models.get(payload.get("type"))
+    if model is None:
+        raise ValueError("unknown canonical object type")
+    return model.model_validate(payload)
 
 
 __all__ = ["RunStore", "RunStoreError"]

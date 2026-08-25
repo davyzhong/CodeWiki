@@ -393,6 +393,50 @@ def test_runner_resumes_semantic_verification_after_process_restart(
     assert outcome.published_object_ids == ("module.shop.checkout",)
 
 
+def test_runner_resumes_verified_artifact_after_publication_interruption(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from knowledge_compiler.orchestrator.runner import RunOrchestrator
+    from knowledge_compiler.storage import GenerationPublisher
+
+    interrupted, queue, tmp = make_orchestrator(tmp_path)
+    original = GenerationPublisher.publish_generation
+    calls = 0
+
+    def interrupt_once(self, generation, objects):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise KeyboardInterrupt("publication handoff interrupted")
+        return original(self, generation, objects)
+
+    monkeypatch.setattr(
+        GenerationPublisher, "publish_generation", interrupt_once
+    )
+    with pytest.raises(KeyboardInterrupt):
+        interrupted.run()
+    assert queue.record().targets[0].state is TargetState.VERIFIED
+
+    resumed_queue = RunQueue(
+        store_root=tmp / ".knowledge/state/runs",
+        run=queue.record(),
+        clock=FixedClock(),
+    )
+    resumed = RunOrchestrator(
+        queue=resumed_queue,
+        snapshot=interrupted.snapshot,
+        evidence_provider=interrupted.evidence_provider,
+        worker=StubWorker(fail_extract=True),
+        output_root=interrupted.output_root,
+        run_id=interrupted.run_id,
+    )
+
+    outcome = resumed.run()
+
+    assert outcome.status == "complete", outcome.diagnostics
+    assert outcome.published_object_ids == ("module.shop.checkout",)
+
+
 @pytest.mark.parametrize(
     ("knowledge_type", "target_id", "directory"),
     (

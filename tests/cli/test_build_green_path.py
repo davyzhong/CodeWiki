@@ -9,6 +9,7 @@ import pytest
 from typer.testing import CliRunner
 
 from knowledge_compiler.cli import app
+from knowledge_compiler.building import PrimaryBuildOutcome
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,15 +40,38 @@ def git_repo_with_fixture_content(tmp_path: Path) -> Path:
 def test_build_green_path_publishes_generation(tmp_path: Path, monkeypatch) -> None:
     repo = git_repo_with_fixture_content(tmp_path)
     monkeypatch.chdir(repo)
+    assert Runner.invoke(
+        app, ["init", "--language", "zh", "--repository-root", str(repo)]
+    ).exit_code == 0
+    captured = {}
+
+    def configured_build(*, repository_root, executor, config):
+        captured.update(root=repository_root, executor=executor, config=config)
+        (repository_root / ".knowledge/manifest.yaml").write_text(
+            "active_generation: gen-real\n", encoding="utf-8"
+        )
+        return PrimaryBuildOutcome(
+            status="complete",
+            generation="gen-real",
+            published_object_ids=("module.probe.checkout",),
+            diagnostics=(),
+            run_id="build-real-001",
+        )
+
+    monkeypatch.setattr(
+        "knowledge_compiler.building.run_configured_build", configured_build
+    )
     result = Runner.invoke(app, ["build", "--executor", "llm", "--repository-root", str(repo)])
     assert result.exit_code == 0, result.output
     assert "complete" in result.output
+    assert captured["root"] == repo.resolve()
+    assert captured["executor"] == "llm"
     manifest = repo / ".knowledge/manifest.yaml"
     assert manifest.is_file()
     report = repo / ".knowledge/state/runs/last-build.json"
     payload = json.loads(report.read_text(encoding="utf-8"))
     assert payload["status"] == "complete"
-    assert "module.shop.checkout" in payload["published_object_ids"]
+    assert "module.probe.checkout" in payload["published_object_ids"]
 
 
 def test_build_state_is_scoped_to_repository_root(
@@ -57,6 +81,22 @@ def test_build_state_is_scoped_to_repository_root(
     invocation_root = tmp_path / "invocation"
     invocation_root.mkdir()
     monkeypatch.chdir(invocation_root)
+    assert Runner.invoke(
+        app, ["init", "--language", "zh", "--repository-root", str(repo)]
+    ).exit_code == 0
+
+    def configured_build(*, repository_root, executor, config):
+        return PrimaryBuildOutcome(
+            status="complete",
+            generation="gen-real",
+            published_object_ids=("module.probe.checkout",),
+            diagnostics=(),
+            run_id="build-real-002",
+        )
+
+    monkeypatch.setattr(
+        "knowledge_compiler.building.run_configured_build", configured_build
+    )
 
     result = Runner.invoke(
         app,
@@ -66,6 +106,45 @@ def test_build_state_is_scoped_to_repository_root(
     assert result.exit_code == 0, result.output
     assert (repo / ".knowledge/state/runs/last-build.json").is_file()
     assert not (invocation_root / ".knowledge").exists()
+
+
+def test_build_agent_prepares_work_and_returns_partial(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = git_repo_with_fixture_content(tmp_path)
+    assert Runner.invoke(
+        app, ["init", "--language", "zh", "--repository-root", str(repo)]
+    ).exit_code == 0
+
+    def configured_build(*, repository_root, executor, config):
+        assert executor == "agent"
+        return PrimaryBuildOutcome(
+            status="partial",
+            generation=None,
+            published_object_ids=(),
+            diagnostics=("agent queue prepared",),
+            run_id="build-agent-001",
+        )
+
+    monkeypatch.setattr(
+        "knowledge_compiler.building.run_configured_build", configured_build
+    )
+    result = Runner.invoke(
+        app, ["build", "--executor", "agent", "--repository-root", str(repo)]
+    )
+    assert result.exit_code == 2, result.output
+    assert "partial" in result.output
+
+
+def test_build_rejects_unknown_executor_before_runtime(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = git_repo_with_fixture_content(tmp_path)
+    result = Runner.invoke(
+        app, ["build", "--executor", "fixture", "--repository-root", str(repo)]
+    )
+    assert result.exit_code == 1
+    assert "executor" in result.output.lower()
 
 
 def test_build_fails_cleanly_on_plain_repository(tmp_path: Path, monkeypatch) -> None:

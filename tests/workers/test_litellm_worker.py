@@ -135,6 +135,28 @@ def test_extract_prompt_contains_only_pack_evidence() -> None:
     assert "/Users/" not in prompt.replace(str(request.evidence_pack.repository.root), "")
 
 
+def test_extract_prompt_is_typed_and_not_module_specific() -> None:
+    from knowledge_compiler.workers.litellm_worker import _extraction_prompt
+
+    request = make_request()
+    target = PlanTarget(
+        id="architecture.shop.overview",
+        type="architecture",
+        topic=request.evidence_pack.target.topic,
+        evidence_seeds=request.evidence_pack.target.evidence_seeds,
+    )
+    pack = request.evidence_pack.model_copy(update={"target": target})
+    typed_request = request.model_copy(
+        update={"target_id": target.id, "evidence_pack": pack}
+    )
+
+    system, user = _extraction_prompt(typed_request)
+
+    assert "one module" not in system.lower()
+    assert "architecture" in system.lower()
+    assert "type=architecture" in user
+
+
 def test_extract_repairs_malformed_json_twice_then_fails_typed() -> None:
     request = make_request()
     transport = FakeTransport(["{not json", "{still not json", "{nope"])

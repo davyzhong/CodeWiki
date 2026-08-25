@@ -78,6 +78,39 @@ def plan_module(request: PlanRequest, repo_survey: RepositorySurvey):
     return plan_one_module(request, repo_survey)
 
 
+def plan_full(request: PlanRequest, repo_survey: RepositorySurvey):
+    from knowledge_compiler.planning.module import plan_full_refresh
+
+    return plan_full_refresh(request, repo_survey)
+
+
+def test_full_refresh_plans_all_five_knowledge_types_without_claims() -> None:
+    plan = plan_full(plan_request(), survey())
+
+    assert {spec.target.type for spec in plan.targets} == {
+        "architecture",
+        "module",
+        "flow",
+        "rule",
+        "tech-stack",
+    }
+    assert len(plan.targets) == 5
+    assert len({spec.target.id for spec in plan.targets}) == 5
+    assert "claim" not in json.dumps(plan.model_dump(mode="json")).lower()
+
+
+def test_full_refresh_plan_is_deterministic() -> None:
+    first = plan_full(plan_request(), survey())
+    second = plan_full(
+        plan_request(),
+        survey(
+            symbols=("checkout_order", "Inventory", "CheckoutService"),
+            files=("src/shop/inventory.py", "src/shop/checkout.py", "src/shop/api.py"),
+        ),
+    )
+    assert first.model_dump() == second.model_dump()
+
+
 def test_plan_targets_carry_priority_and_requiredness() -> None:
     request = plan_request()
     plan = plan_module(request, survey())
