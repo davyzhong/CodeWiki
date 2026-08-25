@@ -7,7 +7,6 @@ name = "knowledge-compiler"
 version = "0.1.0.dev0"
 requires-python = ">=3.12"
 dependencies = [
-  "mcp>=1.0",
   "pydantic>=2.10",
   "pyyaml>=6.0",
   "typer>=0.15",
@@ -16,11 +15,13 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "codewiki>=0.6,<0.7",
+  "mcp>=1.0",
   "pytest>=8.3",
   "pytest-cov>=6.0",
 ]
 
 [project.scripts]
+knowledge = "knowledge_compiler.cli:app"
 knowledge-codewiki-spike = "knowledge_compiler.spikes.main:app"
 knowledge-fake-module-slice = "knowledge_compiler.vertical_slice:app"
 

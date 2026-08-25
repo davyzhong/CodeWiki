@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -50,12 +51,21 @@ def require_supported_version(text: str | None) -> tuple[int, int, int]:
     return parsed
 
 
+def _probe_interpreter() -> str:
+    executable = shutil.which("codewiki")
+    if executable:
+        sibling = Path(executable).resolve().parent / "python3"
+        if sibling.exists():
+            return str(sibling)
+    return sys.executable
+
+
 class CodewikiRunner:
     """Invoke the public CodeWiki CLI with argument arrays only."""
 
     def version(self) -> str:
         result = subprocess.run(
-            [sys.executable, "-c", VERSION_PROBE],
+            [_probe_interpreter(), "-c", VERSION_PROBE],
             capture_output=True,
             text=True,
             timeout=_TIMEOUT_SECONDS,

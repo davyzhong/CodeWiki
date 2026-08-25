@@ -13,8 +13,6 @@
         "absolute_path": "<REPO>/pyproject.toml",
         "is_source": false,
         "language": "toml",
-        "last_commit_at": null,
-        "modified_at": "2026-08-24T14:41:07.301399+00:00",
         "path": "pyproject.toml",
         "sha256": "a5eede9cf7f5417ecc071142a87df5965929288cc32bbb1f308f5c607a6aaf39",
         "size_bytes": 85
@@ -23,8 +21,6 @@
         "absolute_path": "<REPO>/src/shop/__init__.py",
         "is_source": true,
         "language": "python",
-        "last_commit_at": "2026-08-24T22:57:04+08:00",
-        "modified_at": "2026-08-24T14:41:07.301856+00:00",
         "path": "src/shop/__init__.py",
         "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
         "size_bytes": 1
@@ -33,8 +29,6 @@
         "absolute_path": "<REPO>/src/shop/api.py",
         "is_source": true,
         "language": "python",
-        "last_commit_at": "2026-08-24T22:57:04+08:00",
-        "modified_at": "2026-08-24T14:41:07.302524+00:00",
         "path": "src/shop/api.py",
         "sha256": "7c68acd0bfaf85ecde8d03e2f98c4ad024fc5ddb2be7f645679101a8816dc7ab",
         "size_bytes": 198
@@ -43,8 +37,6 @@
         "absolute_path": "<REPO>/src/shop/checkout.py",
         "is_source": true,
         "language": "python",
-        "last_commit_at": "2026-08-24T22:57:04+08:00",
-        "modified_at": "2026-08-24T14:41:07.302294+00:00",
         "path": "src/shop/checkout.py",
         "sha256": "d8e931e15eb4e47eb59c913960e566ab37e486af55426eecb693d730fed7554b",
         "size_bytes": 355
@@ -53,8 +45,6 @@
         "absolute_path": "<REPO>/src/shop/inventory.py",
         "is_source": true,
         "language": "python",
-        "last_commit_at": "2026-08-24T22:57:04+08:00",
-        "modified_at": "2026-08-24T14:41:07.302068+00:00",
         "path": "src/shop/inventory.py",
         "sha256": "dc9de1003e15a3c22677e0315ba054ce5a76f3457109d1b24d43dd23961a8bbc",
         "size_bytes": 102

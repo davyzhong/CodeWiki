@@ -1520,7 +1520,6 @@ name = "knowledge-compiler"
 version = "0.1.0.dev0"
 source = { editable = "." }
 dependencies = [
-    { name = "mcp" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "typer" },
@@ -1529,6 +1528,7 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "codewiki" },
+    { name = "mcp" },
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
@@ -1536,7 +1536,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "codewiki", marker = "extra == 'dev'", specifier = ">=0.6,<0.7" },
-    { name = "mcp", specifier = ">=1.0" },
+    { name = "mcp", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0" },

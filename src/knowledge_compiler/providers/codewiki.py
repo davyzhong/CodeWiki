@@ -27,9 +27,16 @@ _CREDENTIAL_PATTERNS = (
     re.compile(r"gho_[A-Za-z0-9]{20,}"),
     re.compile(r"sk-[A-Za-z0-9]{20,}"),
     re.compile(r"AKIA[0-9A-Z]{16}"),
+    re.compile(r"AIza[0-9A-Za-z_-]{35}"),
     re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,}"),
+    re.compile(r"(?i)bearer\s+[A-Za-z0-9._-]{20,}"),
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----"),
+    re.compile(r"[A-Za-z0-9._%+-]+:[^@\s/{]{4,}@"),
     re.compile(
-        r"(?i)\b(api[_-]?key|secret|token|password)\b\s*[:=]\s*['\"]?[^\s'\"]{8,}"
+        r"(?i)\b(api[_-]?key|secret|token|password)\b\s*[:=]\s*['\"]([^'\"]{8,})['\"]"
+    ),
+    re.compile(
+        r"(?i)\b(api[_-]?key|secret|password)\b\s*[:=]\s*[^\s'\"os][^\s]{7,}"
     ),
 )
 
@@ -48,10 +55,11 @@ def _relative_member(value: str, root_name: str) -> str | None:
     if not isinstance(value, str):
         return None
     if value.startswith("<REPO>/"):
-        return value[len("<REPO>/"):]
-    marker = f"{root_name}/"
-    index = value.find(marker)
-    candidate = value[index + len(marker):] if index != -1 else value
+        candidate = value[len("<REPO>/"):]
+    else:
+        marker = f"{root_name}/"
+        index = value.find(marker)
+        candidate = value[index + len(marker):] if index != -1 else value
     parsed = PurePosixPath(candidate)
     if (
         not candidate
@@ -128,6 +136,7 @@ class CodeWikiEvidenceProvider:
         require_supported_version(runner.version())
         self._runner = runner
         self._root = Path(repository_root).resolve()
+        self._evidence_cache: dict[str, EvidenceItem] = {}
 
     def _run(self, argv: list[str]) -> Any:
         result = self._runner.run(argv, root=self._root)
@@ -218,6 +227,7 @@ class CodeWikiEvidenceProvider:
         token_count = sum(len(item.excerpt.split()) for item in evidence)
         if token_count > budget.max_tokens:
             raise ValueError("evidence token budget exceeded")
+        self._evidence_cache = {item.id: item for item in evidence}
         return EvidencePack(
             repository=validated,
             target=target,
@@ -227,17 +237,13 @@ class CodeWikiEvidenceProvider:
         )
 
     def get_evidence(self, repo: RepositorySnapshot, evidence_id: str) -> EvidenceItem:
-        pack = self.build_pack(
-            repo,
-            self._last_target or PlanTarget(id="module.unknown", topic="unknown"),
-            EvidenceBudget(max_items=64, max_characters=1_000_000, max_tokens=100_000),
-        )
-        for item in pack.evidence:
-            if item.id == evidence_id:
-                return item
-        raise KeyError(f"unknown Evidence ID: {evidence_id}")
-
-    _last_target: PlanTarget | None = None
+        self._validate(repo)
+        try:
+            return self._evidence_cache[evidence_id]
+        except KeyError as error:
+            raise KeyError(
+                f"unknown Evidence ID (build a pack first): {evidence_id}"
+            ) from error
 
     def _select_entries(
         self, entry_points: list[dict[str, Any]], target: PlanTarget

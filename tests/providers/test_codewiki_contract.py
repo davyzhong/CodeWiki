@@ -131,6 +131,19 @@ def test_get_evidence_rejects_unknown_id(world: str) -> None:
         provider().get_evidence(repo_factory(), "sha256:" + "0" * 64)
 
 
+def test_get_evidence_returns_cached_pack_item() -> None:
+    provider = make_provider()
+    repo = repository()
+    pack = provider.build_pack(
+        repo,
+        target(),
+        EvidenceBudget(max_items=4, max_characters=4000, max_tokens=512),
+    )
+    item = pack.evidence[0]
+    fetched = provider.get_evidence(repo, item.id)
+    assert fetched == item
+
+
 def test_ensure_index_registers_and_analyzes_only() -> None:
     from knowledge_compiler.providers.codewiki import CodeWikiEvidenceProvider
     from knowledge_compiler.providers.codewiki_cli import (
@@ -229,9 +242,6 @@ def test_credential_redaction_before_pack_leaves_worker() -> None:
     from knowledge_compiler.providers.codewiki import CodeWikiEvidenceProvider
     from knowledge_compiler.providers.codewiki_cli import FixtureCodewikiRunner
 
-    secret_repo = Path(
-        pytest.ensuretemp() if False else REPOSITORY_ROOT
-    )
     tmp = Path(__import__("tempfile").mkdtemp())
     copied = tmp / "probe_repo"
     shutil_module.copytree(REPOSITORY_ROOT, copied)
@@ -257,11 +267,16 @@ def test_credential_redaction_before_pack_leaves_worker() -> None:
     joined = "\n".join(item.excerpt for item in pack.evidence)
     assert "ghp_a1B2" not in joined.replace("[REDACTED]", "")
     assert "[REDACTED]" in joined
+    import hashlib as hashlib_module
+
     for item in pack.evidence:
         local = copied.joinpath(*Path(item.path).parts)
         data = local.read_bytes()
         assert data  # source still readable
-        assert item.excerpt_hash != item.content_hash or b"[REDACTED]" not in data
+        expected_excerpt = "sha256:" + hashlib_module.sha256(
+            item.excerpt.encode("utf-8")
+        ).hexdigest()
+        assert item.excerpt_hash == expected_excerpt
 
     shutil_module.rmtree(tmp)
 
