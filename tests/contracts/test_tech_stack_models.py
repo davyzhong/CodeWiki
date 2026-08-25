@@ -100,8 +100,9 @@ def tech_stack_payload() -> dict:
 def test_tech_stack_round_trips_with_claim_backed_entries() -> None:
     payload = tech_stack_payload()
     stack = TechStackKnowledge.model_validate(payload)
-    assert stack.entries[0].version == "3.12"
-    assert stack.entries[1].version == "unknown"
+    by_name = {entry.name: entry for entry in stack.entries}
+    assert by_name["python"].version == "3.12"
+    assert by_name["pydantic"].version == "unknown"
     assert stack == TechStackKnowledge.model_validate(stack.model_dump(mode="json"))
 
 
