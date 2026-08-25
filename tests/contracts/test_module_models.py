@@ -29,6 +29,10 @@ HASH_A = "sha256:" + "a" * 64
 HASH_B = "sha256:" + "b" * 64
 HASH_C = "sha256:" + "c" * 64
 GENERATED_AT = datetime(2026, 8, 25, 9, 30, tzinfo=timezone.utc)
+MODULE_ID = "module.checkout.payment"
+SUMMARY_CLAIM_ID = f"{MODULE_ID}.claim.summary"
+CHARGE_CLAIM_ID = f"{MODULE_ID}.claim.charge"
+DEPENDENCY_CLAIM_ID = f"{MODULE_ID}.claim.dependency"
 
 
 def scope_data() -> dict[str, object]:
@@ -63,46 +67,48 @@ def draft_claim_data(
 def draft_data() -> dict[str, object]:
     return {
         "schema_version": "0.1",
-        "id": "module.checkout.payment",
+        "id": MODULE_ID,
         "type": "module",
         "title": "Payment module",
         "scope": scope_data(),
         "summary": {
             "text": "Charges an order through a payment gateway.",
-            "claim_ids": ("claim.summary",),
+            "claim_ids": (SUMMARY_CLAIM_ID,),
         },
         "responsibilities": (
             {
                 "text": "Creates payment charges.",
-                "claim_ids": ("claim.charge",),
+                "claim_ids": (CHARGE_CLAIM_ID,),
             },
         ),
         "public_interfaces": (
             {
                 "name": "charge",
                 "description": "Charges an order.",
-                "claim_ids": ("claim.charge",),
+                "claim_ids": (CHARGE_CLAIM_ID,),
             },
         ),
         "dependencies": (
             {
                 "target": "module.vendor.gateway",
                 "description": "Sends charge requests.",
-                "claim_ids": ("claim.dependency",),
+                "claim_ids": (DEPENDENCY_CLAIM_ID,),
             },
         ),
         "relations": (
             {
                 "predicate": "depends_on",
                 "target": "module.vendor.gateway",
-                "claim_ids": ("claim.dependency",),
+                "claim_ids": (DEPENDENCY_CLAIM_ID,),
             },
         ),
         "claims": (
-            draft_claim_data("claim.summary", "The module charges orders.", (HASH_B,)),
-            draft_claim_data("claim.charge", "charge is public.", (HASH_A,)),
             draft_claim_data(
-                "claim.dependency", "The gateway is a dependency.", (HASH_C,)
+                SUMMARY_CLAIM_ID, "The module charges orders.", (HASH_B,)
+            ),
+            draft_claim_data(CHARGE_CLAIM_ID, "charge is public.", (HASH_A,)),
+            draft_claim_data(
+                DEPENDENCY_CLAIM_ID, "The gateway is a dependency.", (HASH_C,)
             ),
         ),
         "confidence": confidence_data(0.85),
@@ -205,6 +211,56 @@ def test_rejects_duplicate_claim_ids() -> None:
 
 
 @pytest.mark.parametrize(
+    "bad_claim_id",
+    (
+        "claim.summary",
+        "module.checkout.payment.claim",
+        "module.checkout.payment.claim.two.parts",
+        "module.checkout.payment.claim.Payment",
+        "module.checkout.payment.claim.bad slug",
+        "module.checkout.payment.claim.-bad",
+    ),
+)
+def test_rejects_malformed_claim_ids(bad_claim_id: str) -> None:
+    claim = draft_claim_data(bad_claim_id, "A fact.", (HASH_A,))
+
+    with pytest.raises(ValidationError, match="Claim ID"):
+        DraftClaim.model_validate(claim)
+
+
+@pytest.mark.parametrize("canonical", (False, True))
+def test_rejects_claims_owned_by_a_different_module(canonical: bool) -> None:
+    data = canonical_data() if canonical else draft_data()
+    claims = list(data["claims"])
+    foreign_id = "module.checkout.refunds.claim.summary"
+    original_id = claims[0]["id"]
+    claims[0] = {**claims[0], "id": foreign_id}
+    data["claims"] = tuple(claims)
+    factual_fields = (
+        "summary",
+        "responsibilities",
+        "public_interfaces",
+        "dependencies",
+        "relations",
+    )
+    for field in factual_fields:
+        if field == "summary":
+            if original_id in data[field]["claim_ids"]:
+                data[field] = {**data[field], "claim_ids": (foreign_id,)}
+            continue
+        data[field] = tuple(
+            {**item, "claim_ids": (foreign_id,)}
+            if original_id in item["claim_ids"]
+            else item
+            for item in data[field]
+        )
+
+    with pytest.raises(ValidationError, match="belong"):
+        model = ModuleKnowledge if canonical else DraftModuleKnowledge
+        model.model_validate(data)
+
+
+@pytest.mark.parametrize(
     ("field", "duplicate"),
     (
         (
@@ -235,6 +291,23 @@ def test_rejects_duplicate_named_payload_entries(
         DraftModuleKnowledge.model_validate(data)
 
 
+@pytest.mark.parametrize("reverse", (False, True))
+def test_rejects_duplicate_relation_keys_even_when_claim_ids_differ(
+    reverse: bool,
+) -> None:
+    data = draft_data()
+    duplicate = {
+        "predicate": "depends_on",
+        "target": "module.vendor.gateway",
+        "claim_ids": (CHARGE_CLAIM_ID,),
+    }
+    relations = (*data["relations"], duplicate)
+    data["relations"] = tuple(reversed(relations)) if reverse else relations
+
+    with pytest.raises(ValidationError, match="duplicate relation"):
+        DraftModuleKnowledge.model_validate(data)
+
+
 @pytest.mark.parametrize(
     "field",
     ("summary", "responsibilities", "public_interfaces", "dependencies", "relations"),
@@ -262,21 +335,10 @@ def test_rejects_unknown_claim_references(field: str) -> None:
         DraftModuleKnowledge.model_validate(data)
 
 
-def test_rejects_unsupported_canonical_claim_verification() -> None:
-    data = canonical_data()
-    claims = list(data["claims"])
-    claims[0] = {
-        **claims[0],
-        "verification": {**claims[0]["verification"], "status": "unsupported"},
-    }
-    data["claims"] = claims
-
-    with pytest.raises(ValidationError, match="supported"):
-        ModuleKnowledge.model_validate(data)
-
-
 def test_canonical_claim_itself_rejects_unsupported_verification() -> None:
-    claim = draft_claim_data("claim.summary", "The module charges orders.", (HASH_B,))
+    claim = draft_claim_data(
+        SUMMARY_CLAIM_ID, "The module charges orders.", (HASH_B,)
+    )
     claim["verification"] = {
         **verification_data(HASH_B),
         "status": "unsupported",
@@ -284,21 +346,6 @@ def test_canonical_claim_itself_rejects_unsupported_verification() -> None:
 
     with pytest.raises(ValidationError, match="supported"):
         Claim.model_validate(claim)
-
-
-def test_verified_validity_requires_every_required_claim_to_be_supported() -> None:
-    data = canonical_data()
-    claims = list(data["claims"])
-    claims[0] = {
-        **claims[0],
-        "verification": {**claims[0]["verification"], "status": "partial"},
-    }
-    data["claims"] = claims
-
-    with pytest.raises(ValidationError, match="supported"):
-        ModuleKnowledge.model_validate(data)
-
-
 def test_scope_is_complete_and_requires_an_absolute_root() -> None:
     with pytest.raises(ValidationError, match="absolute"):
         Scope.model_validate({**scope_data(), "root": Path("relative/repo")})
@@ -317,6 +364,40 @@ def test_verified_validity_has_safe_optional_state_defaults() -> None:
 
     assert validity.stale_reason is None
     assert validity.validation_report == ()
+
+
+def test_verified_validity_must_bind_to_scope_commit() -> None:
+    data = canonical_data()
+    data["validity"] = {**data["validity"], "verified_commit": "prior123"}
+
+    with pytest.raises(ValidationError, match="scope commit"):
+        ModuleKnowledge.model_validate(data)
+
+
+def test_stale_validity_may_retain_a_prior_verified_commit() -> None:
+    data = canonical_data()
+    data["validity"] = {
+        **data["validity"],
+        "status": "stale",
+        "verified_commit": "prior123",
+        "stale_reason": "source changed",
+    }
+
+    module = ModuleKnowledge.model_validate(data)
+
+    assert module.validity.verified_commit == "prior123"
+    assert module.scope.commit == "abc123"
+
+
+def test_provenance_schema_version_is_pinned_to_contract() -> None:
+    with pytest.raises(ValidationError, match="0.1"):
+        ExtractionResult.model_validate(
+            {
+                "contract_version": "0.1",
+                "draft": draft_data(),
+                "provenance": {**provenance_data(), "schema_version": "0.2"},
+            }
+        )
 
 
 def test_models_are_immutable_and_revalidate_nested_instances() -> None:
@@ -339,7 +420,7 @@ def test_equivalent_permutations_have_identical_normalized_dumps() -> None:
         {
             "name": "refund",
             "description": "Refunds an order.",
-            "claim_ids": ("claim.charge",),
+            "claim_ids": (CHARGE_CLAIM_ID,),
         },
         *second["public_interfaces"],
     )
@@ -348,27 +429,27 @@ def test_equivalent_permutations_have_identical_normalized_dumps() -> None:
         {
             "name": "refund",
             "description": "Refunds an order.",
-            "claim_ids": ("claim.charge",),
+            "claim_ids": (CHARGE_CLAIM_ID,),
         },
     )
     extra_dependency = {
         "target": "module.vendor.audit",
         "description": "Records charge attempts.",
-        "claim_ids": ("claim.dependency",),
+        "claim_ids": (DEPENDENCY_CLAIM_ID,),
     }
     first["dependencies"] = (*first["dependencies"], extra_dependency)
     second["dependencies"] = (extra_dependency, *second["dependencies"])
     extra_relation = {
         "predicate": "emits_to",
         "target": "module.vendor.audit",
-        "claim_ids": ("claim.dependency",),
+        "claim_ids": (DEPENDENCY_CLAIM_ID,),
     }
     first["relations"] = (*first["relations"], extra_relation)
     second["relations"] = (extra_relation, *second["relations"])
     for dataset in (first, second):
         claims = list(dataset["claims"])
         for index, claim in enumerate(claims):
-            if claim["id"] == "claim.summary":
+            if claim["id"] == SUMMARY_CLAIM_ID:
                 claims[index] = {**claim, "evidence_ids": (HASH_C, HASH_A)}
                 claims[index]["verification"] = {
                     **claim["verification"],
@@ -378,7 +459,7 @@ def test_equivalent_permutations_have_identical_normalized_dumps() -> None:
         dataset["claims"] = tuple(claims)
     second_claims = list(second["claims"])
     for index, claim in enumerate(second_claims):
-        if claim["id"] == "claim.summary":
+        if claim["id"] == SUMMARY_CLAIM_ID:
             second_claims[index] = {
                 **claim,
                 "evidence_ids": tuple(reversed(claim["evidence_ids"])),

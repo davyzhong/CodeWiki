@@ -20,6 +20,10 @@ from knowledge_compiler.contracts.repository import NonBlankString
 MODULE_ID_PATTERN = re.compile(
     r"^module\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$"
 )
+CLAIM_ID_PATTERN = re.compile(
+    r"^module\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*"
+    r"\.claim\.[a-z0-9][a-z0-9_-]*$"
+)
 
 
 class _ContractModel(BaseModel):
@@ -40,7 +44,7 @@ class Provenance(_ContractModel):
     execution_mode: NonBlankString
     model: NonBlankString
     prompt_version: NonBlankString
-    schema_version: NonBlankString
+    schema_version: Literal["0.1"]
     generated_at: datetime
 
     @field_validator("generated_at")
@@ -116,6 +120,15 @@ class DraftClaim(_ContractModel):
     evidence_ids: tuple[str, ...]
     confidence: Confidence
     required: bool = True
+
+    @field_validator("id")
+    @classmethod
+    def validate_claim_id(cls, value: str) -> str:
+        if not CLAIM_ID_PATTERN.fullmatch(value):
+            raise ValueError(
+                "Claim ID must match module.<domain>.<name>.claim.<slug>"
+            )
+        return value
 
     @field_validator("evidence_ids")
     @classmethod
@@ -251,9 +264,24 @@ class _ModulePayload(_ContractModel):
     @field_validator("relations")
     @classmethod
     def normalize_relations(cls, value: tuple[Relation, ...]) -> tuple[Relation, ...]:
+        keys = [(item.predicate, item.target) for item in value]
+        if len(keys) != len(set(keys)):
+            raise ValueError(
+                "duplicate relation (predicate, target) keys are not allowed"
+            )
         return tuple(sorted(value, key=lambda item: (item.predicate, item.target)))
 
     def _validate_claim_references(self, known_claim_ids: set[str]) -> None:
+        expected_prefix = f"{self.id}.claim."
+        foreign = sorted(
+            claim_id
+            for claim_id in known_claim_ids
+            if not claim_id.startswith(expected_prefix)
+        )
+        if foreign:
+            raise ValueError(
+                "Claims must belong to the containing Module: " + ", ".join(foreign)
+            )
         referenced: list[str] = list(self.summary.claim_ids)
         for field_name in self._claim_field_names[1:]:
             for item in getattr(self, field_name):
@@ -302,23 +330,12 @@ class ModuleKnowledge(_ModulePayload):
     @model_validator(mode="after")
     def validate_canonical_claims(self) -> ModuleKnowledge:
         self._validate_claim_references({claim.id for claim in self.claims})
-        unsupported_required = [
-            claim.id
-            for claim in self.claims
-            if claim.required and claim.verification.status != "supported"
-        ]
-        if self.validity.status == "verified" and unsupported_required:
+        if (
+            self.validity.status == "verified"
+            and self.validity.verified_commit != self.scope.commit
+        ):
             raise ValueError(
-                "verified validity requires every required Claim to be supported: "
-                + ", ".join(unsupported_required)
-            )
-        unsupported = [
-            claim.id for claim in self.claims if claim.verification.status != "supported"
-        ]
-        if unsupported:
-            raise ValueError(
-                "canonical Claims must have supported verification: "
-                + ", ".join(unsupported)
+                "verified validity verified_commit must match the scope commit"
             )
         return self
 
