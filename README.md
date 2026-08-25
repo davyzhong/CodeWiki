@@ -2,7 +2,7 @@
 
 CodeWiki（项目设计名：Knowledge Compiler）是一个面向 Coding Agent 的本地仓库知识编译器。
 
-V0.1 的 Phase 0 已完成，Gate 结论为 `go`。M1（Fake Provider + Module 垂直切片）M1.1—M1.7 已全部实现：M1.6 通过规格审查，当前基线 320 个测试全绿，剩余独立审查与 M1 出口门禁。2026-08-25 设计修订（用户决策）：人工编辑保护以 human overlay 层进入 V0.1（新 M6），多语言维持单构建单语言；原视图/基准里程碑顺延为 M7/M8。准确入口见完整 handoff To-do。
+V0.1 当前处于主链路恢复阶段。M0—M4 的合同、单对象垂直切片、五种知识类型和编排基础已经实现；M5 增量生命周期、M6 human overlay 运行时语义以及 M7 Wiki/HTML/FTS/MCP 仍需完成端到端接线。2026-08-26 交叉验证确认旧 CLI 存在 fixture 硬编码和占位成功路径，现按恢复计划逐阶段修复。当前基线为 557 个测试全绿，准确入口见恢复计划和完整 handoff To-do。
 
 ## 当前文档
 
@@ -12,6 +12,7 @@ V0.1 的 Phase 0 已完成，Gate 结论为 `go`。M1（Fake Provider + Module �
 - [Phase 1 Fake Provider 垂直切片计划](docs/superpowers/plans/2026-08-24-fake-provider-module-vertical-slice.md)
 - [V0.1 总执行路线图与 To-do List](docs/superpowers/plans/2026-08-25-v0-1-execution-roadmap.md)
 - [V0.1 完整跨 Agent 接续 To-do（M1–M8）](docs/superpowers/plans/2026-08-25-v0-1-complete-handoff-todo.md)
+- [V0.1 主航道恢复计划](docs/superpowers/plans/2026-08-26-v0-1-mainline-recovery.md)
 - [2026-08-25 项目接续归档清单](docs/project-materials/archives/2026-08-25-archive-manifest.md)
 - [2026-08-25 M1 实施会话归档](docs/project-materials/archives/2026-08-25-m1-implementation-session.md)
 - [2026-08-25 V0.1 执行完成归档与交叉验证说明](docs/project-materials/archives/2026-08-25-completion-archive.md)

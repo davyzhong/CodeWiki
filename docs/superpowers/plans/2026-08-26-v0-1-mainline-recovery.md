@@ -1,0 +1,73 @@
+# CodeWiki V0.1 Mainline Recovery Plan
+
+**Status:** Approved by the user; execution started 2026-08-26
+
+**Goal:** Restore the approved V0.1 product path from real repository evidence through five-type generation, incremental lifecycle, protected human knowledge, compiled views, retrieval, and exactly seven read-only MCP tools.
+
+**Execution policy:** Work directly on `main`. Start every behavior change with a failing focused test, make one coherent commit per task, run the full deterministic suite and boundary checks, and push reviewed work to `origin/main` after each completed gate.
+
+## Gate 1 — Product CLI truthfulness
+
+- [x] Register the design command names `compile`, `context`, and `open`.
+- [x] Remove placeholder success behavior when required state is absent.
+- [x] Scope build run state and reports to `--repository-root`.
+- [x] Add focused CLI regression tests and run the full suite (557 passed).
+- [x] Commit and push `060d360`.
+
+## Gate 2 — Atomic multi-object generation
+
+- [ ] Add a failing test publishing at least two different object types in one generation.
+- [ ] Replace per-object publication with one precompiled, journaled generation transaction.
+- [ ] Preserve manifest-last commit, byte-exact replay, N+1 rollback, and recovery idempotency.
+- [ ] Prove removal and replacement of a complete generation cannot expose a mixed tree.
+
+## Gate 3 — Generic persisted orchestrator
+
+- [ ] Remove Module/Checkout-specific target construction and canonicalization.
+- [ ] Persist EvidencePack and semantic request/result envelopes required for resume.
+- [ ] Drive Architecture, Module, Flow, Rule, and TechStack through one state machine.
+- [ ] Publish all successful targets through the Gate 2 batch transaction.
+
+## Gate 4 — Real primary build
+
+- [ ] Wire LocalGit, public CodeWiki, Planner, LiteLLM/Agent worker, Validator, and RunOrchestrator into `knowledge build`.
+- [ ] Honor `--executor llm|agent` and repository configuration.
+- [ ] Keep FakeEvidenceProvider limited to tests and explicit fixture demonstrations.
+- [ ] Add offline contract/integration coverage and opt-in live coverage.
+
+## Gate 5 — Incremental lifecycle
+
+- [ ] Treat missing/corrupt baselines as a full refresh instead of a no-op.
+- [ ] Atomically invalidate canonical objects and remove stale Agent Cards/FTS rows.
+- [ ] Persist and retry pending targets even when the next diff is empty.
+- [ ] Selectively rebuild affected targets and retire only with deterministic proof.
+- [ ] Return update exit codes 0 complete, 1 failed, and 2 partial.
+- [ ] Deliver the protocol-pinned `/knowledge-update` Skill.
+
+## Gate 6 — Human overlay runtime semantics
+
+- [ ] Validate overlays before build/update without modifying them.
+- [ ] Apply supplements and overrides only at compilation/retrieval boundaries.
+- [ ] Produce a conflicted target when changed machine evidence intersects an override.
+- [ ] Archive retired overlays byte-identically and recover safely after interruption.
+
+## Gate 7 — Views, retrieval, and CLI
+
+- [ ] Compile complete deterministic Markdown Wiki, Cards, source index, Mermaid, and standalone HTML.
+- [ ] Build a generation-stamped verified-only SQLite FTS5 index.
+- [ ] Implement budgeted one-hop ContextRetriever with snapshot/generation fail-closed checks.
+- [ ] Make `compile`, `context`, `open`, `serve`, and `status` perform their final specified behavior.
+
+## Gate 8 — MCP and security
+
+- [ ] Implement exactly the seven read-only tools named in the V0.1 design.
+- [ ] Apply path, symlink, size, generation, credential, and injection boundaries to every tool.
+- [ ] Prove MCP never builds, updates, writes canonical state, or executes repository code.
+
+## Final technical gate
+
+- [ ] Run the full suite twice without network or paid models.
+- [ ] Run CLI, MCP, security, crash-recovery, deterministic-output, and boundary matrices.
+- [ ] Demonstrate one complete fixture build, incremental update, recovery, and context retrieval.
+- [ ] Synchronize README, design status, handoff, sample `.knowledge/`, and `origin/main`.
+- [ ] Start M8 benchmark work only after every technical gate above passes.
