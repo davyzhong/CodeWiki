@@ -1,0 +1,245 @@
+from __future__ import annotations
+
+import json
+from copy import deepcopy
+from pathlib import Path
+
+import pytest
+import yaml
+
+from knowledge_compiler.contracts import EvidencePack
+from knowledge_compiler.contracts.knowledge import ExtractionResult, ModuleKnowledge
+from knowledge_compiler.contracts.semantic import ExtractionRequest, VerificationResult
+from knowledge_compiler.storage import GenerationPublisher, PublicationError
+from knowledge_compiler.validation.module import (
+    apply_verification_result,
+    build_verification_request,
+)
+
+
+ROOT = Path(__file__).resolve().parents[2]
+FIXTURES = ROOT / "tests/fixtures/fake_provider"
+REPOSITORY_ROOT = ROOT / "tests/fixtures/probe_repo"
+
+
+def _load(name: str) -> dict[str, object]:
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def _verified_inputs() -> tuple[ModuleKnowledge, EvidencePack]:
+    extraction_data = deepcopy(_load("module-extraction.json"))
+    extraction_data["draft"]["scope"]["root"] = str(REPOSITORY_ROOT)
+    extraction = ExtractionResult.model_validate(extraction_data)
+    pack_data = deepcopy(_load("evidence-pack.json"))
+    pack_data["repository"]["root"] = str(REPOSITORY_ROOT)
+    pack = EvidencePack.model_validate(pack_data)
+    request = ExtractionRequest.model_validate(
+        {
+            "contract_version": extraction.contract_version,
+            "run_id": extraction.run_id,
+            "target_id": extraction.target_id,
+            "operation": extraction.operation,
+            "attempt": extraction.attempt,
+            "snapshot_id": extraction.snapshot_id,
+            "idempotency_key": extraction.idempotency_key,
+            "evidence_pack": pack,
+        }
+    )
+    verification_request = build_verification_request(
+        request, extraction, REPOSITORY_ROOT
+    )
+    result = apply_verification_result(
+        request,
+        extraction,
+        verification_request,
+        VerificationResult.model_validate(_load("module-verification.json")),
+        REPOSITORY_ROOT,
+    )
+    assert result.is_valid and result.module is not None
+    return result.module, pack
+
+
+def _visible(root: Path) -> dict[str, bytes]:
+    knowledge = root / ".knowledge"
+    return {
+        str(path.relative_to(knowledge)): path.read_bytes()
+        for path in sorted(knowledge.rglob("*"))
+        if path.is_file() and "state/transactions" not in str(path.relative_to(knowledge))
+    }
+
+
+def test_publishes_all_outputs_and_replaces_manifest_last(tmp_path: Path) -> None:
+    module, pack = _verified_inputs()
+    points: list[str] = []
+    publisher = GenerationPublisher(tmp_path, fault_injector=points.append)
+
+    published = publisher.publish("generation-001", module, pack)
+
+    assert published.generation == "generation-001"
+    assert published.canonical_path.read_bytes().endswith(b"\n")
+    assert published.card_path.read_bytes().startswith(b"# ")
+    assert published.wiki_path.read_bytes().startswith(b"# ")
+    manifest = yaml.safe_load(published.manifest_path.read_bytes())
+    assert manifest == {
+        "active_generation": "generation-001",
+        "agent_views_generation": "generation-001",
+        "wiki_generation": "generation-001",
+    }
+    replace_points = [point for point in points if point.endswith(".replace")]
+    assert replace_points[-1] == "publish.manifest.replace"
+    assert not (tmp_path / ".knowledge/state/transactions/generation-001").exists()
+
+
+FAILURE_POINTS = (
+    "stage.canonical.write",
+    "stage.canonical.flush",
+    "stage.canonical.fsync",
+    "stage.card.write",
+    "stage.card.flush",
+    "stage.card.fsync",
+    "stage.wiki.write",
+    "stage.wiki.flush",
+    "stage.wiki.fsync",
+    "stage.manifest.write",
+    "stage.manifest.flush",
+    "stage.manifest.fsync",
+    "stage.directory.fsync",
+    "backup.canonical.write",
+    "backup.canonical.flush",
+    "backup.canonical.fsync",
+    "backup.card.write",
+    "backup.card.flush",
+    "backup.card.fsync",
+    "backup.wiki.write",
+    "backup.wiki.flush",
+    "backup.wiki.fsync",
+    "backup.manifest.write",
+    "backup.manifest.flush",
+    "backup.manifest.fsync",
+    "backup.directory.fsync",
+    "journal.write",
+    "journal.flush",
+    "journal.fsync",
+    "journal.replace",
+    "transaction.directory.fsync",
+    "publish.canonical.replace",
+    "publish.canonical.directory.fsync",
+    "publish.card.replace",
+    "publish.card.directory.fsync",
+    "publish.wiki.replace",
+    "publish.wiki.directory.fsync",
+    "publish.manifest.replace",
+)
+
+
+@pytest.mark.parametrize("failure_point", FAILURE_POINTS)
+def test_failure_and_startup_recovery_preserve_previous_generation(
+    tmp_path: Path, failure_point: str
+) -> None:
+    module, pack = _verified_inputs()
+    GenerationPublisher(tmp_path).publish("generation-001", module, pack)
+    before = _visible(tmp_path)
+
+    def fail(point: str) -> None:
+        if point == failure_point:
+            raise OSError(f"injected at {point}")
+
+    with pytest.raises(PublicationError, match=failure_point):
+        GenerationPublisher(tmp_path, fault_injector=fail).publish(
+            "generation-002", module, pack
+        )
+
+    GenerationPublisher(tmp_path).recover()
+
+    assert _visible(tmp_path) == before
+    assert not (tmp_path / ".knowledge/state/transactions/generation-002").exists()
+
+
+def test_compiler_failure_happens_before_any_storage_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module, pack = _verified_inputs()
+
+    def fail(*_args: object) -> bytes:
+        raise ValueError("compiler exploded")
+
+    monkeypatch.setattr("knowledge_compiler.storage.generation.compile_module_card", fail)
+    with pytest.raises(PublicationError, match="compiler exploded"):
+        GenerationPublisher(tmp_path).publish("generation-001", module, pack)
+
+    assert not (tmp_path / ".knowledge").exists()
+
+
+def test_copied_model_serialization_failure_happens_before_mutation(
+    tmp_path: Path,
+) -> None:
+    module, pack = _verified_inputs()
+    invalid = module.model_copy(update={"summary": object()})
+
+    with pytest.raises(PublicationError, match="compilation failed"):
+        GenerationPublisher(tmp_path).publish("generation-001", invalid, pack)
+
+    assert not (tmp_path / ".knowledge").exists()
+
+
+@pytest.mark.parametrize("generation", ("../escape", "/absolute", ".", "a/b", ""))
+def test_rejects_untrusted_generation_before_mutation(
+    tmp_path: Path, generation: str
+) -> None:
+    module, pack = _verified_inputs()
+    with pytest.raises(PublicationError, match="generation"):
+        GenerationPublisher(tmp_path).publish(generation, module, pack)
+    assert not (tmp_path / ".knowledge").exists()
+
+
+def test_rejects_symlinked_knowledge_root(tmp_path: Path) -> None:
+    module, pack = _verified_inputs()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (tmp_path / ".knowledge").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(PublicationError, match="symlink"):
+        GenerationPublisher(tmp_path).publish("generation-001", module, pack)
+
+    assert list(outside.iterdir()) == []
+
+
+def test_rejects_output_root_with_symlink_ancestor(tmp_path: Path) -> None:
+    module, pack = _verified_inputs()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    linked = tmp_path / "linked"
+    linked.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(PublicationError, match="symlink"):
+        GenerationPublisher(linked / "result").publish(
+            "generation-001", module, pack
+        )
+
+    assert list(outside.iterdir()) == []
+
+
+def test_recovery_is_idempotent_after_interruption(tmp_path: Path) -> None:
+    module, pack = _verified_inputs()
+    GenerationPublisher(tmp_path).publish("generation-001", module, pack)
+    before = _visible(tmp_path)
+
+    def fail_publish(point: str) -> None:
+        if point == "publish.wiki.directory.fsync":
+            raise OSError(point)
+
+    with pytest.raises(PublicationError):
+        GenerationPublisher(tmp_path, fault_injector=fail_publish).publish(
+            "generation-002", module, pack
+        )
+
+    def fail_recovery(point: str) -> None:
+        if point == "recovery.card.replace":
+            raise OSError(point)
+
+    with pytest.raises(PublicationError, match="recovery.card.replace"):
+        GenerationPublisher(tmp_path, fault_injector=fail_recovery).recover()
+
+    GenerationPublisher(tmp_path).recover()
+    GenerationPublisher(tmp_path).recover()
+    assert _visible(tmp_path) == before
