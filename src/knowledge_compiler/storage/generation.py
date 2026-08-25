@@ -164,7 +164,12 @@ class GenerationPublisher:
 
         # Once manifest replacement is durable, cleanup is housekeeping. A crash
         # here is recognized as committed and cleaned by recover().
-        self._remove_transaction(transaction)
+        try:
+            self._remove_transaction(transaction)
+        except Exception as error:
+            if isinstance(error, PublicationError):
+                raise
+            raise PublicationError(f"publication cleanup failed: {error}") from error
         return PublishedGeneration(
             generation=generation,
             canonical_path=destinations["canonical"],

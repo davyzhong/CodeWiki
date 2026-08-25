@@ -219,6 +219,62 @@ def test_rejects_output_root_with_symlink_ancestor(tmp_path: Path) -> None:
     assert list(outside.iterdir()) == []
 
 
+def _with_summary(module: ModuleKnowledge, text: str) -> ModuleKnowledge:
+    data = module.model_dump(mode="json")
+    data["summary"]["text"] = text
+    return ModuleKnowledge.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    "failure_point",
+    ("publish.manifest.directory.fsync", "cleanup.transactions.directory.fsync"),
+)
+def test_post_commit_crash_keeps_new_generation_and_cleans_journal(
+    tmp_path: Path, failure_point: str
+) -> None:
+    module, pack = _verified_inputs()
+    GenerationPublisher(tmp_path).publish("generation-001", module, pack)
+    replacement = _with_summary(module, "Replacement summary for generation two.")
+
+    def fail(point: str) -> None:
+        if point == failure_point:
+            raise OSError(f"injected at {point}")
+
+    with pytest.raises(PublicationError, match=failure_point):
+        GenerationPublisher(tmp_path, fault_injector=fail).publish(
+            "generation-002", replacement, pack
+        )
+
+    GenerationPublisher(tmp_path).recover()
+    GenerationPublisher(tmp_path).recover()
+
+    manifest = yaml.safe_load((tmp_path / ".knowledge/manifest.yaml").read_bytes())
+    assert manifest == {
+        "active_generation": "generation-002",
+        "agent_views_generation": "generation-002",
+        "wiki_generation": "generation-002",
+    }
+    canonical = (tmp_path / ".knowledge/objects/modules/module.shop.checkout.yaml").read_text()
+    assert "Replacement summary for generation two." in canonical
+    assert not (tmp_path / ".knowledge/state/transactions/generation-002").exists()
+
+
+def test_rejects_unsafe_copied_module_id_before_mutation(tmp_path: Path) -> None:
+    module, pack = _verified_inputs()
+    unsafe = module.model_copy(update={"id": "../../escape"})
+
+    with pytest.raises(PublicationError, match="compilation failed"):
+        GenerationPublisher(tmp_path).publish("generation-001", unsafe, pack)
+
+    assert not (tmp_path / ".knowledge").exists()
+
+
+@pytest.mark.parametrize("value", ("../../escape", "/absolute", "a/b", "", None, 123))
+def test_rejects_unsafe_object_id_defense_in_depth(value: object) -> None:
+    with pytest.raises(PublicationError, match="object id"):
+        GenerationPublisher._validate_object_id(value)
+
+
 def test_recovery_is_idempotent_after_interruption(tmp_path: Path) -> None:
     module, pack = _verified_inputs()
     GenerationPublisher(tmp_path).publish("generation-001", module, pack)
