@@ -393,8 +393,9 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Prove conflicted/invalid/insufficient targets cannot become canonical or enter compiled Agent views.
 - [ ] Review and commit.
 
-### M3.8 Five-type integration and exit gate
+### M3.8 Five-type integration and exit gate — COMPLETED (gate passed)
 
+> M3 milestone review: first round CHANGES REQUIRED (target-correlation hole, both-provider item, escaping/mermaid/severity reconciliations) — all fixed in `f15ffa8`; re-review APPROVED. Gate: full suite 466×2, boundary scan and diff check clean, pushed with the milestone.
 > Deferred follow-up (explicit, milestone-review disposition): per-type extraction fixtures driving all four new types through the CodeWiki FIXTURE provider end-to-end were not built; the fake-fixture world plus the Module's CodeWiki-fixture path (M2) cover the shared EvidencePack contract today. Build the per-type harnesses when M4's orchestrator introduces per-type pipelines, before the M7 views consume them.
 
 - [ ] Run all five types through Fake and CodeWiki fixture providers, extraction, separate verification, canonicalization, and publication.
