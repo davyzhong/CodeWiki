@@ -20,8 +20,10 @@ from knowledge_compiler.contracts.repository import NonBlankString
 MODULE_ID_PATTERN = re.compile(
     r"^module\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$"
 )
+# Generic shape for every typed claim; each typed container enforces its
+# own type prefix on top of this shared pattern.
 CLAIM_ID_PATTERN = re.compile(
-    r"^module\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*"
+    r"^[a-z][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*"
     r"\.claim\.[a-z0-9][a-z0-9_-]*$"
 )
 
@@ -68,7 +70,7 @@ class DraftClaim(_ContractModel):
     def validate_claim_id(cls, value: str) -> str:
         if not CLAIM_ID_PATTERN.fullmatch(value):
             raise ValueError(
-                "Claim ID must match module.<domain>.<name>.claim.<slug>"
+                "Claim ID must match <type>.<domain>.<name>.claim.<slug>"
             )
         return value
 
@@ -240,6 +242,139 @@ try:  # local import to avoid a cycle: semantic imports knowledge
 except ImportError:  # pragma: no cover
     DraftKnowledge = DraftModuleKnowledge
 
+ARCHITECTURE_ID_PATTERN = re.compile(
+    r"^architecture\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$"
+)
+ARCHITECTURE_CLAIM_PATTERN = re.compile(
+    r"^architecture\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*"
+    r"\.claim\.[a-z0-9][a-z0-9_-]*$"
+)
+
+
+class ArchitectureComponent(_ClaimBacked):
+    name: NonBlankString
+    responsibility: NonBlankString
+
+
+class ArchitectureBoundary(_ClaimBacked):
+    name: NonBlankString
+    description: NonBlankString
+
+
+class ArchitectureRelationship(_ClaimBacked):
+    predicate: NonBlankString
+    source: NonBlankString
+    target: NonBlankString
+
+
+class ArchitectureKnowledge(_ContractModel):
+    schema_version: Literal["0.1"] = "0.1"
+    id: str
+    type: Literal["architecture"] = "architecture"
+    title: NonBlankString
+    scope: Scope
+    summary: ClaimBackedText
+    components: tuple[ArchitectureComponent, ...]
+    boundaries: tuple[ArchitectureBoundary, ...]
+    relationships: tuple[ArchitectureRelationship, ...] = ()
+    claims: tuple[Claim, ...]
+    provenance: Provenance
+    validity: Validity
+
+    @field_validator("id")
+    @classmethod
+    def validate_architecture_id(cls, value: str) -> str:
+        if not ARCHITECTURE_ID_PATTERN.fullmatch(value):
+            raise ValueError(
+                "architecture ID must match architecture.<domain>.<name>"
+            )
+        return value
+
+    @field_validator("components")
+    @classmethod
+    def normalize_components(
+        cls, value: tuple[ArchitectureComponent, ...]
+    ) -> tuple[ArchitectureComponent, ...]:
+        names = [item.name for item in value]
+        if len(names) != len(set(names)):
+            raise ValueError("duplicate component names are not allowed")
+        if not value:
+            raise ValueError("architecture requires at least one component")
+        return tuple(sorted(value, key=lambda item: item.name))
+
+    @field_validator("boundaries")
+    @classmethod
+    def normalize_boundaries(
+        cls, value: tuple[ArchitectureBoundary, ...]
+    ) -> tuple[ArchitectureBoundary, ...]:
+        names = [item.name for item in value]
+        if len(names) != len(set(names)):
+            raise ValueError("duplicate boundary names are not allowed")
+        return tuple(sorted(value, key=lambda item: item.name))
+
+    @field_validator("relationships")
+    @classmethod
+    def normalize_relationships(
+        cls, value: tuple[ArchitectureRelationship, ...]
+    ) -> tuple[ArchitectureRelationship, ...]:
+        keys = [
+            (item.predicate, item.source, item.target) for item in value
+        ]
+        if len(keys) != len(set(keys)):
+            raise ValueError(
+                "duplicate relationship keys are not allowed"
+            )
+        return tuple(
+            sorted(
+                value,
+                key=lambda item: (item.predicate, item.source, item.target),
+            )
+        )
+
+    @field_validator("claims")
+    @classmethod
+    def normalize_claims(cls, value: tuple[Claim, ...]) -> tuple[Claim, ...]:
+        ids = [claim.id for claim in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate Claim IDs are not allowed")
+        for claim in value:
+            if not ARCHITECTURE_CLAIM_PATTERN.fullmatch(claim.id):
+                raise ValueError(
+                    "Claim ID must match architecture.<domain>.<name>.claim.<slug>"
+                )
+        return tuple(sorted(value, key=lambda claim: claim.id))
+
+    @model_validator(mode="after")
+    def validate_references(self) -> ArchitectureKnowledge:
+        referenced: list[str] = list(self.summary.claim_ids)
+        for field in ("components", "boundaries", "relationships"):
+            for item in getattr(self, field):
+                referenced.extend(item.claim_ids)
+        known = {claim.id for claim in self.claims}
+        unknown = sorted(set(referenced) - known)
+        if unknown:
+            raise ValueError(f"unknown Claim references: {', '.join(unknown)}")
+        component_names = {component.name for component in self.components}
+        for relationship in self.relationships:
+            if (
+                relationship.source not in component_names
+                or relationship.target not in component_names
+            ):
+                raise ValueError(
+                    "relationship references an unknown component: "
+                    f"{relationship.source} -> {relationship.target}"
+                )
+        if (
+            self.validity.status == "verified"
+            and self.validity.verified_commit != self.scope.commit
+        ):
+            raise ValueError(
+                "verified validity verified_commit must match the scope commit"
+            )
+        return self
+
+
+
 
 class ExtractionResult(_ContractModel):
     contract_version: Literal["0.1"]
@@ -280,6 +415,10 @@ class ModuleKnowledge(_ModulePayload):
 
 
 __all__ = [
+    "ArchitectureBoundary",
+    "ArchitectureComponent",
+    "ArchitectureKnowledge",
+    "ArchitectureRelationship",
     "Claim",
     "ClaimBackedText",
     "ClaimVerification",
