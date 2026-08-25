@@ -14,6 +14,7 @@ V0.1 的 Phase 0 已完成，Gate 结论为 `go`。M1（Fake Provider + Module �
 - [V0.1 完整跨 Agent 接续 To-do（M1–M8）](docs/superpowers/plans/2026-08-25-v0-1-complete-handoff-todo.md)
 - [2026-08-25 项目接续归档清单](docs/project-materials/archives/2026-08-25-archive-manifest.md)
 - [2026-08-25 M1 实施会话归档](docs/project-materials/archives/2026-08-25-m1-implementation-session.md)
+- [2026-08-25 V0.1 执行完成归档与交叉验证说明](docs/project-materials/archives/2026-08-25-completion-archive.md)
 - [项目起源与原始素材库](docs/project-materials/README.md)
 
 后续实现必须以 Phase 0 捕获的真实公共 DTO 为依据，不能把外部 CodeWiki 的内部实现当成稳定合同。

@@ -9,6 +9,7 @@
 | `../../../README.md` | 项目当前状态与入口 | 当前 |
 | `../../superpowers/plans/2026-08-25-v0-1-complete-handoff-todo.md` | M1 剩余工作及 M2–M7 完整执行清单 | 当前、权威执行入口 |
 | `2026-08-25-m1-implementation-session.md` | 当天用户请求、决策、实现、审查、提交、测试和暂停点 | 当前会话档案 |
+| `2026-08-25-completion-archive.md` | M1-M7 全部已完成工作的归档与交叉验证说明（含验证指令、审查统计、已知限制） | 交叉验证入口 |
 | `../../superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md` | V0.1 产品与技术规格 | 权威设计 |
 | `../../superpowers/plans/2026-08-24-fake-provider-module-vertical-slice.md` | M1 exact implementation plan | M1 权威计划 |
 | `../../superpowers/plans/2026-08-25-v0-1-execution-roadmap.md` | M0–M7 里程碑顺序与门禁 | 权威路线图 |

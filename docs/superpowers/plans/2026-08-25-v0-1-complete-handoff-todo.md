@@ -870,6 +870,8 @@ For every unchecked implementation task above:
 
 ## 12. Return package for final acceptance by the original Agent
 
+> The complete work archive with cross-validation instructions is at `docs/project-materials/archives/2026-08-25-completion-archive.md`.
+
 When handing completed work back for acceptance, provide:
 
 - [ ] Final local and remote `main` commit IDs.
