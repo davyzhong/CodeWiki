@@ -507,6 +507,39 @@ def test_committed_probe_requires_full_byte_identical_tree(
     assert outcome.reason == "publication"
 
 
+def test_unreadable_destination_fails_closed(tmp_path: Path) -> None:
+    import os
+
+    from knowledge_compiler.vertical_slice import run_fake_module_slice
+
+    output_root = tmp_path / "out"
+    first = run_fake_module_slice(
+        provider(),
+        FIXTURES / "module-extraction.json",
+        FIXTURES / "module-verification.json",
+        output_root,
+    )
+    assert not getattr(first, "reason", None)
+    card = output_root / ".knowledge/views/cards/module.shop.checkout.md"
+    card.chmod(0o000)
+
+    def fail(point: str) -> None:
+        if point == "publish.canonical.replace":
+            raise OSError("injected at publish.canonical.replace")
+
+    try:
+        outcome = run_fake_module_slice(
+            provider(),
+            FIXTURES / "module-extraction.json",
+            FIXTURES / "module-verification.json",
+            output_root,
+            fault_injector=fail,
+        )
+        assert outcome.reason == "publication"
+    finally:
+        card.chmod(0o644)
+
+
 def test_duplicate_json_key_message_is_bounded(tmp_path: Path) -> None:
     from knowledge_compiler.vertical_slice import run_fake_module_slice
 

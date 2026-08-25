@@ -225,9 +225,12 @@ def _is_committed(
         "manifest": manifest_path,
     }
     for name, destination in destinations.items():
-        if destination.is_symlink() or not destination.is_file():
-            return False
-        if destination.read_bytes() != expected[name]:
+        try:
+            if destination.is_symlink() or not destination.is_file():
+                return False
+            if destination.read_bytes() != expected[name]:
+                return False
+        except OSError:
             return False
     return True
 
