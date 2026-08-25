@@ -268,6 +268,33 @@ def test_diff_is_deferred_until_m5(tmp_path: Path) -> None:
         provider.diff((), ())
 
 
+def test_gitlink_and_tracked_symlink_never_dirty(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    some_commit = git(root, "rev-parse", "HEAD").strip()
+    git(
+        root,
+        "update-index",
+        "--add",
+        "--cacheinfo",
+        f"160000,{some_commit},vendor/lib",
+    )
+    git(root, "commit", "-qm", "gitlink")
+    snapshot = resolve(root)
+    assert snapshot.dirty is False
+    assert snapshot.working_tree_hash is None
+    assert "vendor/lib" not in snapshot.eligible_files
+
+    inside = root / "inside.py"
+    inside.write_text("print('inside')\n", encoding="utf-8")
+    git(root, "add", "inside.py")
+    git(root, "commit", "-qm", "real file")
+    git(root, "update-index", "--add", "--cacheinfo", f"120000,{git(root, 'hash-object', '-w', str(inside)).strip()},linked.py")
+    git(root, "commit", "-qm", "index symlink")
+    snapshot_two = resolve(root)
+    assert snapshot_two.dirty is False
+    assert "linked.py" not in snapshot_two.eligible_files
+
+
 def test_git_timeout_fails_typed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import subprocess as subprocess_module
 

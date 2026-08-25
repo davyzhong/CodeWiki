@@ -187,12 +187,12 @@ class LocalGitRepositoryProvider:
         git_dir = _run_git(root, "rev-parse", "--git-dir")
         if git_dir.returncode != 0:
             raise RepositoryResolutionError("path is not a Git repository")
-        try:
-            commit = _git_text(root, "rev-parse", "HEAD").strip()
-        except RepositoryResolutionError as error:
+        head = _run_git(root, "rev-parse", "HEAD")
+        if head.returncode != 0:
             raise RepositoryResolutionError(
                 "repository has no commit; an initial commit is required"
-            ) from error
+            )
+        commit = head.stdout.strip()
 
         branch_result = _run_git(root, "symbolic-ref", "--quiet", "--short", "HEAD")
         branch = branch_result.stdout.strip() if branch_result.returncode == 0 else None
@@ -208,7 +208,7 @@ class LocalGitRepositoryProvider:
             ).strip().split("\n")[-1]
             repository_id = f"local:{initial}"
 
-        records, deleted_eligible = self._inventory(root)
+        records, deleted_eligible, content_paths = self._inventory(root)
         if not records and not deleted_eligible:
             raise RepositoryResolutionError(
                 "repository has no eligible source files"
@@ -217,7 +217,9 @@ class LocalGitRepositoryProvider:
             raise RepositoryResolutionError(
                 "repository has no eligible files in a supported language"
             )
-        dirty = bool(deleted_eligible) or self._has_dirty_eligible(root)
+        dirty = bool(deleted_eligible) or self._has_dirty_eligible(
+            root, content_paths
+        )
         working_tree_hash = None
         if dirty:
             payload = [
@@ -243,7 +245,7 @@ class LocalGitRepositoryProvider:
         )
 
     def inventory(self, path: str | os.PathLike[str]) -> tuple[EligibleFileRecord, ...]:
-        records, _ = self._inventory(Path(path).resolve())
+        records, _, _ = self._inventory(Path(path).resolve())
         return records
 
     def diff(self, baseline, current):
@@ -251,14 +253,20 @@ class LocalGitRepositoryProvider:
 
     def _inventory(
         self, root: Path
-    ) -> tuple[tuple[EligibleFileRecord, ...], frozenset[str]]:
+    ) -> tuple[tuple[EligibleFileRecord, ...], frozenset[str], frozenset[str]]:
         tracked: dict[str, str | None] = {}
         for line in _git_lines(root, "ls-files", "-s", "-z"):
             meta, _, path = line.partition("\t")
             normalized = _normalized_posix(path)
             if normalized is None or _path_is_excluded(normalized):
                 continue
-            blob_id = meta.split(" ")[1] if len(meta.split(" ")) >= 2 else None
+            fields = meta.split(" ")
+            mode = fields[0] if fields else ""
+            if mode in {"160000", "120000"}:
+                # Gitlinks and index symlinks are not eligible content; they
+                # must not count as deleted or dirty when absent from disk.
+                continue
+            blob_id = fields[1] if len(fields) >= 2 else None
             tracked[normalized] = blob_id
         for path in _git_lines(
             root, "ls-files", "--others", "--exclude-standard", "-z"
@@ -295,9 +303,9 @@ class LocalGitRepositoryProvider:
                 )
             )
         deleted = frozenset(set(tracked) - existing)
-        return tuple(records), deleted
+        return tuple(records), deleted, frozenset(tracked)
 
-    def _has_dirty_eligible(self, root: Path) -> bool:
+    def _has_dirty_eligible(self, root: Path, content_paths: frozenset[str]) -> bool:
         status = _run_git(
             root,
             "status",
@@ -310,10 +318,19 @@ class LocalGitRepositoryProvider:
             raise RepositoryResolutionError("git status failed")
         entries = [line for line in status.stdout.split("\0") if line]
         for entry in entries:
-            path = entry[3:] if entry[1:2] == " " or entry[:2] in {"??", "!!"} else entry[2:]
-            path = path.split(" -> ")[-1].strip('"')
+            status_code = entry[:2]
+            # Porcelain v1 entries are XY + one space + path.
+            path = entry[3:].split(" -> ")[-1].strip('"')
             normalized = _normalized_posix(path)
-            if normalized is not None and not _path_is_excluded(normalized):
+            if (
+                normalized is None
+                or _path_is_excluded(normalized)
+                or PurePosixPath(normalized).suffix in _BINARY_SUFFIXES
+            ):
+                continue
+            if status_code == "??":
+                return True
+            if normalized in content_paths:
                 return True
         return False
 
