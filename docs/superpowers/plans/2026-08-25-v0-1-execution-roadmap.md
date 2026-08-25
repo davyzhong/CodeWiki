@@ -66,13 +66,14 @@ The current code under `src/knowledge_compiler/spikes/` is a Phase 0 probe, not 
 
 ```text
 M0 Public-interface evidence              DONE / GO
-  -> M1 Fake Provider + one Module        NEXT
+  -> M1 Fake Provider + one Module        IN REVIEW
   -> M2 Real CodeWiki + one Module
   -> M3 Five knowledge types
   -> M4 RunOrchestrator + two executors
   -> M5 Incremental lifecycle
-  -> M6 Human/Agent views + MCP + security
-  -> M7 Agent A/B benchmark and product gate
+  -> M6 Human knowledge layer + edit protection   (added by user decision 2026-08-25)
+  -> M7 Human/Agent views + MCP + security
+  -> M8 Agent A/B benchmark and product gate
 ```
 
 Only one milestone may be active at a time. A failed gate triggers design revision inside that milestone; it does not authorize starting parallel downstream subsystems.
@@ -84,7 +85,8 @@ Only one milestone may be active at a time. A failed gate triggers design revisi
 | M2 | Configuration contract and `knowledge init --language zh|en`; the one-Module real-provider path remains an integration harness until orchestration exists |
 | M4 | `knowledge build --executor llm`, `knowledge validate`, plus Agent queue commands `prepare`, `next`, `evidence`, `submit-extraction`, `verify-next`, `submit-verification`, and `finalize` |
 | M5 | `knowledge update --executor llm`, including complete/partial/failed exit semantics |
-| M6 | `knowledge status`, `compile`, `context`, `open`, and `serve`, plus the seven read-only MCP tools |
+| M6 | `knowledge edit <object-id>` with overlay validation and `--print-path` |
+| M7 | `knowledge status`, `compile`, `context`, `open`, and `serve`, plus the seven read-only MCP tools |
 
 No milestone may add a temporary command with the same name but weaker safety semantics than the final command. CLI help, exit codes, configuration loading, structured run reports, and invalid-input tests belong to the milestone that first owns each command.
 
@@ -240,7 +242,7 @@ No milestone may add a temporary command with the same name but weaker safety se
 
 - [ ] Persist the filtered eligible-file inventory independent of CodeWiki cache and Git history depth.
 - [ ] Compare added, modified, deleted, renamed, dirty, branch-switched, and non-descendant snapshots before provider sync.
-- [ ] Mark affected canonical objects stale and remove them from the existing verified-only Agent Card surface before regeneration; publish generation/invalidation metadata that M6 indexes must later obey.
+- [ ] Mark affected canonical objects stale and remove them from the existing verified-only Agent Card surface before regeneration; publish generation/invalidation metadata that M7 indexes must later obey.
 - [ ] Persist `pending_targets` so partial runs retry even with no new file diff.
 - [ ] Handle provider index failure with safe invalidation and no fabricated discovery.
 - [ ] Implement deterministic retirement checks: source absence, exact public-provider search, inbound relation refresh, and complete provider queries.
@@ -256,11 +258,34 @@ No milestone may add a temporary command with the same name but weaker safety se
 - [ ] Cache deletion, shallow clone, dirty tree, and branch switch remain recoverable from tracked inventory.
 - [ ] `knowledge update` produces structured reports that separate canonical object state from latest target results.
 
-## 9. M6 — Human views, Agent retrieval, MCP, and security
+## 9. M6 — Human knowledge layer and edit protection
 
-**Start condition:** Full and incremental knowledge lifecycles are safe.
+**Start condition:** M5 exit gate passes.
 
-**Planning task:** Before code, create and review an exact views/retrieval/MCP/security plan covering every M6-owned command and tool.
+**Planning task:** Before code, create and review an exact human-layer plan covering overlay contracts, `knowledge edit`, regeneration preservation, conflict semantics, and retirement archiving, per design Sections 5.10 and 6.5.
+
+**Planned deliverables**
+
+- [ ] Define versioned `HumanOverlay` contracts under `.knowledge/human/<type>/<id>.yaml`: `supplement`/`override` sections, free-form notes with optional evidence pointers, explicit `updated_at`, `execution_mode: human` provenance, strict schema with typed issues for malformed input.
+- [ ] Implement `knowledge edit <object-id>`: create/open the overlay in `$EDITOR`, or print the path with `--print-path`; validate on save; invalid content keeps the file and reports typed issues; editor content is data and is never executed.
+- [ ] Prove regeneration preserves overlays: no build/update/orchestration path rewrites or deletes overlay files; overlays are excluded from the eligible-file snapshot by the existing `.knowledge/` exclusion.
+- [ ] Implement field-level conflict semantics: regenerated machine content with changed evidence under a human `override` produces a `conflicted` target result, preserves the prior generation and the overlay, and lists the conflict for human resolution.
+- [ ] Retirement archives overlays instead of deleting them; an overlay without a live object renders under an orphaned-human-knowledge warning.
+- [ ] Treat human text as untrusted data with the same escaping and redaction rules as repository text.
+
+### M6 exit gate
+
+- [ ] No automated path rewrites or deletes overlay content.
+- [ ] Human–machine conflicts never resolve silently in either direction.
+- [ ] Invalid overlays fail closed with typed issues and never block reading existing generations.
+- [ ] Both execution modes and every CLI surface handle overlays identically.
+- [ ] Overlay editing never dirties the repository snapshot.
+
+## 10. M7 — Human views, Agent retrieval, MCP, and security
+
+**Start condition:** Full and incremental knowledge lifecycles are safe, and the human overlay layer exists.
+
+**Planning task:** Before code, create and review an exact views/retrieval/MCP/security plan covering every M7-owned command and tool.
 
 ### Planned deliverables
 
@@ -268,22 +293,23 @@ No milestone may add a temporary command with the same name but weaker safety se
 - [ ] Make Wiki staleness visible at object/page level and globally when `wiki_generation` lags.
 - [ ] Build verified-only SQLite FTS5 with deterministic indexing and one-hop typed relation expansion.
 - [ ] Integrate FTS invalidation/republication into the M5 generation contract so stale objects are removed and index generation matches `active_generation`/`agent_views_generation`.
-- [ ] Implement token-budgeted `knowledge context <task>` with diagnostic-only `--include-stale`.
-- [ ] Implement the seven read-only MCP tools from the approved spec.
+- [ ] Implement token-budgeted `knowledge context <task>` with diagnostic-only `--include-stale`; human overlay entries participate with `source: human` attribution.
+- [ ] Implement the seven read-only MCP tools from the approved spec, exposing overlay content with attribution on the object/related/context/overview tools.
 - [ ] Enforce repository-root/Evidence-ID boundaries for MCP evidence access.
-- [ ] Add secret redaction, HTML/Markdown/Mermaid escaping, path traversal, symlink, prompt-injection-as-data, and oversized-context tests.
+- [ ] Add secret redaction, HTML/Markdown/Mermaid escaping (applied identically to human overlay text), path traversal, symlink, prompt-injection-as-data, and oversized-context tests.
 - [ ] Add CLI status, exit codes, open/serve/compile behavior, and stale-generation diagnostics.
 - [ ] Implement and test `knowledge status`, `compile`, `context`, `open`, and `serve` as the complete remaining primary CLI surface.
 
-### M6 exit gate
+### M7 exit gate
 
 - [ ] Wiki/HTML are useful for humans and every critical conclusion has source pointers.
 - [ ] Cards, FTS, context, and MCP default to verified current-generation knowledge only.
+- [ ] Human overlay content renders with attribution everywhere and is escaped like repository text.
 - [ ] Snapshot or generation mismatch fails closed with `knowledge_update_required`.
 - [ ] Security boundary tests pass without depending on network or paid models.
 - [ ] Every primary command listed in the V0.1 spec is implemented exactly once and its owning milestone tests its final semantics.
 
-## 10. M7 — Agent A/B benchmark and V0.1 product gate
+## 11. M8 — Agent A/B benchmark and V0.1 product gate
 
 **Start condition:** The complete local build/update/context loop passes technical acceptance.
 
@@ -298,7 +324,7 @@ No milestone may add a temporary command with the same name but weaker safety se
 - [ ] Manually sample at least 50 Claims and score source support.
 - [ ] Publish a reproducible benchmark report with raw sanitized measurements and limitations.
 
-### M7 product gate
+### M8 product gate
 
 - [ ] Evidence ID/path/line structural validity is 100%.
 - [ ] At least 90% of the 50+ sampled Claims are supported by their sources.
@@ -307,18 +333,19 @@ No milestone may add a temporary command with the same name but weaker safety se
 
 If the technical gate passes but the product gate fails, V0.1 is a completed experiment, not justification for broader scope. The next work must improve Evidence quality, IR/validation, or context selection before adding team, multi-repository, or governance features.
 
-## 11. Explicitly deferred beyond V0.1
+## 12. Explicitly deferred beyond V0.1
 
 - [ ] Git URL cloning, private-repository credentials, and clone cache (`V0.1.x`).
 - [ ] Multi-repository workspaces and cross-repository flows (`V0.2`).
 - [ ] Team Web SaaS, permissions, collaboration, and approval workflows.
-- [ ] Human locks/edits and bidirectional merge semantics.
-- [ ] Issues, incidents, decisions, API, and data-model knowledge types.
+- [ ] Bidirectional merge of compiled Wiki/Card Markdown back into IR; the human edit surface stays the Git-tracked overlay layer plus `knowledge edit`.
+- [ ] Synchronized multi-language output; one build uses one language (confirmed by user decision 2026-08-25).
+- [ ] Issues, incidents, decisions, API, or data-model knowledge types.
 - [ ] Non-code enterprise knowledge ingestion.
 
 These items may shape interfaces but must not enter V0.1 implementation without an explicit scope change.
 
-## 12. Immediate next work session
+## 13. Immediate next work session
 
 The next session starts with M1 only:
 
@@ -329,11 +356,12 @@ The next session starts with M1 only:
 5. [ ] Continue M1 Tasks 2–7 in order, one tested commit per task.
 6. [ ] Stop at the M1 exit gate; do not begin production CodeWiki/LiteLLM integration until the fake vertical slice is proven.
 
-## 13. V0.1 final Definition of Done
+## 14. V0.1 final Definition of Done
 
 - [ ] One local Git repository completes build and update.
 - [ ] Both execution modes share the persisted orchestrator and semantic contracts.
 - [ ] All five knowledge types are Claim/Evidence-backed and validated.
+- [ ] Protected human edits survive regeneration, conflict explicitly, and render with attribution across views and retrieval.
 - [ ] Markdown Wiki, standalone HTML, Cards, task context, and seven MCP tools work.
 - [ ] Incremental invalidation, retry, recovery, and deterministic retirement pass fixtures.
 - [ ] Default Agent reads exclude stale/conflicted knowledge and fail closed on snapshot/generation mismatch.

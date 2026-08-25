@@ -1,7 +1,7 @@
 # Knowledge Compiler V0.1 Design
 
-**Status:** Spec review approved; awaiting final user review
-**Date:** 2026-08-24  
+**Status:** Spec review approved; revised 2026-08-25 to add the human knowledge layer (user decision; multi-language remains deferred)
+**Date:** 2026-08-24, revised 2026-08-25
 **Product horizon:** Local repository first; Git URL support next; multi-repository workspaces later
 
 ## 1. Product definition
@@ -24,6 +24,7 @@ The core product hypothesis is that precompiled, evidence-backed repository know
 - Bind every factual field to source evidence through claim granularity.
 - Support both Codex Skill and built-in LLM execution modes through one orchestrator.
 - Validate objects structurally and semantically before publication.
+- Accept protected human knowledge edits through an IR-level overlay layer; automated regeneration never silently overwrites or deletes human content.
 - Persist canonical, version-aware Knowledge IR as reviewable YAML.
 - Compile Markdown Repo Wiki pages, Markdown Knowledge Cards, and a standalone interactive HTML Wiki.
 - Retrieve budgeted task context through CLI and seven MCP tools.
@@ -35,10 +36,10 @@ The core product hypothesis is that precompiled, evidence-backed repository know
 - Remote Git URL cloning, authentication, caching, or cleanup.
 - Cross-repository knowledge or service topology.
 - A long-running Web UI or SaaS service.
-- Manual card editing, human locking, approval, or publishing workflows.
+- Bidirectional merge of compiled Wiki/Card Markdown, human-content approval workflows, and team-oriented content governance. Human editing itself is in scope through the overlay layer (Section 6.5); the compiled output is never parsed back into IR.
 - A custom AST parser, code graph, vector database, or repository watcher.
 - Background generation, Git hooks, automatic commits, or code execution inside the target repository.
-- Multiple synchronized output languages. One build uses either Chinese or English.
+- Multiple synchronized output languages. One build uses either Chinese or English (confirmed by user decision 2026-08-25).
 - A general enterprise knowledge platform or ingestion of tickets, chats, meetings, incidents, or external documents.
 
 ## 3. Stable product decisions
@@ -53,7 +54,7 @@ The core product hypothesis is that precompiled, evidence-backed repository know
 | Agent view | Typed YAML/Markdown Knowledge Cards plus task context |
 | Knowledge types | Architecture, Module, Flow, Rule, TechStack |
 | Execution modes | Codex Skill and built-in LLM through one RunOrchestrator |
-| Editing | Generated content is read-only in V0.1 |
+| Editing | Machine-verified content read-only; human overlay layer editable and protected (Section 6.5) |
 | Primary success metric | Agent task effectiveness |
 | Secondary success metric | Human-readable, source-grounded Wiki quality |
 
@@ -195,6 +196,10 @@ Indexes verified objects in a local SQLite FTS5 cache, expands one hop through e
 
 Exposes read-only knowledge and evidence retrieval over stdio. It does not perform builds or mutate the target repository.
 
+### 5.10 Human knowledge layer
+
+Loads and validates Git-tracked human overlays under `.knowledge/human/`. An overlay carries human-authored supplements, field overrides, and notes with an explicit timestamp and optional evidence pointers. The layer is a read-only input to compilation, retrieval, and regeneration: no automated process rewrites, regenerates, or deletes overlay content. `knowledge edit <object-id>` is the supported edit surface.
+
 ## 6. Canonical Knowledge IR
 
 ### 6.1 Base object
@@ -277,7 +282,39 @@ Run targets, which are stored in the plan and run report rather than as canonica
 
 For object aggregation, every required factual Claim must be `supported`. A `partial` or `unsupported` required Claim makes the draft invalid and eligible for repair. A `conflicted` Claim makes the target conflicted. Optional factual fields with partial or unsupported Claims must be removed during repair before publication; they cannot remain in a verified object.
 
-V0.1 has no human-verified or human-locked state.
+Machine-generated canonical objects carry no human-verified or human-locked state; human knowledge lives exclusively in the overlay layer of Section 6.5.
+
+### 6.5 Human overlays
+
+Human knowledge is protected by storing it beside the canonical IR, not inside machine-verified objects:
+
+```yaml
+# .knowledge/human/modules/module.shop.checkout.yaml
+schema_version: "0.1"
+object_id: module.shop.checkout
+updated_at: 2026-08-25T12:00:00+08:00
+sections:
+  - field: summary
+    mode: supplement            # supplement | override
+    text: Checkout holds a repository-wide lock during peak season.
+    basis: postmortem 2026-07
+notes:
+  - id: module.shop.checkout.note.peak-load
+    text: Reservation contention rises sharply during promotions.
+    basis: operations experience
+    evidence: []                # optional path/symbol/document pointers
+```
+
+Protection rules:
+
+- `supplement` adds attributed human content to an object and is always preserved by regeneration.
+- `override` replaces the rendered text of one factual field; the machine-verified Claim remains recorded and is rendered as a collapsible original so verified knowledge is never hidden from review.
+- Human entries carry `execution_mode: human` provenance and an explicit `updated_at` supplied by the edit tool; compilers never invent timestamps.
+- When regeneration produces changed evidence for a machine field that carries a human override, the target result is `conflicted`: the previous generation and the overlay both remain until a human resolves the conflict. Neither direction wins silently.
+- Overlays live under `.knowledge/` and are therefore outside the eligible-file snapshot; editing knowledge never dirties the repository scan.
+- Overlay files are never automatically deleted. Retiring an object archives its overlay; an overlay without a live canonical object still renders in the Wiki under an orphaned-human-knowledge warning rather than disappearing.
+- Human text is untrusted data: the same escaping and prompt-injection-as-data rules apply as for repository text.
+- The edit surface is `knowledge edit <object-id>` plus direct editing of the Git-tracked overlay file. Compiled Markdown is never parsed back into IR.
 
 ## 7. Evidence Pack contract
 
@@ -449,6 +486,8 @@ Each target receives at most two repair attempts after its initial submission. C
 
 A run is `complete` when all required targets are verified or deterministically retired, no previously published object remains stale, and all requested views compiled. Optional targets may end as insufficient or skipped with warnings. A run is `partial` when any required target is neither verified nor retired, any previous object remains stale, or any requested view failed to compile. A run is `failed` when preflight fails or no usable canonical generation exists.
 
+Regeneration never rewrites or deletes human overlays. When regenerated machine content changes the evidence under a machine field carrying a human `override`, the target ends `conflicted`, the previous generation and the overlay both remain, and the conflict is listed for human resolution.
+
 Drafts live under `.knowledge/state/runs/<run-id>/drafts/`. Publication uses the transaction journal described in `KnowledgeStore`; canonical object files and `active_generation` commit together. A failed update preserves the previous content but marks it stale in the canonical object and adds its target to `pending_targets`.
 
 Verified-only Markdown Cards and the FTS database are part of the same recoverable publish transaction as canonical objects. An invalidation transaction runs before semantic regeneration: affected objects become stale, staged Agent Cards omit them, staged FTS omits them, the directories/database swap under the transaction journal, and the manifest commits matching `active_generation` and `agent_views_generation`. A later successful extraction transaction replaces stale objects with verified ones and republishes matching Agent surfaces.
@@ -474,7 +513,7 @@ views/wiki/
 
 Deterministic templates organize claims, relations, object links, and Evidence references into readable pages. Mermaid diagrams are derived from Architecture relationships, Module dependencies, and Flow steps. The compiler never calls an LLM.
 
-Wiki pages include both verified and stale canonical objects. Stale sections show the previous verified snapshot, stale reason, last verified commit/hash, and pending target; they are never rendered without an expiry banner.
+Wiki pages include both verified and stale canonical objects. Stale sections show the previous verified snapshot, stale reason, last verified commit/hash, and pending target; they are never rendered without an expiry banner. Human overlay content persists through regeneration and renders with explicit human attribution; a human `override` shows the machine-verified original as a collapsible alternative.
 
 The standalone HTML contains catalog navigation, heading navigation, full-text search, rendered Mermaid diagrams, object links, collapsible evidence, freshness, commit, and generation metadata. Source links target a fixed remote commit when a remote URL exists; otherwise the page displays local path, symbol, line range, and excerpt.
 
@@ -482,7 +521,7 @@ The standalone HTML contains catalog navigation, heading navigation, full-text s
 
 ### 10.2 Knowledge Cards
 
-Each verified canonical object YAML is the machine-readable source for a Knowledge Card; the compiler produces one dense Markdown rendering for convenient inspection. There is no second derived Card YAML. Published Agent Card views include only verified objects. When an object becomes stale, its Markdown Card and FTS row are removed in the invalidation transaction, while its canonical YAML remains available for diagnostics and Wiki warnings. Cards retain the ID, type, Claim-backed summary, key claims, relations, relevant constraints, evidence pointers, and version identity. They omit large source excerpts.
+Each verified canonical object YAML is the machine-readable source for a Knowledge Card; the compiler produces one dense Markdown rendering for convenient inspection. There is no second derived Card YAML. Published Agent Card views include only verified objects. When an object becomes stale, its Markdown Card and FTS row are removed in the invalidation transaction, while its canonical YAML remains available for diagnostics and Wiki warnings. Cards retain the ID, type, Claim-backed summary, key claims, relations, relevant constraints, evidence pointers, and version identity. They omit large source excerpts. Attributed human overlay notes render in Cards with `source: human` markers; human `override` text replaces the rendered field text while the machine-verified Claim stays recorded in the canonical object.
 
 ### 10.3 Task context
 
@@ -492,7 +531,7 @@ knowledge context "Add cash on delivery to the order flow" \
   --budget 6000
 ```
 
-Selection uses SQLite FTS5 over verified objects, one-hop explicit relation expansion, type-aware ranking that favors applicable Rules and Flows, and token-budget compilation. Source bodies are fetched on demand rather than included by default. Stale objects are excluded unless explicitly requested for diagnosis; invalid, conflicted, and insufficient-evidence results are not canonical objects and therefore cannot enter retrieval.
+Selection uses SQLite FTS5 over verified objects, one-hop explicit relation expansion, type-aware ranking that favors applicable Rules and Flows, and token-budget compilation. Source bodies are fetched on demand rather than included by default. Stale objects are excluded unless explicitly requested for diagnosis; invalid, conflicted, and insufficient-evidence results are not canonical objects and therefore cannot enter retrieval. Human overlay entries participate in retrieval with `source: human` attribution.
 
 `knowledge context <task> --include-stale` is a diagnostic-only mode. It bypasses default ranking, labels every stale object and stale reason, and never presents the result as safe coding context.
 
@@ -510,7 +549,7 @@ knowledge_context_for_task
 knowledge_status
 ```
 
-Tools return structured JSON and compact Markdown. The MCP server is read-only and never runs builds.
+Tools return structured JSON and compact Markdown. The MCP server is read-only and never runs builds. Human overlay content is exposed through the object, related, context, and overview tools with `source: human` attribution and never silently merged into machine-verified fields.
 
 `knowledge_get_object` and `knowledge_status` accept an explicit `include_stale` diagnostic flag. `knowledge_context_for_task` defaults to verified-only and accepts `include_stale=true` only as a visibly marked diagnostic response. All other calls fail closed on snapshot or generation mismatch.
 
@@ -553,7 +592,7 @@ Passing all checks yields target result `retired`. The core publish transaction 
 
 A semantic re-extraction may run before the deterministic check to discover replacement knowledge. A verified replacement cancels retirement, but `insufficient_evidence` or any other model result never authorizes deletion.
 
-If regeneration fails, previous content remains visible as stale, default task context excludes it, the Wiki renders an expiry warning, and the command returns `partial`. V0.1 updates only on an explicit command or Skill action; there is no watcher or Git hook.
+If regeneration fails, previous content remains visible as stale, default task context excludes it, the Wiki renders an expiry warning, and the command returns `partial`. V0.1 updates only on an explicit command or Skill action; there is no watcher or Git hook. Invalidation and retirement never modify human overlays: overlays survive stale marking and pending retries, retiring an object archives its overlay, and an overlay whose object is retired renders under the Wiki orphaned-human-knowledge warning until a human edits or removes it.
 
 ## 13. CLI and configuration
 
@@ -563,6 +602,7 @@ Primary commands:
 knowledge init --language zh|en
 knowledge build --executor llm
 knowledge update --executor llm
+knowledge edit <object-id>
 knowledge status
 knowledge validate
 knowledge compile
@@ -570,6 +610,8 @@ knowledge context <task> [--format json|markdown] [--budget N] [--include-stale]
 knowledge open
 knowledge serve
 ```
+
+`knowledge edit <object-id>` creates or opens the object's Git-tracked overlay under `.knowledge/human/` in the user's editor (or prints the overlay path with `--print-path` for non-interactive flows), validates the saved overlay against the Section 6.5 contract, and reports typed issues without touching any other file. An invalid overlay never blocks reading existing generations but fails the next build or update with explicit overlay issues.
 
 Agent-only queue commands are the stable internal Skill interface and may be hidden from the primary help group:
 
@@ -601,6 +643,7 @@ Every mutating run writes a structured report under `state/runs/<run-id>/`. Stat
 - Never persist API keys in logs, reports, prompts, or `.knowledge/`.
 - Send only target-bounded evidence to a model.
 - Escape Markdown, source excerpts, and diagram inputs when producing HTML.
+- Treat human overlay text with the same escaping, redaction, and prompt-injection-as-data rules as repository text.
 - Restrict MCP evidence access to the resolved repository root and known Evidence IDs.
 - Treat repository text as data rather than instructions during extraction and validation.
 
@@ -616,6 +659,7 @@ Every mutating run writes a structured report under `state/runs/<run-id>/`. Stat
 | Missing or changed evidence | Mark affected objects stale |
 | Conflicting evidence | Publish no verified replacement; record conflicted result |
 | Compiler failure | Keep canonical IR; return partial and allow deterministic retry |
+| Invalid or conflicting human overlay | Stop the affected build or update with typed overlay issues; never silently drop protected content |
 | Interrupted run | Leave staging and report for diagnosis; canonical objects remain intact |
 
 ## 16. Edge-case behavior
@@ -632,6 +676,7 @@ Every mutating run writes a structured report under `state/runs/<run-id>/`. Stat
 | Unsupported source language | Exclude unsupported files from semantic evidence, report coverage, and fail if no supported code remains |
 | Repository exceeds configured file/byte limits | Stop with `scope_limit_exceeded` and require explicit path exclusions; do not silently publish partial coverage as complete |
 | Symlink resolving outside repository root | Exclude it from scan and evidence access |
+| Malformed or schema-invalid human overlay | Fail closed with typed overlay issues before regeneration; prior generations remain readable |
 | Deleted evidence source | Mark every referencing canonical object stale until repaired or deliberately retired by a refreshed plan |
 
 ## 17. Implementation slices
@@ -644,8 +689,9 @@ The implementation plan must preserve this vertical order so the V0.1 scope does
 4. All five object types, Claim-backed payload rules, and semantic verification.
 5. Persisted RunOrchestrator plus Codex Skill execution mode and interruption recovery.
 6. Tracked inventory, stale marking, pending-target retries, and selective update.
-7. HTML export, FTS task context, seven read-only MCP tools, and security boundary tests.
-8. Agent A/B benchmark and product-gate report.
+7. Human knowledge layer: overlay contracts, `knowledge edit`, regeneration preservation, conflict and retirement semantics.
+8. HTML export, FTS task context, seven read-only MCP tools, human-layer rendering and exposure, and security boundary tests.
+9. Agent A/B benchmark and product-gate report.
 
 Failure of slice 1 blocks the remaining CodeWiki-based plan and returns the design for revision; it does not authorize importing CodeWiki internals.
 
@@ -660,7 +706,8 @@ Failure of slice 1 blocks the remaining CodeWiki-based plan and returns the desi
 7. MCP tests for all seven tools, repository-boundary enforcement, generation/snapshot mismatch fail-closed behavior, and explicit stale diagnostics.
 8. Shared RunOrchestrator request/result contract tests using deterministic fake semantic workers and simulated Agent submissions.
 9. Publish-journal crash tests at each canonical/plan/Card/FTS/manifest swap point, including startup recovery.
-10. Opt-in live tests for Codex Skill and LiteLLM; CI does not require paid model calls.
+10. Human-layer tests: overlay schema round-trips, `knowledge edit` validation, preservation across incremental updates, field-override conflict fixtures, retirement archiving, and attribution plus escaping in every view, retrieval, and MCP path.
+11. Opt-in live tests for Codex Skill and LiteLLM; CI does not require paid model calls.
 
 ## 19. Agent A/B benchmark
 
@@ -692,6 +739,7 @@ Record task success, resulting code/tests, tool calls, read/search/grep counts, 
 - Every factual field is backed by verified Claims, and every required Claim contains Evidence references.
 - Structural and semantic validation run successfully.
 - Repo Wiki Markdown, standalone HTML, Cards, and task context compile.
+- Protected human edits survive regeneration, surface conflicts explicitly, and render with attribution in Wiki, Cards, context, and MCP.
 - Incremental invalidation and selective rebuild work on fixtures.
 - CLI and all seven MCP tools are usable.
 - Automated tests pass.
@@ -709,9 +757,9 @@ Meeting the technical definition without meeting the product gate yields a compl
 
 ## 21. Evolution path
 
-- V0.1: one local Git repository and the complete evidence-to-context loop.
+- V0.1: one local Git repository and the complete evidence-to-context loop, including the protected human knowledge layer.
 - V0.1.x: Git URL RepositoryProvider, clone cache, branch selection, and private-repository credentials.
 - V0.2: multi-repository workspaces and cross-repository flows.
-- Later: human edits and governance, Git/PR decisions, issues/incidents, and non-code enterprise knowledge.
+- Later: human-content approval workflows and team governance of overlays, Git/PR decisions, issues/incidents, and non-code enterprise knowledge.
 
 These future items influence interface boundaries but add no speculative implementation to V0.1.

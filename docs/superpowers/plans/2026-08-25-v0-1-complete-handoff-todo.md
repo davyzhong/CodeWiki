@@ -37,22 +37,21 @@
 - [ ] Keep `.knowledge/`, `.codewiki/`, `.git/`, ignored files, dependencies, binaries, credential files, and configured oversize files outside evidence scanning.
 - [ ] Do not pull a later milestone's subsystem into an earlier milestone.
 
-### 0.3 Exact paused state (2026-08-25)
+### 0.3 Current state (updated 2026-08-25 after workspace recovery)
 
 - [x] Repository: `/Users/qiming/workspace/CodeWiki`.
 - [x] Remote: `https://github.com/davyzhong/CodeWiki.git`.
 - [x] Branch policy: `main` only.
-- [x] Current local HEAD: `5f26aea feat: publish recoverable module generation`.
-- [x] Local `main` is 15 commits ahead of `origin/main`; none of these M1 commits has been pushed.
-- [x] Worktree was clean when execution paused.
+- [x] Current local HEAD moves with ongoing work; see `git log --oneline origin/main..HEAD` for the authoritative unpushed list.
+- [x] On 2026-08-25 a concurrent directory-organization agent relocated the repository to `../EnterpriseIntelligence/codewiki`; the tree and git history were restored intact, but one commit (the original M1.6 review fix) was reconstructed verbatim from the session transcript as `e873786`.
 - [x] M1.1 through M1.5 are implemented and passed specification plus code-quality review.
-- [x] M1.6 is implemented; focused tests were 49/49 and the full suite was 283/283 at commit time.
-- [ ] M1.6 specification review is incomplete. Three review attempts failed because the review service returned HTTP 403; this is not a code failure.
-- [ ] M1.6 code-quality review has not started.
-- [ ] M1.7 has not started.
+- [x] M1.6 is implemented and passed specification review; the review's two minor coverage gaps were closed and the exposed cleanup-failure leak was fixed (`e873786`).
+- [x] M1.7 is implemented with 312 passing tests (`397fda5`), including the generation-id-reuse hardening (`0cadcb2`) exposed by its update-preservation test.
+- [ ] M1.6 code-quality review and M1.7 specification/quality reviews are dispatched and pending.
 - [ ] M1 final whole-slice review, final verification, and push have not happened.
+- [x] Design revision 2026-08-25 (user decision): human edit protection entered V0.1 scope as the M6 human knowledge layer; multi-language stays one-language-per-build. The spec, roadmap, and this checklist reflect it.
 
-### 0.4 Existing unpushed M1 commits
+### 0.4 Existing unpushed commits
 
 ```text
 8a88125 feat: define normalized evidence contracts
@@ -70,14 +69,19 @@ b0efbb5 feat: compile deterministic module outputs
 9be6ef6 fix: harden compiler trust boundaries
 d376859 fix: neutralize markdown block openers
 5f26aea feat: publish recoverable module generation
+458d59a docs: add complete v0.1 handoff todo
+4606722 docs: archive m1 implementation handoff
+e873786 fix: wrap publication cleanup failures as typed errors
+0cadcb2 fix: reject generation id reuse with differing content
+397fda5 feat: prove fake provider module vertical slice
 ```
 
 ### 0.5 Resume sanity check
 
-- [ ] Run `git status --short --branch`; expect clean `main`, ahead of `origin/main` by 15 unless another Agent has intentionally continued.
+- [ ] Run `git status --short --branch`; expect clean `main`, ahead of `origin/main` per section 0.4 unless another Agent has intentionally continued.
 - [ ] Run `git branch --all`; expect no development branch.
 - [ ] Run `git log --oneline --decorate -20`; reconcile any new commits with this handoff before proceeding.
-- [ ] Run `uv run --extra dev pytest -q`; the paused baseline expectation is 283 passing tests.
+- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 312 passing tests.
 - [ ] Run the boundary scan:
 
 ```bash
@@ -151,13 +155,13 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [x] Make recovery re-runnable after recovery itself is interrupted.
 - [x] Remove completed journals when manifest proves the generation committed.
 - [x] Cover compiler/serialization failures, 38 mutation boundaries, path escape, symlink handling, and recovery interruption.
-- [ ] Dispatch a fresh specification reviewer for Task 6. Do not reuse the failed HTTP-403 result as an approval.
-- [ ] If the reviewer finds a gap, send it to the M1.6 implementer, add a failing test, fix, run focused/full tests, commit, and re-review.
-- [ ] Dispatch a fresh code-quality reviewer focused on crash consistency, fsync ordering, journal corruption, path/symlink races, untrusted generation/object IDs, copied inputs, recovery idempotency, Windows/unsupported-platform behavior, and single-process assumptions.
+- [x] Dispatch a fresh specification reviewer for Task 6. Do not reuse the failed HTTP-403 result as an approval.
+- [x] If the reviewer finds a gap, send it to the M1.6 implementer, add a failing test, fix, run focused/full tests, commit, and re-review. (Verdict APPROVED; two Minor coverage gaps closed in `e873786`, which also fixed the cleanup-failure leak the new tests exposed.)
+- [ ] Dispatch a fresh code-quality reviewer focused on crash consistency, fsync ordering, journal corruption, path/symlink races, untrusted generation/object IDs, copied inputs, recovery idempotency, Windows/unsupported-platform behavior, single-process assumptions, and the new generation-id-reuse guard.
 - [ ] Fix and re-review every Critical/Important issue and any inexpensive correctness-related Minor issue.
 - [ ] Record final focused/full test counts and approval in the execution log or commit message.
 
-### M1.7 Wire and demonstrate the complete vertical slice — next implementation task
+### M1.7 Wire and demonstrate the complete vertical slice — implemented, review pending
 
 **Files:**
 
@@ -165,27 +169,27 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - Create `tests/integration/test_module_vertical_slice.py`.
 - Modify `pyproject.toml` to add `knowledge-fake-module-slice`.
 
-- [ ] Write a failing success integration test calling `run_fake_module_slice(provider, extraction_path, verification_path, output_root)`.
-- [ ] Assert the result is typed and contains generation, canonical object ID, and all published output paths.
-- [ ] Assert exactly one committed generation contains canonical YAML, Module Card, Module Wiki, and manifest.
-- [ ] Assert generated bytes match `tests/golden/module.yaml`, `module-card.md`, and `module-wiki.md` after using a stable fixture root.
-- [ ] Assert `active_generation`, `agent_views_generation`, and `wiki_generation` match the published generation.
-- [ ] Write failing malformed JSON tests for survey/provider fixture, extraction, and verification inputs.
-- [ ] Write failing tests for source hash mismatch, excerpt hash mismatch, invalid Evidence ID, structural Claim failure, unsupported/partial/conflicted verification, compiler rejection, and publication replacement failure.
-- [ ] For a first failed run, assert no canonical/Card/Wiki/manifest becomes visible.
-- [ ] For a failed N+1 update, seed N first and assert every visible output remains byte-identical to N after recovery.
-- [ ] Run the focused test and record RED; expected initial failure is missing `vertical_slice` API/CLI.
-- [ ] Implement the harness in this exact order: resolve snapshot → ensure fake index → inspect survey → select the fixture target → build bounded Evidence Pack → parse extraction request/result → validate source integrity and draft structure → build separate verification request → parse and apply verification result → precompile all outputs → publish one generation transaction.
-- [ ] Reject semantic fixtures before consumption when item/character/token budgets are exceeded.
-- [ ] Preserve the complete request/result identity fields and exact request-owned pack throughout the harness.
-- [ ] Catch expected contract/validation/compiler/publication failures and return one stable typed failure/report; do not leak raw Pydantic, YAML, or OS exceptions at the CLI boundary.
-- [ ] Do not add queues, leases, retries, repair scheduling, idempotency persistence, worker transport, real CodeWiki access, or LLM calls.
-- [ ] Add Typer command `knowledge-fake-module-slice` with required `--repository-root`, `--fixtures`, `--extraction`, `--verification`, and `--output-root` options.
-- [ ] Ensure CLI exit `0` means published and exit `1` means validation/infrastructure failure.
-- [ ] Test CLI help, missing/invalid options, successful exit 0, failed exit 1, and sanitized diagnostics.
-- [ ] Run the integration test and CLI against temporary output roots.
-- [ ] Run `uv run --extra dev pytest -q`, boundary scan, `git diff --check`, and `git status --short`.
-- [ ] Commit `feat: prove fake provider module vertical slice`.
+- [x] Write a failing success integration test calling `run_fake_module_slice(provider, extraction_path, verification_path, output_root)`.
+- [x] Assert the result is typed and contains generation, canonical object ID, and all published output paths.
+- [x] Assert exactly one committed generation contains canonical YAML, Module Card, Module Wiki, and manifest.
+- [x] Assert generated bytes match `tests/golden/module.yaml`, `module-card.md`, and `module-wiki.md` after using a stable fixture root.
+- [x] Assert `active_generation`, `agent_views_generation`, and `wiki_generation` match the published generation.
+- [x] Write failing malformed JSON tests for survey/provider fixture, extraction, and verification inputs.
+- [x] Write failing tests for source hash mismatch, excerpt hash mismatch, invalid Evidence ID, structural Claim failure, unsupported/partial/conflicted verification, compiler rejection, and publication replacement failure.
+- [x] For a first failed run, assert no canonical/Card/Wiki/manifest becomes visible.
+- [x] For a failed N+1 update, seed N first and assert every visible output remains byte-identical to N after recovery.
+- [x] Run the focused test and record RED; expected initial failure is missing `vertical_slice` API/CLI.
+- [x] Implement the harness in this exact order: resolve snapshot → ensure fake index → inspect survey → select the fixture target → build bounded Evidence Pack → parse extraction request/result → validate source integrity and draft structure → build separate verification request → parse and apply verification result → precompile all outputs → publish one generation transaction.
+- [x] Reject semantic fixtures before consumption when item/character/token budgets are exceeded.
+- [x] Preserve the complete request/result identity fields and exact request-owned pack throughout the harness.
+- [x] Catch expected contract/validation/compiler/publication failures and return one stable typed failure/report; do not leak raw Pydantic, YAML, or OS exceptions at the CLI boundary.
+- [x] Do not add queues, leases, retries, repair scheduling, idempotency persistence, worker transport, real CodeWiki access, or LLM calls.
+- [x] Add Typer command `knowledge-fake-module-slice` with required `--repository-root`, `--fixtures`, `--extraction`, `--verification`, and `--output-root` options.
+- [x] Ensure CLI exit `0` means published and exit `1` means validation/infrastructure failure.
+- [x] Test CLI help, missing/invalid options, successful exit 0, failed exit 1, and sanitized diagnostics.
+- [x] Run the integration test and CLI against temporary output roots.
+- [x] Run `uv run --extra dev pytest -q` (312 passed), boundary scan, `git diff --check`, and `git status --short`.
+- [x] Commit `feat: prove fake provider module vertical slice` (`397fda5`).
 - [ ] Run fresh specification review, then fresh quality review; fix and re-review until approved.
 
 ### M1 final slice review and exit gate
@@ -217,7 +221,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Create `docs/superpowers/plans/2026-08-25-codewiki-module-vertical-slice.md` using the writing-plans skill.
 - [ ] Derive every adapter field from `docs/spikes/codewiki-public-surface.md` and `tests/fixtures/codewiki/0.6/cli-observations.json`; do not assume undocumented JSON.
 - [ ] Include minimal `LocalGitRepositoryProvider`, preflight, one-Module `PlanRequest/KnowledgePlan`, public CodeWiki adapter, `SemanticWorker.plan/extract/verify`, LiteLLM worker, configuration, and `knowledge init`.
-- [ ] Explicitly exclude RunOrchestrator queues/leases/retries (M4), ChangeSet/update behavior (M5), five-type expansion (M3), and MCP/FTS/HTML (M6).
+- [ ] Explicitly exclude RunOrchestrator queues/leases/retries (M4), ChangeSet/update behavior (M5), five-type expansion (M3), and MCP/FTS/HTML (M7).
 - [ ] Run an independent plan-document review against the V0.1 design and fix until approved.
 - [ ] Commit the approved plan before implementation.
 
@@ -485,7 +489,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 ### M5.1 Write and approve the incremental lifecycle plan
 
 - [ ] Specify baseline inventory schema/version, ChangeSet semantics, invalidation transaction, affected-target derivation, pending retry behavior, retirement proof, provider failure, branch/dirty/shallow behavior, and `knowledge update` CLI.
-- [ ] Specify how M5 generation metadata will later bind M6 FTS.
+- [ ] Specify how M5 generation metadata will later bind M7 FTS.
 - [ ] Review against design Sections 8, 9.7, 12, 13, 15, 16, and 18.
 
 ### M5.2 Tracked eligible-file inventory and ChangeSet
@@ -507,7 +511,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Include every verified object one typed relation hop from directly affected objects when required by policy.
 - [ ] Mark affected canonical objects stale with reason and last verified identity.
 - [ ] Atomically remove stale Cards from verified-only Agent views in the same invalidation generation.
-- [ ] Publish matching `active_generation`/`agent_views_generation` metadata that M6 FTS must obey.
+- [ ] Publish matching `active_generation`/`agent_views_generation` metadata that M7 FTS must obey.
 - [ ] If provider indexing fails, commit safe invalidation and pending targets but perform no semantic regeneration or fabricated discovery.
 - [ ] If no prior usable canonical generation exists and indexing fails, return failed.
 - [ ] Add failure injection and recovery tests at every new journal boundary.
@@ -556,29 +560,80 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 ---
 
-## 6. M6 — Human views, Agent retrieval, MCP, and security
+## 6. M6 — Human knowledge layer and edit protection
 
-**Start gate:** Full and incremental lifecycles are safe.
+**Start gate:** M5 exit gate passes.
 
-**Outcome:** Humans receive complete freshness-aware Wiki/HTML; Agents receive verified current-generation Cards, FTS, budgeted context, and exactly seven read-only MCP tools with fail-closed security boundaries.
+**Outcome:** Humans add protected knowledge through Git-tracked overlays; automated regeneration never rewrites or deletes it; human–machine conflicts surface as explicit `conflicted` targets; retirement archives overlays; later views and retrieval expose attributed human content.
 
-### M6.1 Write and approve the views/retrieval/MCP/security plan
+### M6.1 Write and approve the exact human-layer plan
 
-- [ ] Define final paths/layout, generation contracts, FTS schema/ranking, one-hop relation expansion, token accounting, stale diagnostics, seven tool schemas, HTML serving model, and all M6-owned CLI commands.
+- [ ] Create `docs/superpowers/plans/2026-08-25-human-knowledge-layer.md` using the writing-plans skill.
+- [ ] Derive every rule from design Sections 5.10 and 6.5: overlay schema, `supplement`/`override` semantics, note identities, explicit `updated_at`, `execution_mode: human`, conflict rule, retirement archiving, orphaned-overlay rendering.
+- [ ] Explicitly exclude bidirectional compiled-Markdown merge, approval workflows, and team governance (all deferred beyond V0.1).
+- [ ] Run an independent plan-document review against the V0.1 design and fix until approved.
+- [ ] Commit the approved plan before implementation.
+
+### M6.2 Human overlay contracts
+
+**Suggested files:** `contracts/human.py`, `tests/contracts/test_human_overlays.py`.
+
+- [ ] Define versioned `HumanOverlay(schema_version, object_id, updated_at, sections, notes)`, `HumanSection(field, mode: supplement|override, text, basis)`, and `HumanNote(id <object>.note.<slug>, text, basis, evidence pointers)`.
+- [ ] Enforce strict schema, typed issues for malformed input, deterministic ordering, immutable nested values, timezone-explicit timestamps, and copied-model revalidation at public boundaries.
+- [ ] Add failing tests for invalid ids/modes/fields, duplicate note ids, unknown field names for each knowledge type, invalid timestamps, and round-trip YAML.
+- [ ] Run focused/full tests, review, and commit.
+
+### M6.3 `knowledge edit` CLI
+
+**Suggested files:** `human/editor.py`, `cli.py` additions, `tests/cli/test_edit.py`.
+
+- [ ] Implement `knowledge edit <object-id>`: create or open `.knowledge/human/<type>/<id>.yaml` in `$EDITOR`, or print the path with `--print-path`.
+- [ ] Validate the saved overlay against the Section 6.5 contract; on invalid content keep the file, print typed issues, and exit nonzero.
+- [ ] Treat editor content as data; never execute it; strip nothing silently.
+- [ ] Add help, missing/invalid object id, create-vs-open, invalid-save, `--print-path`, and exit-code tests.
+- [ ] Run focused/full tests, review, and commit.
+
+### M6.4 Regeneration preservation and conflict semantics
+
+- [ ] Prove no build, update, or orchestrator path writes `.knowledge/human/`; overlays are read-only inputs everywhere.
+- [ ] Apply `supplement`/`override` at compilation and retrieval boundaries only; canonical IR stays machine-verified.
+- [ ] Implement the conflict rule: regenerated machine content with changed evidence under a human `override` yields a `conflicted` target result, preserves the previous generation and the overlay, and records the conflict for human resolution.
+- [ ] Add fixtures for preservation across full and incremental runs, conflict creation, human resolution (edit or drop override), and re-verification afterwards.
+- [ ] Run focused/full tests, review, and commit.
+
+### M6.5 Retirement archiving and exit gate
+
+- [ ] Retirement moves the overlay to an archive location instead of deleting it; orphaned overlays render under the Wiki warning (rendering itself lands in M7).
+- [ ] Add fixtures proving overlays survive invalidation, retirement, and crash recovery.
+- [ ] Prove invalid overlays fail closed with typed issues and never block reading existing generations.
+- [ ] Run the full suite, boundary scan, spec/quality reviews, and push approved M6 to `origin/main`.
+
+---
+
+## 7. M7 — Human views, Agent retrieval, MCP, and security
+
+**Start gate:** Full and incremental lifecycles are safe and the human overlay layer exists.
+
+**Outcome:** Humans receive complete freshness-aware Wiki/HTML; Agents receive verified current-generation Cards, FTS, budgeted context, and exactly seven read-only MCP tools with fail-closed security boundaries; human overlay content renders with attribution everywhere.
+
+### M7.1 Write and approve the views/retrieval/MCP/security plan
+
+- [ ] Define final paths/layout, generation contracts, FTS schema/ranking, one-hop relation expansion, token accounting, stale diagnostics, seven tool schemas, human-overlay rendering and attribution, HTML serving model, and all M7-owned CLI commands.
 - [ ] Threat-model repository text, Markdown/Mermaid/HTML injection, evidence path access, symlinks, large contexts, stale generations, secrets, and local server behavior.
 - [ ] Review against design Sections 5.7–5.9, 8, 9.7, 10, 11, 13, 14, 15, and 18.
 
-### M6.2 Complete Markdown Wiki, Cards, source index, and Mermaid
+### M7.2 Complete Markdown Wiki, Cards, source index, and Mermaid
 
 - [ ] Compile `index.md`, `architecture.md`, `modules/*.md`, `flows/*.md`, `rules.md`, `tech-stack.md`, and `sources.md` deterministically.
 - [ ] Render verified and stale objects in human Wiki; every stale section must show reason, prior snapshot/commit/hash, and pending target.
 - [ ] Keep Agent Cards verified-only and omit large excerpts.
+- [ ] Render human overlay sections and notes with explicit attribution; `override` fields include the collapsible machine-verified original; orphaned overlays render with their warning.
 - [ ] Generate Mermaid only from verified Claim-backed relationships/steps and escape every untrusted identifier/label.
 - [ ] Generate fixed-commit remote source links when possible; otherwise show local path/symbol/line/excerpt safely.
 - [ ] Add golden, permutation, injection, stale-banner, broken-reference, and generation-lag tests.
 - [ ] Review and commit.
 
-### M6.3 Standalone HTML Wiki
+### M7.3 Standalone HTML Wiki
 
 - [ ] Compile reproducible standalone HTML from the same canonical IR/views, without an LLM.
 - [ ] Include catalog and heading navigation, client-side full-text search, rendered Mermaid, object links, collapsible Evidence, freshness, commit, and generation metadata.
@@ -588,7 +643,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Keep export ignored by default but allow explicit user tracking.
 - [ ] Review and commit.
 
-### M6.4 Verified-only SQLite FTS5 index
+### M7.4 Verified-only SQLite FTS5 index
 
 **Suggested files:** `retrieval/index.py`, `retrieval/schema.py`, `tests/retrieval/test_index.py`.
 
@@ -601,7 +656,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Add corruption, missing cache, generation mismatch, crash recovery, deterministic rebuild, query escaping, and oversized content tests.
 - [ ] Review and commit.
 
-### M6.5 ContextRetriever and `knowledge context`
+### M7.5 ContextRetriever and `knowledge context`
 
 - [ ] Implement type-aware FTS ranking that favors applicable Rules and Flows where relevant.
 - [ ] Expand exactly one hop through explicit typed relations with deterministic de-duplication/order.
@@ -612,10 +667,11 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Exclude stale/conflicted/invalid/insufficient targets by default.
 - [ ] Implement `--include-stale` only as visibly marked diagnostic output that bypasses safe-context claims.
 - [ ] Implement JSON and Markdown output with prompt-injection-as-data delimiters.
+- [ ] Include human overlay entries with `source: human` attribution and identical escaping.
 - [ ] Add ranking, budget, one-hop, generation, stale, injection, and deterministic tests.
 - [ ] Review and commit.
 
-### M6.6 Exactly seven read-only MCP tools
+### M7.6 Exactly seven read-only MCP tools
 
 - [ ] Implement `knowledge_repo_overview`.
 - [ ] Implement `knowledge_search`.
@@ -626,13 +682,14 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Implement `knowledge_status`.
 - [ ] Expose via stdio using MCP Python SDK; tools must never build, update, write canonical state, or execute repository code.
 - [ ] Return structured JSON plus compact Markdown as specified.
+- [ ] Expose human overlay content with `source: human` attribution on the object/related/context/overview tools and never merge it silently into machine-verified fields.
 - [ ] Permit explicit diagnostic `include_stale` only on object/status/context tools defined by the approved design.
 - [ ] Make all other calls fail closed on repository snapshot or generation mismatch.
 - [ ] Restrict evidence retrieval to known Evidence IDs and descriptor-safe paths under the resolved root.
 - [ ] Add schema/help, unknown object/evidence, traversal, symlink race, stale generation, oversized response, prompt injection, and read-only mutation tests for every tool.
 - [ ] Review and commit.
 
-### M6.7 Final primary CLI surface
+### M7.7 Final primary CLI surface
 
 - [ ] Implement `knowledge status` with separate canonical object and latest target-result groups, pending targets, snapshots, and view generations.
 - [ ] Implement `knowledge compile` to retry deterministic human Wiki/HTML compilation without changing canonical IR.
@@ -643,27 +700,28 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Confirm each primary command is implemented exactly once at its owning milestone.
 - [ ] Review and commit.
 
-### M6.8 Security suite and exit gate
+### M7.8 Security suite and exit gate
 
 - [ ] Test credential pattern detection/redaction before Evidence reaches any model/Agent output.
 - [ ] Test secrets never enter config, prompts, logs, reports, cache-visible responses, HTML, or `.knowledge/` tracked files.
 - [ ] Test Markdown, HTML, Mermaid, URL, JSON, terminal, and prompt injection as inert data.
+- [ ] Apply the identical escaping, redaction, and injection-as-data tests to human overlay text.
 - [ ] Test traversal, absolute/Windows paths, NUL, symlink components/finals, check/open races, and repository-root replacement.
 - [ ] Test binary, invalid UTF-8, oversize file/context, token budget, recursive `.knowledge/`, and `.codewiki/` exclusions.
 - [ ] Test snapshot/generation mismatch fails closed across Cards, FTS, context, and MCP.
 - [ ] Prove Wiki/HTML remain useful with critical conclusions linked to sources.
 - [ ] Run full suite without network/paid models, all seven MCP tests, CLI matrix, security matrix, spec/quality/milestone reviews.
-- [ ] Push approved M6 to `origin/main`.
+- [ ] Push approved M7 to `origin/main`.
 
 ---
 
-## 7. M7 — Agent A/B benchmark and V0.1 product gate
+## 8. M8 — Agent A/B benchmark and V0.1 product gate
 
 **Start gate:** Complete build/update/context loop passes technical acceptance.
 
 **Outcome:** A reproducible experiment determines whether precompiled verified knowledge improves Agent task success or reduces repository exploration enough to justify further product work.
 
-### M7.1 Write and approve the benchmark protocol before experiments
+### M8.1 Write and approve the benchmark protocol before experiments
 
 - [ ] Freeze repository names and exact commits; use repositories/licenses suitable for repeatable evaluation.
 - [ ] Freeze task statements, expected outcomes, test commands, success rubric, models, temperatures/settings, tool permissions, timeouts, token limits, and number/order of runs.
@@ -673,7 +731,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Define sanitized raw-data schema and report template.
 - [ ] Obtain independent methodology review and commit the frozen protocol.
 
-### M7.2 Benchmark task corpus and fixtures
+### M8.2 Benchmark task corpus and fixtures
 
 - [ ] Include module explanation.
 - [ ] Include end-to-end flow tracing.
@@ -685,7 +743,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Validate every task is solvable and does not depend on external network state.
 - [ ] Pilot the harness without using pilot results in the final comparison unless predeclared.
 
-### M7.3 Measurement and benchmark harness
+### M8.3 Measurement and benchmark harness
 
 **Suggested files:** `benchmarks/protocol.yaml`, `benchmarks/tasks/`, `src/knowledge_compiler/benchmark/`, `tests/benchmark/`.
 
@@ -699,7 +757,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Make run IDs, condition assignment, and raw result provenance auditable.
 - [ ] Add harness unit tests with fake Agents before live runs.
 
-### M7.4 Execute frozen A/B runs
+### M8.4 Execute frozen A/B runs
 
 - [ ] Prepare identical clean repositories at frozen commits for each run.
 - [ ] Verify permissions/model/tool settings match the protocol before each pair.
@@ -707,7 +765,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Preserve raw sanitized traces, result patches, test output, metrics, and failure classification.
 - [ ] Do not change Knowledge Compiler, tasks, or scoring after seeing results; log any protocol deviation and rerun only under predeclared rules.
 
-### M7.5 Claim support audit
+### M8.5 Claim support audit
 
 - [ ] Sample at least 50 Claims using a predeclared random/stratified method across all five types.
 - [ ] Have reviewers compare each Claim to its exact cited original source bytes and redacted excerpt.
@@ -715,8 +773,9 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Verify Evidence ID, repository, path, line range, commit/hash structural validity for 100% of sampled/used references.
 - [ ] Resolve reviewer disagreement using the frozen adjudication rule.
 - [ ] Compute source-support percentage; required product threshold is at least 90% supported.
+- [ ] Audit samples machine-generated Claims only; separately verify human overlay entries for schema validity, attribution, and secret hygiene.
 
-### M7.6 Reproducible report and product gate
+### M8.6 Reproducible report and product gate
 
 - [ ] Publish protocol, repository commits, task corpus, settings, sanitized raw measurements, scoring code, aggregate results, Claim audit, limitations, deviations, and failure analysis.
 - [ ] Report task success by condition.
@@ -733,11 +792,12 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 ---
 
-## 8. V0.1 final Definition of Done
+## 9. V0.1 final Definition of Done
 
 - [ ] One local Git repository completes full build and incremental update.
 - [ ] Built-in LLM and Codex Skill modes share the same persisted orchestrator and semantic contracts.
 - [ ] Architecture, Module, Flow, Rule, and TechStack are Claim/Evidence-backed and structurally plus semantically validated.
+- [ ] Protected human edits survive regeneration, surface conflicts explicitly, and render with attribution across Wiki, Cards, context, and MCP.
 - [ ] Canonical YAML, Markdown Wiki, standalone HTML, Cards, Mermaid, and budgeted task context compile deterministically.
 - [ ] Recoverable publication, invalidation, pending retry, selective rebuild, and deterministic retirement pass crash/inconclusive fixtures.
 - [ ] All primary CLI commands and exactly seven read-only MCP tools work with final semantics.
@@ -747,16 +807,17 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Agent A/B benchmark and 50+ Claim audit are reproducible.
 - [ ] V0.1 has a recorded pass/fail product-hypothesis conclusion.
 
-## 9. Explicitly deferred beyond V0.1
+## 10. Explicitly deferred beyond V0.1
 
 - [ ] Do not implement Git URL cloning, private-repository credentials, or clone cache before V0.1.x.
 - [ ] Do not implement multi-repository workspaces or cross-repository flows before V0.2.
 - [ ] Do not implement team SaaS, permissions, collaboration, approvals, or governance.
-- [ ] Do not implement human locks/edits or bidirectional merge semantics.
+- [ ] Do not parse compiled Wiki/Card Markdown back into IR or implement human-content approvals or team governance; the human edit surface stays the Git-tracked overlay layer plus `knowledge edit`.
+- [ ] Do not implement synchronized multi-language output; one build uses one language (confirmed by user decision 2026-08-25).
 - [ ] Do not add Issues, Incidents, Decisions, API, or DataModel knowledge types.
 - [ ] Do not ingest tickets, chats, meetings, or non-code enterprise knowledge.
 
-## 10. Standard task completion checklist for the next Agent
+## 11. Standard task completion checklist for the next Agent
 
 For every unchecked implementation task above:
 
@@ -776,7 +837,7 @@ For every unchecked implementation task above:
 - [ ] Update this checklist's completion state and test counts.
 - [ ] Push only after the milestone-wide exit gate passes.
 
-## 11. Return package for final acceptance by the original Agent
+## 12. Return package for final acceptance by the original Agent
 
 When handing completed work back for acceptance, provide:
 

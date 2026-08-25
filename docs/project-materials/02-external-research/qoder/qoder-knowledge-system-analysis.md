@@ -61,11 +61,11 @@ Qoder 把人的修订视为新的知识资产，而不是生成物上的临时 p
 | `wiki_plan.yaml` | `.knowledge/plan.yaml` + tracked config | 适配；计划与运行状态分开 |
 | 分支/提交相关 | repository snapshot + eligible-file baseline | 强化；默认读取前校验 snapshot/generation |
 | 受影响部分更新 | ChangeSet + Evidence reverse index | 采用并要求 stale 传播可解释 |
-| 人工编辑保护 | V0.1 generated-only | 暂不采用；避免首版引入双向合并与审批 |
+| 人工编辑保护 | M6 human knowledge layer（2026-08-25 用户决策改判为采用） | 采用 IR 层 overlay：`.knowledge/human/` + `knowledge edit`，supplement/override 保护语义，冲突显式化；不引入编译产物反向合并 |
 | Cards 面向 Agent | verified-only Cards / FTS | 强化；stale/conflicted 默认不进入 Agent 读取 |
 | 团队自动共享 | 不在 V0.1 范围 | 延后到团队产品阶段 |
 | Git 共享 | tracked `.knowledge/` 核心文件 | 采用；缓存和运行状态默认忽略 |
-| 中文/英文目录 | 输出语言配置 | 方向一致；跨语言同源身份仍待设计 |
+| 中文/英文目录 | 输出语言配置（2026-08-25 用户确认维持单构建单语言） | 方向一致；跨语言同源身份仍待设计 |
 | Credits | 本地/外部模型成本报告 | 不照搬计费，但需要 Token/调用/失败成本统计 |
 
 ## CodeWiki 刻意比 Qoder 文档更严格的地方

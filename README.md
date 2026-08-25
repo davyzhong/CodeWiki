@@ -2,7 +2,7 @@
 
 CodeWiki（项目设计名：Knowledge Compiler）是一个面向 Coding Agent 的本地仓库知识编译器。
 
-V0.1 的 Phase 0 已完成，Gate 结论为 `go`。M1.1—M1.5 已实现并通过规格与质量审查；M1.6 可恢复发布事务已实现但尚待独立审查；M1.7 尚未开始。当前执行已暂停并转为跨 Agent 接续，准确入口见完整 handoff To-do 和 2026-08-25 归档清单。
+V0.1 的 Phase 0 已完成，Gate 结论为 `go`。M1（Fake Provider + Module 垂直切片）M1.1—M1.7 已全部实现：M1.6 通过规格审查，M1.7 集成切片 312 个测试全绿，剩余独立审查与 M1 出口门禁。2026-08-25 设计修订（用户决策）：人工编辑保护以 human overlay 层进入 V0.1（新 M6），多语言维持单构建单语言；原视图/基准里程碑顺延为 M7/M8。准确入口见完整 handoff To-do。
 
 ## 当前文档
 
