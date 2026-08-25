@@ -367,6 +367,7 @@ def test_cli_reports_provider_failures_with_exit_one(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 1
+    assert result.exception is None or isinstance(result.exception, SystemExit)
     assert "provider failure" in result.output
     assert "Traceback" not in result.output
     assert not (tmp_path / "out/.knowledge/manifest.yaml").exists()
@@ -386,6 +387,7 @@ def test_cli_reports_provider_failures_with_exit_one(tmp_path: Path) -> None:
     )
 
     assert malformed.exit_code == 1
+    assert malformed.exception is None or isinstance(malformed.exception, SystemExit)
     assert "provider failure" in malformed.output
     assert "Traceback" not in malformed.output
 
@@ -454,6 +456,97 @@ def test_failure_messages_are_bounded(tmp_path: Path) -> None:
     assert outcome.reason == "extraction.contract"
     assert len(outcome.message) < 4000
     assert visible(tmp_path / "out") == {}
+
+
+@pytest.mark.parametrize(
+    "damage",
+    ("delete-card", "tamper-wiki", "symlink-manifest"),
+)
+def test_committed_probe_requires_full_byte_identical_tree(
+    tmp_path: Path, damage: str
+) -> None:
+    from knowledge_compiler.vertical_slice import run_fake_module_slice
+
+    output_root = tmp_path / "out"
+    first = run_fake_module_slice(
+        provider(),
+        FIXTURES / "module-extraction.json",
+        FIXTURES / "module-verification.json",
+        output_root,
+    )
+    assert not getattr(first, "reason", None)
+    knowledge = output_root / ".knowledge"
+
+    if damage == "delete-card":
+        (knowledge / "views/cards/module.shop.checkout.md").unlink()
+    elif damage == "tamper-wiki":
+        (knowledge / "views/wiki/module.shop.checkout.md").write_text(
+            "TAMPERED CONTENT\n", encoding="utf-8"
+        )
+    else:
+        manifest = knowledge / "manifest.yaml"
+        decoy = tmp_path / "decoy.yaml"
+        decoy.write_text(
+            f"active_generation: {first.generation}\n", encoding="utf-8"
+        )
+        manifest.unlink()
+        manifest.symlink_to(decoy)
+
+    def fail(point: str) -> None:
+        if point == "publish.canonical.replace":
+            raise OSError("injected at publish.canonical.replace")
+
+    outcome = run_fake_module_slice(
+        provider(),
+        FIXTURES / "module-extraction.json",
+        FIXTURES / "module-verification.json",
+        output_root,
+        fault_injector=fail,
+    )
+
+    assert outcome.reason == "publication"
+
+
+def test_duplicate_json_key_message_is_bounded(tmp_path: Path) -> None:
+    from knowledge_compiler.vertical_slice import run_fake_module_slice
+
+    huge = "k" * 1_000_000
+    duplicated = tmp_path / "extraction.json"
+    duplicated.write_text('{"%s": 1, "%s": 2}' % (huge, huge), encoding="utf-8")
+
+    outcome = run_fake_module_slice(
+        provider(), duplicated, FIXTURES / "module-verification.json", tmp_path / "out"
+    )
+
+    assert outcome.reason == "extraction.parse"
+    assert len(outcome.message) < 4000
+
+
+def test_cli_provider_failure_strips_terminal_escapes(tmp_path: Path) -> None:
+    from knowledge_compiler.vertical_slice import app
+
+    fixtures = tmp_path / "fixtures"
+    shutil.copytree(FIXTURES, fixtures)
+    huge = "k" * 500_000 + "\x1b]52;c;aGVsbG8=\x07"
+    (fixtures / "survey.json").write_text(
+        '{"%s": 1, "%s": 2}' % (huge, huge), encoding="utf-8"
+    )
+
+    result = Runner.invoke(
+        app,
+        [
+            "--repository-root", str(REPOSITORY_ROOT),
+            "--fixtures", str(fixtures),
+            "--extraction", str(FIXTURES / "module-extraction.json"),
+            "--verification", str(FIXTURES / "module-verification.json"),
+            "--output-root", str(tmp_path / "out"),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+    assert len(result.output) < 8000
+    assert "\x1b" not in result.output
 
 
 def test_cli_help_and_missing_options() -> None:

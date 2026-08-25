@@ -13,6 +13,11 @@ import typer
 import yaml
 from pydantic import ValidationError
 
+from knowledge_compiler.compiler import (
+    compile_module_card,
+    compile_module_wiki,
+    compile_module_yaml,
+)
 from knowledge_compiler.contracts import (
     EvidenceBudget,
     PlanTarget,
@@ -66,7 +71,7 @@ def _terminal_safe(text: str) -> str:
 
 
 def _echo_failure(text: str) -> None:
-    typer.secho(_terminal_safe(text), fg=typer.colors.RED)
+    typer.secho(_terminal_safe(_bounded(text)), fg=typer.colors.RED)
 
 
 def _load_semantic_json(path: Path) -> dict[str, Any]:
@@ -87,7 +92,9 @@ def _load_semantic_json(path: Path) -> dict[str, Any]:
             ),
         )
     except (json.JSONDecodeError, OSError, UnicodeError, ValueError, RecursionError) as error:
-        raise ValueError(f"invalid {path.name} JSON: {error}") from error
+        raise ValueError(
+            f"invalid {path.name} JSON: {_bounded(str(error))}"
+        ) from error
     if not isinstance(payload, dict):
         raise ValueError(f"{path.name} must contain a JSON object")
     return payload
@@ -97,6 +104,12 @@ def _bounded(text: str) -> str:
     if len(text) > _MESSAGE_LIMIT:
         return text[:_MESSAGE_LIMIT] + f"…[truncated {len(text) - _MESSAGE_LIMIT} chars]"
     return text
+
+
+def _failure(
+    reason: str, message: str, issues: tuple[str, ...] = ()
+) -> SliceFailure:
+    return SliceFailure(reason, _bounded(message), issues)
 
 
 def _summarize_validation(error: ValidationError) -> str:
@@ -121,16 +134,16 @@ def _parse_extraction(
     try:
         payload = _load_semantic_json(path)
     except (OSError, ValueError) as error:
-        return SliceFailure("extraction.parse", str(error))
+        return _failure("extraction.parse", str(error))
     try:
         # The fixture uses "." as its portable root marker, mirroring the
         # evidence-pack convention the fake provider binds at load time.
         payload["draft"]["scope"]["root"] = str(snapshot_root)
         return ExtractionResult.model_validate(payload)
     except ValidationError as error:
-        return SliceFailure("extraction.contract", _summarize_validation(error))
+        return _failure("extraction.contract", _summarize_validation(error))
     except (KeyError, TypeError, ValueError) as error:
-        return SliceFailure(
+        return _failure(
             "extraction.contract", str(error) or type(error).__name__
         )
 
@@ -139,13 +152,13 @@ def _parse_verification(path: Path) -> VerificationResult | SliceFailure:
     try:
         payload = _load_semantic_json(path)
     except (OSError, ValueError) as error:
-        return SliceFailure("verification.parse", str(error))
+        return _failure("verification.parse", str(error))
     try:
         return VerificationResult.model_validate(payload)
     except ValidationError as error:
-        return SliceFailure("verification.contract", _summarize_validation(error))
+        return _failure("verification.contract", _summarize_validation(error))
     except (TypeError, ValueError) as error:
-        return SliceFailure(
+        return _failure(
             "verification.contract", str(error) or type(error).__name__
         )
 
@@ -169,14 +182,54 @@ def _generation_id(extraction: ExtractionResult, module: Any) -> str:
     return "gen-" + digest[:32]
 
 
-def _committed_generation(output_root: Path) -> str | None:
-    manifest = Path(output_root).absolute() / ".knowledge" / "manifest.yaml"
+def _is_committed(
+    output_root: Path, generation: str, module: Any, pack: Any
+) -> bool:
+    """A generation counts as committed only when the manifest marker matches
+    and every published file is a regular, non-symlink file whose bytes equal
+    what this run would publish; anything else fails closed."""
+
+    knowledge = Path(output_root).absolute() / ".knowledge"
+    manifest_path = knowledge / "manifest.yaml"
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        return False
     try:
-        value = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+        value = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
     except (OSError, ValueError, yaml.YAMLError):
-        return None
+        return False
     active = value.get("active_generation") if isinstance(value, dict) else None
-    return active if isinstance(active, str) else None
+    if active != generation:
+        return False
+    try:
+        expected = {
+            "canonical": compile_module_yaml(module, pack),
+            "card": compile_module_card(module, pack),
+            "wiki": compile_module_wiki(module, pack),
+            "manifest": yaml.safe_dump(
+                {
+                    "active_generation": generation,
+                    "agent_views_generation": generation,
+                    "wiki_generation": generation,
+                },
+                sort_keys=False,
+                allow_unicode=True,
+            ).encode("utf-8"),
+        }
+    except Exception:
+        return False
+    object_id = module.id
+    destinations = {
+        "canonical": knowledge / f"objects/modules/{object_id}.yaml",
+        "card": knowledge / f"views/cards/{object_id}.md",
+        "wiki": knowledge / f"views/wiki/{object_id}.md",
+        "manifest": manifest_path,
+    }
+    for name, destination in destinations.items():
+        if destination.is_symlink() or not destination.is_file():
+            return False
+        if destination.read_bytes() != expected[name]:
+            return False
+    return True
 
 
 def run_fake_module_slice(
@@ -200,14 +253,14 @@ def run_fake_module_slice(
             if seed not in survey.symbols
         ]
         if missing:
-            return SliceFailure(
+            return _failure(
                 "target.selection",
                 "survey does not mention target evidence seeds: "
                 + ", ".join(missing),
             )
         pack = provider.build_pack(snapshot, FIXTURE_TARGET, budget or DEFAULT_BUDGET)
     except (ValueError, KeyError) as error:
-        return SliceFailure("provider", str(error))
+        return _failure("provider", str(error))
 
     extraction = _parse_extraction(Path(extraction_path), snapshot.root)
     if isinstance(extraction, SliceFailure):
@@ -227,14 +280,14 @@ def run_fake_module_slice(
             }
         )
     except ValidationError as error:
-        return SliceFailure("extraction.contract", _summarize_validation(error))
+        return _failure("extraction.contract", _summarize_validation(error))
 
     try:
         verification_request = build_verification_request(
             request, extraction, snapshot.root
         )
     except ModuleValidationError as error:
-        return SliceFailure(
+        return _failure(
             "validation",
             "structural or source-integrity validation failed",
             _issue_strings(error.issues),
@@ -253,19 +306,19 @@ def run_fake_module_slice(
             snapshot.root,
         )
     except ModuleValidationError as error:
-        return SliceFailure(
+        return _failure(
             "verification",
             "semantic verification could not be applied",
             _issue_strings(error.issues),
         )
     except ValidationError as error:
-        return SliceFailure(
+        return _failure(
             "verification",
             "semantic verification could not be applied",
             (_summarize_validation(error),),
         )
     if not verified.is_valid or verified.module is None:
-        return SliceFailure(
+        return _failure(
             "verification",
             "semantic verification rejected the draft",
             _issue_strings(verified.issues),
@@ -288,10 +341,10 @@ def run_fake_module_slice(
                     f"publication failed ({publication_detail}) and recovery "
                     f"failed ({recovery_detail})"
                 )
-            return SliceFailure("recovery", detail)
+            return _failure("recovery", detail)
         # A post-commit cleanup crash leaves the generation fully committed;
         # recovery confirms the manifest marker, so report it as published.
-        if _committed_generation(Path(output_root)) == generation:
+        if _is_committed(Path(output_root), generation, verified.module, pack):
             knowledge = Path(output_root).absolute() / ".knowledge"
             object_id = verified.module.id
             return SliceSuccess(
@@ -302,7 +355,7 @@ def run_fake_module_slice(
                 wiki_path=knowledge / f"views/wiki/{object_id}.md",
                 manifest_path=knowledge / "manifest.yaml",
             )
-        return SliceFailure("publication", str(error))
+        return _failure("publication", str(error))
     return SliceSuccess(
         generation=published.generation,
         object_id=verified.module.id,
@@ -331,7 +384,7 @@ def main(
             fixture_dir=fixtures, repository_root=repository_root
         )
     except (OSError, ValueError) as error:
-        typer.secho(f"provider failure: {error}", fg=typer.colors.RED)
+        _echo_failure(f"provider failure: {error}")
         raise typer.Exit(code=1) from None
 
     outcome = run_fake_module_slice(fake, extraction, verification, output_root)
