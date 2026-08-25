@@ -142,7 +142,7 @@ def test_rule_compiler_renders_only_payload_derived_lines() -> None:
             or "rule.shop.reservation-first" in stripped
             or "src/shop/checkout.py" in stripped
             or stripped.startswith(("Claims:", "Evidence:", "module.", "flow."))
-            or stripped.startswith("##")
+            or stripped in ("Statement", "Applicability", "Constraints", "Exceptions", "Related")
             or stripped == "Reserve before charging"
         ), line
     assert RuleKnowledge.model_validate(
