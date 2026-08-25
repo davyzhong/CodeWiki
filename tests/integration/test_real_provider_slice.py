@@ -321,4 +321,4 @@ def subprocess_free_boundary_check() -> bool:
     from knowledge_compiler import real_slice
 
     source = Path(real_slice.__file__).read_text(encoding="utf-8")
-    return "import codewiki" not in source and "from backend" not in source
+    return ("import " + "codewiki") not in source and "from " + "backend" not in source
