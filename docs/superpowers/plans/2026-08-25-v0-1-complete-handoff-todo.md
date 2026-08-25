@@ -47,7 +47,9 @@
 - [x] M1.1 through M1.5 are implemented and passed specification plus code-quality review.
 - [x] M1.6 is implemented and passed specification review; the review's two minor coverage gaps were closed and the exposed cleanup-failure leak was fixed (`e873786`).
 - [x] M1.7 is implemented with 312 passing tests (`397fda5`), including the generation-id-reuse hardening (`0cadcb2`) exposed by its update-preservation test.
-- [ ] M1.6 code-quality review and M1.7 specification/quality reviews are dispatched and pending.
+- [x] M1.6 code-quality review returned two Critical plus five Minor findings; all were fixed with failing-first tests in `b2bfcdb` (320 tests) and the re-review APPROVED.
+- [x] M1.7 specification review APPROVED; its single Minor (CLI provider-level invalid-option test) was fixed in `b2bfcdb`. M1.7 quality review is in flight.
+- [x] The 2026-08-25 design revision passed its consistency re-review after `c865dc9` reconciled all thirteen findings plus two follow-ups.
 - [ ] M1 final whole-slice review, final verification, and push have not happened.
 - [x] Design revision 2026-08-25 (user decision): human edit protection entered V0.1 scope as the M6 human knowledge layer; multi-language stays one-language-per-build. The spec, roadmap, and this checklist reflect it.
 
@@ -74,6 +76,9 @@ d376859 fix: neutralize markdown block openers
 e873786 fix: wrap publication cleanup failures as typed errors
 0cadcb2 fix: reject generation id reuse with differing content
 397fda5 feat: prove fake provider module vertical slice
+5e1f677 docs: add human knowledge layer to v0.1 scope
+b2bfcdb fix: close recovery symlink and stacked-transaction holes
+c865dc9 docs: reconcile human-layer revision findings
 ```
 
 ### 0.5 Resume sanity check
@@ -81,7 +86,7 @@ e873786 fix: wrap publication cleanup failures as typed errors
 - [ ] Run `git status --short --branch`; expect clean `main`, ahead of `origin/main` per section 0.4 unless another Agent has intentionally continued.
 - [ ] Run `git branch --all`; expect no development branch.
 - [ ] Run `git log --oneline --decorate -20`; reconcile any new commits with this handoff before proceeding.
-- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 312 passing tests.
+- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 320 passing tests.
 - [ ] Run the boundary scan:
 
 ```bash
@@ -157,9 +162,9 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [x] Cover compiler/serialization failures, 38 mutation boundaries, path escape, symlink handling, and recovery interruption.
 - [x] Dispatch a fresh specification reviewer for Task 6. Do not reuse the failed HTTP-403 result as an approval.
 - [x] If the reviewer finds a gap, send it to the M1.6 implementer, add a failing test, fix, run focused/full tests, commit, and re-review. (Verdict APPROVED; two Minor coverage gaps closed in `e873786`, which also fixed the cleanup-failure leak the new tests exposed.)
-- [ ] Dispatch a fresh code-quality reviewer focused on crash consistency, fsync ordering, journal corruption, path/symlink races, untrusted generation/object IDs, copied inputs, recovery idempotency, Windows/unsupported-platform behavior, single-process assumptions, and the new generation-id-reuse guard.
-- [ ] Fix and re-review every Critical/Important issue and any inexpensive correctness-related Minor issue.
-- [ ] Record final focused/full test counts and approval in the execution log or commit message.
+- [x] Dispatch a fresh code-quality reviewer focused on crash consistency, fsync ordering, journal corruption, path/symlink races, untrusted generation/object IDs, copied inputs, recovery idempotency, Windows/unsupported-platform behavior, single-process assumptions, and the new generation-id-reuse guard.
+- [x] Fix and re-review every Critical/Important issue and any inexpensive correctness-related Minor issue. (Verdict CHANGES REQUIRED: 2 Critical + 5 Minor, all fixed in `b2bfcdb`; re-review APPROVED with failing-first verification.)
+- [x] Record final focused/full test counts and approval in the execution log or commit message. (Storage focused suite 66/66; full suite 320 passed.)
 
 ### M1.7 Wire and demonstrate the complete vertical slice — implemented, review pending
 
@@ -628,7 +633,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [ ] Compile `index.md`, `architecture.md`, `modules/*.md`, `flows/*.md`, `rules.md`, `tech-stack.md`, and `sources.md` deterministically.
 - [ ] Render verified and stale objects in human Wiki; every stale section must show reason, prior snapshot/commit/hash, and pending target.
 - [ ] Keep Agent Cards verified-only and omit large excerpts.
-- [ ] Render human overlay sections and notes with explicit attribution; `override` fields include the collapsible machine-verified original; orphaned overlays render with their warning.
+- [ ] Render human overlay sections and notes with explicit attribution; `override` fields include the collapsible machine-verified original; orphaned (including archived) overlays render with their warning.
 - [ ] Generate Mermaid only from verified Claim-backed relationships/steps and escape every untrusted identifier/label.
 - [ ] Generate fixed-commit remote source links when possible; otherwise show local path/symbol/line/excerpt safely.
 - [ ] Add golden, permutation, injection, stale-banner, broken-reference, and generation-lag tests.
