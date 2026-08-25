@@ -28,16 +28,26 @@ from knowledge_compiler.contracts.repository import (
     RepositorySnapshot,
     build_snapshot_id,
 )
+from knowledge_compiler.contracts.semantic import (
+    ClaimVerificationResult,
+    ExtractionRequest,
+    VerificationClaim,
+    VerificationEvidence,
+    VerificationRequest,
+    VerificationResult,
+)
 
 __all__ = [
     "EvidenceBudget",
     "EvidenceItem",
     "EvidencePack",
+    "ExtractionRequest",
     "ExtractionResult",
     "GraphFact",
     "Claim",
     "ClaimBackedText",
     "ClaimVerification",
+    "ClaimVerificationResult",
     "Confidence",
     "Dependency",
     "DraftClaim",
@@ -52,6 +62,10 @@ __all__ = [
     "Responsibility",
     "Scope",
     "Validity",
+    "VerificationClaim",
+    "VerificationEvidence",
+    "VerificationRequest",
+    "VerificationResult",
     "build_evidence_id",
     "build_snapshot_id",
 ]

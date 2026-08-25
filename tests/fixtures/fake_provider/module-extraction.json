@@ -1,0 +1,95 @@
+{
+  "contract_version": "0.1",
+  "run_id": "fixture-run-001",
+  "target_id": "module.shop.checkout",
+  "operation": "extract",
+  "attempt": 1,
+  "snapshot_id": "sha256:3690a4e1a183d8c9be6bb8160652eee4b09a806f3ea1d419b0b68d2f5f0c9f2a",
+  "idempotency_key": "fixture-run-001:module.shop.checkout:extract:1:sha256:3690a4e1a183d8c9be6bb8160652eee4b09a806f3ea1d419b0b68d2f5f0c9f2a",
+  "draft": {
+    "schema_version": "0.1",
+    "id": "module.shop.checkout",
+    "type": "module",
+    "title": "Checkout module",
+    "scope": {
+      "repository": "fixture/probe-shop",
+      "root": ".",
+      "branch": "main",
+      "commit": "probe-fixture-v1",
+      "dirty": false,
+      "working_tree_hash": null
+    },
+    "summary": {
+      "text": "Coordinates checkout by reserving inventory and creating an order.",
+      "claim_ids": ["module.shop.checkout.claim.summary"]
+    },
+    "responsibilities": [
+      {
+        "text": "Reserves inventory before creating an order.",
+        "claim_ids": ["module.shop.checkout.claim.orchestration"]
+      }
+    ],
+    "public_interfaces": [
+      {
+        "name": "CheckoutService.checkout",
+        "description": "Checks out a SKU and quantity and returns an order identifier.",
+        "claim_ids": ["module.shop.checkout.claim.interface"]
+      }
+    ],
+    "dependencies": [
+      {
+        "target": "module.shop.inventory",
+        "description": "Uses Inventory.reserve to reserve the requested quantity.",
+        "claim_ids": ["module.shop.checkout.claim.inventory-dependency"]
+      }
+    ],
+    "relations": [
+      {
+        "predicate": "depends_on",
+        "target": "module.shop.inventory",
+        "claim_ids": ["module.shop.checkout.claim.inventory-dependency"]
+      }
+    ],
+    "claims": [
+      {
+        "id": "module.shop.checkout.claim.summary",
+        "statement": "CheckoutService coordinates checkout by reserving inventory before returning an order identifier.",
+        "evidence_ids": ["sha256:c8cd0d0073f4e56a91c72ba39fa84474f3cda29cc6fbb3c187fdb22bb1325e86"],
+        "confidence": {"score": 0.98, "basis": "Direct source definition and control flow."},
+        "required": true
+      },
+      {
+        "id": "module.shop.checkout.claim.orchestration",
+        "statement": "CheckoutService.checkout calls Inventory.reserve before returning an order identifier.",
+        "evidence_ids": ["sha256:c8cd0d0073f4e56a91c72ba39fa84474f3cda29cc6fbb3c187fdb22bb1325e86"],
+        "confidence": {"score": 0.99, "basis": "Direct source control flow."},
+        "required": true
+      },
+      {
+        "id": "module.shop.checkout.claim.interface",
+        "statement": "CheckoutService exposes checkout(sku, quantity) returning a string.",
+        "evidence_ids": ["sha256:c8cd0d0073f4e56a91c72ba39fa84474f3cda29cc6fbb3c187fdb22bb1325e86"],
+        "confidence": {"score": 0.99, "basis": "Direct method signature."},
+        "required": true
+      },
+      {
+        "id": "module.shop.checkout.claim.inventory-dependency",
+        "statement": "CheckoutService depends on Inventory.reserve, which accepts a SKU and quantity and returns a boolean.",
+        "evidence_ids": [
+          "sha256:c8cd0d0073f4e56a91c72ba39fa84474f3cda29cc6fbb3c187fdb22bb1325e86",
+          "sha256:f1b845403796fbb82ba18467e09e6539d56014c7cd4f0bbc05b890d666357a96"
+        ],
+        "confidence": {"score": 0.99, "basis": "Direct call site and dependency definition."},
+        "required": true
+      }
+    ],
+    "confidence": {"score": 0.98, "basis": "All factual fields are backed by direct source evidence."}
+  },
+  "provenance": {
+    "execution_mode": "fake",
+    "model": "fixture-model-v1",
+    "prompt_version": "module-extraction-v1",
+    "schema_version": "0.1",
+    "generated_at": "2026-08-25T09:30:00Z"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "contract_version": "0.1",
+  "run_id": "fixture-run-001",
+  "target_id": "module.shop.checkout",
+  "operation": "verify",
+  "attempt": 1,
+  "snapshot_id": "sha256:3690a4e1a183d8c9be6bb8160652eee4b09a806f3ea1d419b0b68d2f5f0c9f2a",
+  "idempotency_key": "fixture-run-001:module.shop.checkout:verify:1:sha256:3690a4e1a183d8c9be6bb8160652eee4b09a806f3ea1d419b0b68d2f5f0c9f2a",
+  "verification_request_digest": "sha256:89d7da592480cdf2fd4b186f38d38a98b18426ede0bc838fb1b310ada98a9e4e",
+  "verifications": [
+    {
+      "claim_id": "module.shop.checkout.claim.interface",
+      "status": "supported",
+      "verifier": "fixture-verifier-v1",
+      "evidence_ids": ["sha256:c8cd0d0073f4e56a91c72ba39fa84474f3cda29cc6fbb3c187fdb22bb1325e86"],
+      "excerpt_hashes": ["sha256:93294a20b03a9650da7f73734ee89b8c81b6882c791f344f34d57835415fc15d"],
+      "excerpts": ["class CheckoutService:\n    def __init__(self, inventory: Inventory) -> None:\n        self.inventory = inventory\n\n    def checkout(self, sku: str, quantity: int) -> str:\n        if not self.inventory.reserve(sku, quantity):\n            raise ValueError(\"[REDACTED]\")\n        return \"[REDACTED]\"\n"],
+      "verification_request_digest": "sha256:89d7da592480cdf2fd4b186f38d38a98b18426ede0bc838fb1b310ada98a9e4e"
+    },
+    {
+      "claim_id": "module.shop.checkout.claim.inventory-dependency",
+      "status": "supported",
+      "verifier": "fixture-verifier-v1",
+      "evidence_ids": ["sha256:c8cd0d0073f4e56a91c72ba39fa84474f3cda29cc6fbb3c187fdb22bb1325e86", "sha256:f1b845403796fbb82ba18467e09e6539d56014c7cd4f0bbc05b890d666357a96"],
+      "excerpt_hashes": ["sha256:93294a20b03a9650da7f73734ee89b8c81b6882c791f344f34d57835415fc15d", "sha256:9e1186333062291b2556e3ac6c6098828b78c95c0ed71df4803ab6bf772922db"],
+      "excerpts": ["class CheckoutService:\n    def __init__(self, inventory: Inventory) -> None:\n        self.inventory = inventory\n\n    def checkout(self, sku: str, quantity: int) -> str:\n        if not self.inventory.reserve(sku, quantity):\n            raise ValueError(\"[REDACTED]\")\n        return \"[REDACTED]\"\n", "class Inventory:\n    def reserve(self, sku: str, quantity: int) -> bool:\n        return [REDACTED]\n"],
+      "verification_request_digest": "sha256:89d7da592480cdf2fd4b186f38d38a98b18426ede0bc838fb1b310ada98a9e4e"
+    },
+    {
+      "claim_id": "module.shop.checkout.claim.orchestration",
+      "status": "supported",
+      "verifier": "fixture-verifier-v1",
+      "evidence_ids": ["sha256:c8cd0d0073f4e56a91c72ba39fa84474f3cda29cc6fbb3c187fdb22bb1325e86"],
+      "excerpt_hashes": ["sha256:93294a20b03a9650da7f73734ee89b8c81b6882c791f344f34d57835415fc15d"],
+      "excerpts": ["class CheckoutService:\n    def __init__(self, inventory: Inventory) -> None:\n        self.inventory = inventory\n\n    def checkout(self, sku: str, quantity: int) -> str:\n        if not self.inventory.reserve(sku, quantity):\n            raise ValueError(\"[REDACTED]\")\n        return \"[REDACTED]\"\n"],
+      "verification_request_digest": "sha256:89d7da592480cdf2fd4b186f38d38a98b18426ede0bc838fb1b310ada98a9e4e"
+    },
+    {
+      "claim_id": "module.shop.checkout.claim.summary",
+      "status": "supported",
+      "verifier": "fixture-verifier-v1",
+      "evidence_ids": ["sha256:c8cd0d0073f4e56a91c72ba39fa84474f3cda29cc6fbb3c187fdb22bb1325e86"],
+      "excerpt_hashes": ["sha256:93294a20b03a9650da7f73734ee89b8c81b6882c791f344f34d57835415fc15d"],
+      "excerpts": ["class CheckoutService:\n    def __init__(self, inventory: Inventory) -> None:\n        self.inventory = inventory\n\n    def checkout(self, sku: str, quantity: int) -> str:\n        if not self.inventory.reserve(sku, quantity):\n            raise ValueError(\"[REDACTED]\")\n        return \"[REDACTED]\"\n"],
+      "verification_request_digest": "sha256:89d7da592480cdf2fd4b186f38d38a98b18426ede0bc838fb1b310ada98a9e4e"
+    }
+  ]
+}
