@@ -136,17 +136,23 @@ class GenerationPublisher:
         self,
         generation: str,
         module: ModuleKnowledge,
-        evidence_pack: EvidencePack,
+        evidence_pack: EvidencePack | None = None,
     ) -> PublishedGeneration:
         self._validate_generation(generation)
+        object_type = _object_type(module)
+        if object_type == "module" and evidence_pack is None:
+            raise PublicationError("module publication requires an evidence pack")
         try:
             # Compilation and contract revalidation must complete before the first
             # output-directory mutation.
-            compiled = {
-                "canonical": compile_module_yaml(module, evidence_pack),
-                "card": compile_module_card(module, evidence_pack),
-                "wiki": compile_module_wiki(module, evidence_pack),
-            }
+            if object_type == "module":
+                compiled = {
+                    "canonical": compile_module_yaml(module, evidence_pack),
+                    "card": compile_module_card(module, evidence_pack),
+                    "wiki": compile_module_wiki(module, evidence_pack),
+                }
+            else:
+                compiled = _compile_outputs(module, None)
             manifest = yaml.safe_dump(
                 {
                     "active_generation": generation,
