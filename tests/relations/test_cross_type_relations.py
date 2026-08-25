@@ -84,10 +84,11 @@ def test_registry_indexes_are_deterministic_projections() -> None:
     inbound = result.inbound_index
     assert outbound["flow.shop.checkout"] == (
         ("involves", "module.shop.checkout"),
-        ("involves", "module.shop.inventory"),
     )
     assert inbound["flow.shop.checkout"] == (
         ("constrains", "rule.shop.reservation-first"),
+        ("involves", "flow.shop.checkout"),
     )
     assert result.resolved_relations == 2
     assert len(result.unresolved) == 1
+    assert result.unresolved[0].unresolved_reason == "target-missing"
