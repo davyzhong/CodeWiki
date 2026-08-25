@@ -3,12 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any
 
 import typer
+import yaml
 from pydantic import ValidationError
 
 from knowledge_compiler.contracts import (
@@ -37,6 +39,10 @@ FIXTURE_TARGET = PlanTarget(
     evidence_seeds=("CheckoutService", "Inventory.reserve"),
 )
 
+_MESSAGE_LIMIT = 2000
+_ISSUE_LIMIT = 20
+_CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
 
 @dataclass(frozen=True)
 class SliceSuccess:
@@ -53,6 +59,14 @@ class SliceFailure:
     reason: str
     message: str
     issues: tuple[str, ...] = ()
+
+
+def _terminal_safe(text: str) -> str:
+    return _CONTROL_CHARACTERS.sub(" ", text)
+
+
+def _echo_failure(text: str) -> None:
+    typer.secho(_terminal_safe(text), fg=typer.colors.RED)
 
 
 def _load_semantic_json(path: Path) -> dict[str, Any]:
@@ -72,25 +86,33 @@ def _load_semantic_json(path: Path) -> dict[str, Any]:
                 ValueError(f"non-finite JSON number: {value}")
             ),
         )
-    except (json.JSONDecodeError, OSError, UnicodeError, ValueError) as error:
+    except (json.JSONDecodeError, OSError, UnicodeError, ValueError, RecursionError) as error:
         raise ValueError(f"invalid {path.name} JSON: {error}") from error
     if not isinstance(payload, dict):
         raise ValueError(f"{path.name} must contain a JSON object")
     return payload
 
 
+def _bounded(text: str) -> str:
+    if len(text) > _MESSAGE_LIMIT:
+        return text[:_MESSAGE_LIMIT] + f"…[truncated {len(text) - _MESSAGE_LIMIT} chars]"
+    return text
+
+
 def _summarize_validation(error: ValidationError) -> str:
     parts: list[str] = []
     for detail in error.errors(include_url=False, include_context=False)[:10]:
         location = ".".join(str(part) for part in detail["loc"]) or "<root>"
-        parts.append(f"{location}: {detail['msg']}")
+        parts.append(_bounded(f"{location}: {detail['msg']}"))
     return "contract validation failed: " + "; ".join(parts)
 
 
 def _issue_strings(issues: Any) -> tuple[str, ...]:
-    return tuple(
-        f"{issue.code}@{issue.location}: {issue.message}" for issue in issues
-    )
+    rendered = [_bounded(f"{issue.code}@{issue.location}: {issue.message}") for issue in issues]
+    if len(rendered) > _ISSUE_LIMIT:
+        omitted = len(rendered) - _ISSUE_LIMIT
+        rendered = rendered[:_ISSUE_LIMIT] + [f"…and {omitted} more issues"]
+    return tuple(rendered)
 
 
 def _parse_extraction(
@@ -145,6 +167,16 @@ def _generation_id(extraction: ExtractionResult, module: Any) -> str:
     )
     digest = hashlib.sha256((identity + "\n" + content).encode("utf-8")).hexdigest()
     return "gen-" + digest[:32]
+
+
+def _committed_generation(output_root: Path) -> str | None:
+    manifest = Path(output_root).absolute() / ".knowledge" / "manifest.yaml"
+    try:
+        value = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError, yaml.YAMLError):
+        return None
+    active = value.get("active_generation") if isinstance(value, dict) else None
+    return active if isinstance(active, str) else None
 
 
 def run_fake_module_slice(
@@ -220,12 +252,17 @@ def run_fake_module_slice(
             verification,
             snapshot.root,
         )
-    except (ModuleValidationError, ValidationError) as error:
+    except ModuleValidationError as error:
         return SliceFailure(
             "verification",
             "semantic verification could not be applied",
-            _issue_strings(getattr(error, "issues", ()))
-            or (str(error),),
+            _issue_strings(error.issues),
+        )
+    except ValidationError as error:
+        return SliceFailure(
+            "verification",
+            "semantic verification could not be applied",
+            (_summarize_validation(error),),
         )
     if not verified.is_valid or verified.module is None:
         return SliceFailure(
@@ -235,18 +272,35 @@ def run_fake_module_slice(
         )
 
     publisher = GenerationPublisher(output_root, fault_injector=fault_injector)
+    generation = _generation_id(extraction, verified.module)
     try:
-        published = publisher.publish(
-            _generation_id(extraction, verified.module), verified.module, pack
-        )
+        published = publisher.publish(generation, verified.module, pack)
     except PublicationError as error:
         try:
             publisher.recover()
         except PublicationError as recovery_error:
-            return SliceFailure(
-                "recovery",
-                f"publication failed ({error}) and recovery failed "
-                f"({recovery_error})",
+            publication_detail = str(error)
+            recovery_detail = str(recovery_error)
+            if recovery_detail == publication_detail:
+                detail = publication_detail
+            else:
+                detail = (
+                    f"publication failed ({publication_detail}) and recovery "
+                    f"failed ({recovery_detail})"
+                )
+            return SliceFailure("recovery", detail)
+        # A post-commit cleanup crash leaves the generation fully committed;
+        # recovery confirms the manifest marker, so report it as published.
+        if _committed_generation(Path(output_root)) == generation:
+            knowledge = Path(output_root).absolute() / ".knowledge"
+            object_id = verified.module.id
+            return SliceSuccess(
+                generation=generation,
+                object_id=object_id,
+                canonical_path=knowledge / f"objects/modules/{object_id}.yaml",
+                card_path=knowledge / f"views/cards/{object_id}.md",
+                wiki_path=knowledge / f"views/wiki/{object_id}.md",
+                manifest_path=knowledge / "manifest.yaml",
             )
         return SliceFailure("publication", str(error))
     return SliceSuccess(
@@ -282,9 +336,9 @@ def main(
 
     outcome = run_fake_module_slice(fake, extraction, verification, output_root)
     if isinstance(outcome, SliceFailure):
-        typer.secho(f"{outcome.reason}: {outcome.message}", fg=typer.colors.RED)
+        _echo_failure(f"{outcome.reason}: {outcome.message}")
         for issue in outcome.issues:
-            typer.secho(f"  - {issue}", fg=typer.colors.RED)
+            _echo_failure(f"  - {issue}")
         raise typer.Exit(code=1)
     typer.echo(
         f"published {outcome.object_id} generation {outcome.generation}"

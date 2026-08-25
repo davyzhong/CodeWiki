@@ -67,7 +67,13 @@ class FakeEvidenceProvider:
                     ValueError(f"non-finite JSON number: {value}")
                 ),
             )
-        except (JSONDecodeError, OSError, UnicodeError, ValueError) as error:
+        except (
+            JSONDecodeError,
+            OSError,
+            UnicodeError,
+            ValueError,
+            RecursionError,
+        ) as error:
             raise ValueError(f"invalid fixture JSON at {path.name}: {error}") from error
         if not isinstance(payload, dict):
             raise ValueError(f"fixture JSON at {path.name} must contain an object")

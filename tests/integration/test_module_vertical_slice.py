@@ -46,7 +46,7 @@ def visible(root: Path) -> dict[str, bytes]:
     return {
         str(path.relative_to(knowledge)): path.read_bytes()
         for path in sorted(knowledge.rglob("*"))
-        if path.is_file() and "state/transactions" not in str(path.relative_to(knowledge))
+        if path.is_file()
     }
 
 
@@ -390,6 +390,72 @@ def test_cli_reports_provider_failures_with_exit_one(tmp_path: Path) -> None:
     assert "Traceback" not in malformed.output
 
 
+def test_deeply_nested_json_fails_sanitized(tmp_path: Path) -> None:
+    from knowledge_compiler.vertical_slice import run_fake_module_slice
+
+    deep = tmp_path / "extraction.json"
+    deep.write_text("[" * 20000 + "]" * 20000, encoding="utf-8")
+
+    outcome = run_fake_module_slice(
+        provider(), deep, FIXTURES / "module-verification.json", tmp_path / "out"
+    )
+
+    assert outcome.reason == "extraction.parse"
+    assert visible(tmp_path / "out") == {}
+
+
+def test_post_commit_cleanup_failure_reports_committed_success(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.vertical_slice import run_fake_module_slice
+
+    def fail(point: str) -> None:
+        if point == "cleanup.transactions.directory.fsync":
+            raise OSError("injected at cleanup.transactions.directory.fsync")
+
+    outcome = run_fake_module_slice(
+        provider(),
+        FIXTURES / "module-extraction.json",
+        FIXTURES / "module-verification.json",
+        tmp_path,
+        fault_injector=fail,
+    )
+
+    assert not getattr(outcome, "reason", None)
+    assert outcome.manifest_path.exists()
+    assert yaml.safe_load(outcome.manifest_path.read_bytes()) == {
+        "active_generation": outcome.generation,
+        "agent_views_generation": outcome.generation,
+        "wiki_generation": outcome.generation,
+    }
+    assert outcome.canonical_path.exists()
+    assert not (tmp_path / ".knowledge/state/transactions").exists() or not any(
+        (tmp_path / ".knowledge/state/transactions").iterdir()
+    )
+
+
+def test_failure_messages_are_bounded(tmp_path: Path) -> None:
+    from knowledge_compiler.vertical_slice import run_fake_module_slice
+
+    huge = "x" * 1_000_000
+
+    def tamper(data: dict) -> None:
+        data["draft"]["summary"]["claim_ids"] = [
+            f"module.shop.checkout.claim.{huge}"
+        ]
+
+    outcome = run_fake_module_slice(
+        provider(),
+        variant(tmp_path, "module-extraction.json", tamper),
+        FIXTURES / "module-verification.json",
+        tmp_path / "out",
+    )
+
+    assert outcome.reason == "extraction.contract"
+    assert len(outcome.message) < 4000
+    assert visible(tmp_path / "out") == {}
+
+
 def test_cli_help_and_missing_options() -> None:
     from knowledge_compiler.vertical_slice import app
 
@@ -399,6 +465,7 @@ def test_cli_help_and_missing_options() -> None:
 
     missing = Runner.invoke(app, [])
     assert missing.exit_code != 0
+    assert missing.exception is None or isinstance(missing.exception, SystemExit)
     assert "Traceback" not in (missing.output + str(missing.exception))
 
 
@@ -418,6 +485,7 @@ def test_cli_publishes_with_exit_zero(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.output
+    assert result.exception is None or isinstance(result.exception, SystemExit)
     assert "module.shop.checkout" in result.output
     assert (output_root / ".knowledge/manifest.yaml").exists()
 
@@ -440,5 +508,6 @@ def test_cli_reports_failure_with_exit_one(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 1
+    assert result.exception is None or isinstance(result.exception, SystemExit)
     assert "Traceback" not in result.output
     assert not (tmp_path / "out/.knowledge/manifest.yaml").exists()

@@ -48,8 +48,8 @@
 - [x] M1.6 is implemented and passed specification review; the review's two minor coverage gaps were closed and the exposed cleanup-failure leak was fixed (`e873786`).
 - [x] M1.7 is implemented with 312 passing tests (`397fda5`), including the generation-id-reuse hardening (`0cadcb2`) exposed by its update-preservation test.
 - [x] M1.6 code-quality review returned two Critical plus five Minor findings; all were fixed with failing-first tests in `b2bfcdb` (320 tests) and the re-review APPROVED.
-- [x] M1.7 specification review APPROVED; its single Minor (CLI provider-level invalid-option test) was fixed in `b2bfcdb`. M1.7 quality review is in flight.
-- [x] The 2026-08-25 design revision passed its consistency re-review after `c865dc9` reconciled all thirteen findings plus two follow-ups.
+- [x] M1.7 specification review APPROVED; its single Minor (CLI provider-level invalid-option test) was fixed in `b2bfcdb`. The M1.7 quality review returned 2 Important + 5 Minor findings, all fixed with failing-first tests; re-review pending.
+- [x] The 2026-08-25 design revision passed its consistency re-review after `c865dc9` reconciled all thirteen findings and `1a01fb7` closed the two follow-ups.
 - [ ] M1 final whole-slice review, final verification, and push have not happened.
 - [x] Design revision 2026-08-25 (user decision): human edit protection entered V0.1 scope as the M6 human knowledge layer; multi-language stays one-language-per-build. The spec, roadmap, and this checklist reflect it.
 
@@ -143,7 +143,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [x] Wrap hostile copied-model failures in `CompilerInputError`.
 - [x] Pass independent specification and quality review.
 
-### M1.6 Recoverable generation publication — implemented, review pending
+### M1.6 Recoverable generation publication — completed
 
 **Existing files:**
 
@@ -166,7 +166,7 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [x] Fix and re-review every Critical/Important issue and any inexpensive correctness-related Minor issue. (Verdict CHANGES REQUIRED: 2 Critical + 5 Minor, all fixed in `b2bfcdb`; re-review APPROVED with failing-first verification.)
 - [x] Record final focused/full test counts and approval in the execution log or commit message. (Storage focused suite 66/66; full suite 320 passed.)
 
-### M1.7 Wire and demonstrate the complete vertical slice — implemented, review pending
+### M1.7 Wire and demonstrate the complete vertical slice — implemented, quality re-review pending
 
 **Files:**
 
