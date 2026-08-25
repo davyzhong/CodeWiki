@@ -10,7 +10,11 @@ from pydantic import Discriminator, Tag
 
 from knowledge_compiler.contracts.evidence import EvidencePack, SHA256_PATTERN
 from knowledge_compiler.contracts.knowledge import (
+    DraftArchitectureKnowledge,
+    DraftFlowKnowledge,
     DraftModuleKnowledge,
+    DraftRuleKnowledge,
+    DraftTechStackKnowledge,
     ExtractionResult,
 )
 from knowledge_compiler.contracts.repository import NonBlankString
@@ -25,7 +29,13 @@ def _draft_type(value: object) -> str:
 # The typed draft union grows one member per M3 type task; extraction and
 # verification envelopes stay digest-bound and correlation-checked for all.
 DraftKnowledge = Annotated[
-    Union[Annotated[DraftModuleKnowledge, Tag("module")]],
+    Union[
+        Annotated[DraftModuleKnowledge, Tag("module")],
+        Annotated[DraftArchitectureKnowledge, Tag("architecture")],
+        Annotated[DraftFlowKnowledge, Tag("flow")],
+        Annotated[DraftRuleKnowledge, Tag("rule")],
+        Annotated[DraftTechStackKnowledge, Tag("tech-stack")],
+    ],
     Discriminator(_draft_type),
 ]
 

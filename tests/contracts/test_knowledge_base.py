@@ -79,6 +79,50 @@ def test_target_type_union_accepts_five_types_and_rejects_unknown() -> None:
         PlanTarget(id="incident.demo.example", type="incident", topic="demo")
 
 
+def test_typed_drafts_enter_union_by_discriminator() -> None:
+    import sys
+
+    sys.path.insert(0, str(ROOT / "tests/contracts"))
+    from test_architecture_models import architecture_payload
+    from test_flow_models import flow_payload
+    from test_rule_models import rule_payload
+    from test_tech_stack_models import tech_stack_payload
+
+    from knowledge_compiler.contracts.knowledge import (
+        DraftArchitectureKnowledge,
+        DraftFlowKnowledge,
+        DraftRuleKnowledge,
+        DraftTechStackKnowledge,
+    )
+    from knowledge_compiler.contracts.semantic import DraftKnowledge
+
+    for payload, draft_type in (
+        (architecture_payload(), DraftArchitectureKnowledge),
+        (flow_payload(), DraftFlowKnowledge),
+        (rule_payload(), DraftRuleKnowledge),
+        (tech_stack_payload(), DraftTechStackKnowledge),
+    ):
+        stripped = dict(payload)
+        stripped["claims"] = [
+            {k: v for k, v in claim.items() if k != "verification"}
+            for claim in payload["claims"]
+        ]
+        stripped["validity"] = None
+        draft = draft_type.model_validate(stripped)
+        assert draft.type == draft_type.model_fields["type"].default
+    # discriminated union resolves each member
+    payload = architecture_payload()
+    payload["validity"] = None
+    payload["claims"] = [
+        {k: v for k, v in claim.items() if k != "verification"}
+        for claim in payload["claims"]
+    ]
+    assert isinstance(
+        DraftArchitectureKnowledge.model_validate(payload),
+        DraftArchitectureKnowledge,
+    )
+
+
 def test_extraction_result_draft_union_rejects_unknown_type() -> None:
     from knowledge_compiler.contracts.knowledge import ExtractionResult
 

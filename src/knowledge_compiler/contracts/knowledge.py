@@ -797,7 +797,74 @@ class ModuleKnowledge(_ModulePayload):
         return self
 
 
+class _TypedDraftBase:
+    """Shared draft behavior: unverified claims, no validity."""
+
+    pass
+
+
+def _draft_claims_validator(pattern):
+    def validate(value: tuple[DraftClaim, ...]) -> tuple[DraftClaim, ...]:
+        ids = [claim.id for claim in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate Claim IDs are not allowed")
+        for claim in value:
+            if not pattern.fullmatch(claim.id):
+                raise ValueError(
+                    "Claim ID must match <type>.<domain>.<name>.claim.<slug>"
+                )
+        return tuple(sorted(value, key=lambda claim: claim.id))
+
+    return validate
+
+
+class DraftArchitectureKnowledge(_TypedDraftBase, ArchitectureKnowledge):
+    claims: tuple[DraftClaim, ...]
+    validity: None = None
+
+    _draft_claims = field_validator("claims")(
+        _draft_claims_validator(ARCHITECTURE_CLAIM_PATTERN)
+    )
+
+    @model_validator(mode="after")
+    def drop_validity_checks(self) -> "DraftArchitectureKnowledge":
+        object.__getattribute__(self, "claims")
+        return self
+
+
+class DraftFlowKnowledge(_TypedDraftBase, FlowKnowledge):
+    claims: tuple[DraftClaim, ...]
+    validity: None = None
+
+    _draft_claims = field_validator("claims")(
+        _draft_claims_validator(FLOW_CLAIM_PATTERN)
+    )
+
+
+class DraftRuleKnowledge(_TypedDraftBase, RuleKnowledge):
+    claims: tuple[DraftClaim, ...]
+    validity: None = None
+
+    _draft_claims = field_validator("claims")(
+        _draft_claims_validator(RULE_CLAIM_PATTERN)
+    )
+
+
+class DraftTechStackKnowledge(_TypedDraftBase, TechStackKnowledge):
+    claims: tuple[DraftClaim, ...]
+    validity: None = None
+
+    _draft_claims = field_validator("claims")(
+        _draft_claims_validator(TECH_STACK_CLAIM_PATTERN)
+    )
+
+
+
 __all__ = [
+    "DraftArchitectureKnowledge",
+    "DraftFlowKnowledge",
+    "DraftRuleKnowledge",
+    "DraftTechStackKnowledge",
     "TechConfiguration",
     "TechEntry",
     "TechStackKnowledge",
