@@ -6,7 +6,6 @@ import pytest
 
 from knowledge_compiler.orchestrator.contracts import (
     RunRecord,
-    TargetRecord,
     TargetState,
 )
 from knowledge_compiler.orchestrator.queue import QueueError, RunQueue
@@ -17,11 +16,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_state_store import FixedClock, run, target  # noqa: E402
 
 
+def evidence_ready_run() -> RunRecord:
+    ready = (
+        target()
+        .transition(TargetState.EVIDENCE_READY)
+    )
+    return run().with_target(ready)
+
+
 def queue(tmp_path: Path, clock: FixedClock | None = None) -> RunQueue:
     clock = clock or FixedClock()
     return RunQueue(
         store_root=tmp_path / ".knowledge/state/runs",
-        run=run(),
+        run=evidence_ready_run(),
         clock=clock,
     )
 
@@ -29,7 +36,7 @@ def queue(tmp_path: Path, clock: FixedClock | None = None) -> RunQueue:
 def test_lease_grant_is_exclusive_and_operation_scoped(tmp_path: Path) -> None:
     clock = FixedClock()
     queue_ = RunQueue(
-        store_root=tmp_path / ".knowledge/state/runs", run=run(), clock=clock
+        store_root=tmp_path / ".knowledge/state/runs", run=evidence_ready_run(), clock=clock
     )
     lease = queue_.grant_extraction_lease("module.shop.checkout", ttl=60)
     assert lease.operation == "extract"
@@ -37,14 +44,14 @@ def test_lease_grant_is_exclusive_and_operation_scoped(tmp_path: Path) -> None:
 
     with pytest.raises(QueueError, match="leased"):
         queue_.grant_extraction_lease("module.shop.checkout", ttl=60)
-    with pytest.raises(QueueError, match="state"):
+    with pytest.raises(QueueError, match="leased"):
         queue_.grant_verification_lease("module.shop.checkout", ttl=60)
 
 
 def test_expired_lease_returns_to_queue(tmp_path: Path) -> None:
     clock = FixedClock()
     queue_ = RunQueue(
-        store_root=tmp_path / ".knowledge/state/runs", run=run(), clock=clock
+        store_root=tmp_path / ".knowledge/state/runs", run=evidence_ready_run(), clock=clock
     )
     queue_.grant_extraction_lease("module.shop.checkout", ttl=60)
     clock.now += 61
@@ -95,12 +102,11 @@ def test_idempotent_replay_returns_recorded_result(tmp_path: Path) -> None:
 
 
 def test_wrong_operation_domain_rejected(tmp_path: Path) -> None:
-    queue_ = queue(tmp_path)
-    record = queue_.record().with_target(
-        queue_.target("module.shop.checkout").transition(
-            TargetState.EVIDENCE_READY
-        )
+    # A queued target cannot take a verification lease at all.
+    queue_ = RunQueue(
+        store_root=tmp_path / ".knowledge/state/runs",
+        run=run(),
+        clock=FixedClock(),
     )
-    queue_.replace_record(record)
     with pytest.raises(QueueError, match="state"):
         queue_.grant_verification_lease("module.shop.checkout", ttl=60)
