@@ -553,12 +553,12 @@ class TechStackKnowledge(_ContractModel):
     def normalize_entries(
         cls, value: tuple[TechEntry, ...]
     ) -> tuple[TechEntry, ...]:
-        keys = [(entry.category, entry.name) for entry in value]
-        if len(keys) != len(set(keys)):
+        names = [entry.name for entry in value]
+        if len(names) != len(set(names)):
             raise ValueError("duplicate technology aliases are not allowed")
         if not value:
             raise ValueError("tech-stack requires at least one entry")
-        return tuple(sorted(value, key=lambda entry: (entry.category, entry.name)))
+        return tuple(sorted(value, key=lambda entry: (entry.name, entry.category)))
 
     @field_validator("configurations")
     @classmethod
