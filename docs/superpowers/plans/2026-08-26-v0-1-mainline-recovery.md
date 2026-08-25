@@ -26,10 +26,15 @@
 
 ## Gate 3 — Generic persisted orchestrator
 
-- [ ] Remove Module/Checkout-specific target construction and canonicalization.
-- [ ] Persist EvidencePack and semantic request/result envelopes required for resume.
-- [ ] Drive Architecture, Module, Flow, Rule, and TechStack through one state machine.
-- [ ] Publish all successful targets through the Gate 2 batch transaction.
+- [x] Remove Module/Checkout-specific target construction and canonicalization.
+- [x] Persist EvidencePack and extraction request/result envelopes required for resume.
+- [x] Repair the circular import that reduced `ExtractionResult.draft` to Module-only.
+- [x] Persist planner topic, knowledge type, and evidence seeds on every run target.
+- [x] Drive Architecture, Module, Flow, Rule, and TechStack through one state machine.
+- [x] Publish all successful targets through the Gate 2 batch transaction.
+- [x] Prove process-restart semantic verification and a five-target atomic generation.
+- [x] Run focused contracts/validation/orchestrator suites (243 passed) and the full suite (569 passed).
+- [x] Commit and push `456da0e` and `3786540`.
 
 ## Gate 4 — Real primary build
 

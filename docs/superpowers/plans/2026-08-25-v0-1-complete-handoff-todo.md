@@ -88,7 +88,7 @@ c865dc9 docs: reconcile human-layer revision findings
 - [ ] Run `git status --short --branch`; expect clean `main`, ahead of `origin/main` per section 0.4 unless another Agent has intentionally continued.
 - [ ] Run `git branch --all`; expect no development branch.
 - [ ] Run `git log --oneline --decorate -20`; reconcile any new commits with this handoff before proceeding.
-- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 561 passing tests.
+- [ ] Run `uv run --extra dev pytest -q`; the current baseline expectation is 569 passing tests.
 - [ ] Run the boundary scan:
 
 ```bash
