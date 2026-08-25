@@ -78,11 +78,27 @@ class RunOrchestrator:
         packs: dict[str, Any] = {}
         diagnostics: list[str] = []
         any_required_failed = False
+        already_published: list[str] = []
 
         for record in list(self.queue.record().targets):
+            if record.published_object_id is not None:
+                # A previous invocation published this target; re-entry
+                # must not repeat model work or publication.
+                already_published.append(record.published_object_id)
+                continue
             if record.state is TargetState.DONE:
-                if record.result is not TerminalResult.VERIFIED and record.required:
+                if record.required:
                     any_required_failed = True
+                continue
+            if record.state is TargetState.VERIFIED:
+                # Verified in an earlier invocation but never published:
+                # the canonical object is not persisted in V0.1, so this
+                # run reports the gap instead of guessing.
+                diagnostics.append(
+                    f"{record.target_id}: verified but unpublished; "
+                    "re-run the target"
+                )
+                any_required_failed = any_required_failed or record.required
                 continue
             outcome = self._drive_target(record)
             diagnostics.extend(outcome[1])
@@ -94,6 +110,14 @@ class RunOrchestrator:
                 if current.required and current.state is TargetState.DONE:
                     any_required_failed = True
 
+        if already_published and not published:
+            self._finalize()
+            return RunnerOutcome(
+                status="partial" if any_required_failed else "complete",
+                generation=None,
+                published_object_ids=tuple(sorted(already_published)),
+                diagnostics=tuple(diagnostics),
+            )
         if not published:
             self._finalize()
             return RunnerOutcome(
@@ -125,7 +149,7 @@ class RunOrchestrator:
                 published_object_ids=(),
                 diagnostics=tuple(diagnostics + [f"publication failed: {error}"]),
             )
-        self._mark_published(published_ids, generation)
+        self._mark_published(sorted(set(published_ids + already_published)), generation)
         self._finalize()
         return RunnerOutcome(
             status="partial" if any_required_failed else "complete",
