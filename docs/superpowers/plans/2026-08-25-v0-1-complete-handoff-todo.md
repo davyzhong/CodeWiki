@@ -506,7 +506,9 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 
 **Outcome:** Explicit updates detect local repository changes before provider sync, atomically remove stale knowledge from safe Agent surfaces, retry pending work, and retire objects only through deterministic proof.
 
-### M5.1 Write and approve the incremental lifecycle plan
+### M5.1 Write and approve the incremental lifecycle plan — completed
+
+> Plan: `docs/superpowers/plans/2026-08-25-incremental-lifecycle.md`, review CHANGES REQUIRED (5 findings) then APPROVED at `c54f78a`. Implementation Tasks 2-7 remain.
 
 - [ ] Specify baseline inventory schema/version, ChangeSet semantics, invalidation transaction, affected-target derivation, pending retry behavior, retirement proof, provider failure, branch/dirty/shallow behavior, and `knowledge update` CLI.
 - [ ] Specify how M5 generation metadata will later bind M7 FTS.
