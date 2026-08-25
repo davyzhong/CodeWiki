@@ -1,0 +1,99 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import yaml
+from pydantic import ValidationError
+
+from knowledge_compiler.contracts.evidence import EvidencePack
+from knowledge_compiler.contracts.knowledge import ModuleKnowledge
+
+
+class CompilerInputError(ValueError):
+    """Raised when compiler inputs do not form a trusted canonical pair."""
+
+
+def _revalidate_module(value: object) -> ModuleKnowledge:
+    if not isinstance(value, ModuleKnowledge):
+        raise CompilerInputError("module must be a verified canonical ModuleKnowledge")
+    try:
+        return ModuleKnowledge.model_validate(value.model_dump(mode="json"))
+    except ValidationError as error:
+        raise CompilerInputError(f"module contract is invalid: {error}") from error
+
+
+def _revalidate_pack(value: object) -> EvidencePack:
+    if not isinstance(value, EvidencePack):
+        raise CompilerInputError("evidence pack must be an EvidencePack")
+    try:
+        return EvidencePack.model_validate(value.model_dump(mode="json"))
+    except ValidationError as error:
+        raise CompilerInputError(f"evidence pack contract is invalid: {error}") from error
+
+
+def _validate_inputs(
+    module: ModuleKnowledge, evidence_pack: EvidencePack
+) -> tuple[ModuleKnowledge, EvidencePack]:
+    canonical = _revalidate_module(module)
+    pack = _revalidate_pack(evidence_pack)
+
+    if canonical.validity.status != "verified":
+        raise CompilerInputError("module validity must be verified")
+    if canonical.id != pack.target.id:
+        raise CompilerInputError("module and Evidence Pack target identities differ")
+
+    scope = canonical.scope
+    repository = pack.repository
+    identity_fields = (
+        ("repository", scope.repository, repository.repository_id),
+        ("root", Path(scope.root), Path(repository.root)),
+        ("branch", scope.branch, repository.branch),
+        ("commit", scope.commit, repository.commit),
+        ("dirty", scope.dirty, repository.dirty),
+        ("working_tree_hash", scope.working_tree_hash, repository.working_tree_hash),
+    )
+    mismatches = [name for name, actual, expected in identity_fields if actual != expected]
+    if mismatches:
+        raise CompilerInputError(
+            "module and Evidence Pack repository identity differ: "
+            + ", ".join(mismatches)
+        )
+    if canonical.validity.verified_commit != repository.commit:
+        raise CompilerInputError("module verified commit differs from Evidence Pack commit")
+
+    evidence_by_id = {item.id: item for item in pack.evidence}
+    for claim in canonical.claims:
+        for evidence_id, excerpt_hash in zip(
+            claim.verification.evidence_ids,
+            claim.verification.excerpt_hashes,
+            strict=True,
+        ):
+            evidence = evidence_by_id.get(evidence_id)
+            if evidence is None:
+                raise CompilerInputError(
+                    f"claim {claim.id} cites Evidence outside the Evidence Pack"
+                )
+            if excerpt_hash != evidence.excerpt_hash:
+                raise CompilerInputError(
+                    f"claim {claim.id} excerpt hash differs from the Evidence Pack"
+                )
+    return canonical, pack
+
+
+def compile_module_yaml(
+    module: ModuleKnowledge, evidence_pack: EvidencePack
+) -> bytes:
+    """Compile canonical ModuleKnowledge to deterministic UTF-8 YAML bytes."""
+
+    canonical, _ = _validate_inputs(module, evidence_pack)
+    text = yaml.safe_dump(
+        canonical.model_dump(mode="json"),
+        sort_keys=False,
+        allow_unicode=True,
+        default_flow_style=False,
+        width=1000,
+    )
+    return text.encode("utf-8")
+
+
+__all__ = ["CompilerInputError", "compile_module_yaml"]
