@@ -15,8 +15,18 @@ def _visible_text(value: str) -> str:
 
 
 def _text(value: str) -> str:
-    escaped = _visible_text(value).replace("\\", "\\\\")
-    escaped = re.sub(r"([`*_\[\]()|])", r"\\\1", escaped)
+    escaped = _visible_text(value)
+    leading_indent = re.match(r"[ \t]+", escaped)
+    if leading_indent:
+        visible_indent = "".join(
+            "&#32;" if character == " " else "&#9;"
+            for character in leading_indent.group(0)
+        )
+        escaped = visible_indent + escaped[leading_indent.end() :]
+    escaped = escaped.replace("\\", "\\\\")
+    escaped = re.sub(r"([`*_~\-\[\]()|])", r"\\\1", escaped)
+    if escaped.startswith("="):
+        escaped = "&#61;" + escaped[1:]
     if re.match(r"^(?:#{1,6}(?:\s|$)|>|[-+]\s|\d+[.)]\s)", escaped):
         escaped = "\\" + escaped
     return escaped

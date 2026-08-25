@@ -310,3 +310,50 @@ def test_markdown_escapes_adversarial_contract_text_without_structure_injection(
     assert "``api`break" in text
     assert "``dep`break" in text
     assert "[evidence](javascript:" not in text
+
+
+@pytest.mark.parametrize(
+    ("opener", "visible_encoding"),
+    (
+        ("~~~python", r"\~\~\~python"),
+        ("---", r"\-\-\-"),
+        ("- - -", r"\- \- \-"),
+        ("***", r"\*\*\*"),
+        ("_ _ _", r"\_ \_ \_"),
+        ("===", "&#61;=="),
+        ("    indented code", "&#32;&#32;&#32;&#32;indented code"),
+        ("\tindented code", "&#9;indented code"),
+        ("```python", r"\`\`\`python"),
+        ("<script>html block</script>", "&lt;script&gt;html block&lt;/script&gt;"),
+    ),
+)
+@pytest.mark.parametrize("field", ("summary", "description", "claim"))
+def test_wiki_neutralizes_every_standalone_commonmark_block_opener(
+    field: str, opener: str, visible_encoding: str
+) -> None:
+    module, pack = _verified_inputs()
+    data = module.model_dump(mode="json")
+    if field == "summary":
+        data["summary"]["text"] = opener
+    elif field == "description":
+        data["public_interfaces"][0]["description"] = opener
+    else:
+        data["claims"][0]["statement"] = opener
+    changed = ModuleKnowledge.model_validate(data)
+
+    first = compile_module_wiki(changed, pack)
+    second = compile_module_wiki(changed, pack)
+    text = first.decode("utf-8")
+
+    assert first == second
+    assert visible_encoding in text
+    assert "\n~~~" not in text
+    assert "\n---\n" not in text
+    assert "\n- - -\n" not in text
+    assert "\n***\n" not in text
+    assert "\n_ _ _\n" not in text
+    assert "\n===\n" not in text
+    assert "\n    indented code\n" not in text
+    assert "\n\tindented code\n" not in text
+    assert "\n```" not in text
+    assert "<script" not in text
