@@ -50,6 +50,24 @@ def test_build_green_path_publishes_generation(tmp_path: Path, monkeypatch) -> N
     assert "module.shop.checkout" in payload["published_object_ids"]
 
 
+def test_build_state_is_scoped_to_repository_root(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = git_repo_with_fixture_content(tmp_path)
+    invocation_root = tmp_path / "invocation"
+    invocation_root.mkdir()
+    monkeypatch.chdir(invocation_root)
+
+    result = Runner.invoke(
+        app,
+        ["build", "--executor", "llm", "--repository-root", str(repo)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (repo / ".knowledge/state/runs/last-build.json").is_file()
+    assert not (invocation_root / ".knowledge").exists()
+
+
 def test_build_fails_cleanly_on_plain_repository(tmp_path: Path, monkeypatch) -> None:
     plain = tmp_path / "plain"
     plain.mkdir()

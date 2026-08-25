@@ -84,7 +84,10 @@ def build(
         )
         raise typer.Exit(code=1)
     status, generation, published = outcome
-    report_path = Path(".knowledge/state/runs") / "last-build.json"
+    report_path = (
+        repository_root.resolve()
+        / ".knowledge/state/runs/last-build.json"
+    )
     report_path.parent.mkdir(parents=True, exist_ok=True)
     import json as _json
 
@@ -180,7 +183,7 @@ def _run_orchestrated_build(repository_root: Path):
         }
     )
     queue = RunQueue(
-        store_root=Path(".knowledge/state/runs"),
+        store_root=repository_root / ".knowledge/state/runs",
         run=run_record,
         clock=_WallClock(),
     )
@@ -253,46 +256,87 @@ def status(
     typer.echo(_json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2))
 
 
-@app.command()
-def compile_views(
+@app.command(name="compile")
+def compile_knowledge_views(
     repository_root: Annotated[Path, typer.Option()] = Path("."),
 ) -> None:
     """Retry deterministic view compilation without changing canonical IR."""
 
-    typer.echo("compile: canonical IR unchanged; views compiled")
-    raise typer.Exit(code=0)
+    manifest_path = repository_root / ".knowledge/manifest.yaml"
+    if not manifest_path.is_file():
+        typer.secho(
+            "compile: no committed generation found",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+    typer.secho(
+        "compile: deterministic Wiki/HTML compiler is not available",
+        fg=typer.colors.RED,
+    )
+    raise typer.Exit(code=1)
 
 
-@app.command()
-def knowledge_context(
+@app.command(name="context")
+def context_for_task(
     task: Annotated[str, typer.Argument()],
     format: Annotated[str, typer.Option()] = "markdown",
     budget: Annotated[int, typer.Option()] = 6000,
     include_stale: Annotated[bool, typer.Option("--include-stale")] = False,
+    repository_root: Annotated[Path, typer.Option()] = Path("."),
 ) -> None:
     """Compile budgeted task context from verified knowledge."""
 
-    typer.echo(f"context: verified-only budget={budget}")
-    if include_stale:
-        typer.echo("context: --include-stale is diagnostic-only")
+    manifest_path = repository_root / ".knowledge/manifest.yaml"
+    if not manifest_path.is_file():
+        typer.secho("knowledge_update_required", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    typer.secho(
+        "context: verified retrieval index is not available",
+        fg=typer.colors.RED,
+    )
+    raise typer.Exit(code=1)
 
 
-@app.command()
-def open_wiki(
+@app.command(name="open")
+def open_knowledge_wiki(
     repository_root: Annotated[Path, typer.Option()] = Path("."),
 ) -> None:
     """Open the human Wiki, warning when it lags the active generation."""
 
-    typer.echo("open: wiki ready")
+    html_path = repository_root / ".knowledge/exports/repo-wiki.html"
+    if not html_path.is_file():
+        typer.secho(
+            "open: compiled HTML Wiki not found; run knowledge compile",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+    import webbrowser
+
+    if not webbrowser.open(html_path.resolve().as_uri()):
+        typer.secho("open: browser launch failed", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    typer.echo(str(html_path))
 
 
 @app.command()
 def serve(
     port: Annotated[int, typer.Option()] = 8765,
+    repository_root: Annotated[Path, typer.Option()] = Path("."),
 ) -> None:
     """Serve a bounded local-only read-only knowledge server."""
 
-    typer.echo(f"serve: local-only port={port} read-only")
+    html_path = repository_root / ".knowledge/exports/repo-wiki.html"
+    if not html_path.is_file():
+        typer.secho(
+            "serve: compiled HTML Wiki not found; run knowledge compile",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+    typer.secho(
+        "serve: local HTML server is not available",
+        fg=typer.colors.RED,
+    )
+    raise typer.Exit(code=1)
 
 
 @app.command()
