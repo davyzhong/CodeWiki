@@ -132,11 +132,16 @@ class RunOrchestrator:
         ).hexdigest()[:32]
         publisher = GenerationPublisher(self.output_root)
         try:
-            published_ids: list[str] = []
-            for canonical in published:
-                pack = packs.get(canonical.id)
-                publisher.publish(generation, canonical, pack)
-                published_ids.append(canonical.id)
+            committed = publisher.publish_generation(
+                generation,
+                tuple(
+                    (canonical, packs.get(canonical.id))
+                    for canonical in published
+                ),
+            )
+            published_ids = [
+                item.object_id for item in committed.objects
+            ]
         except PublicationError as error:
             try:
                 publisher.recover()

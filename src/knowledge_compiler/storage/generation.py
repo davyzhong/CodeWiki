@@ -111,6 +111,22 @@ class PublishedGeneration:
     manifest_path: Path
 
 
+@dataclass(frozen=True)
+class PublishedObject:
+    object_id: str
+    object_type: str
+    canonical_path: Path
+    card_path: Path
+    wiki_path: Path
+
+
+@dataclass(frozen=True)
+class PublishedGenerationBatch:
+    generation: str
+    objects: tuple[PublishedObject, ...]
+    manifest_path: Path
+
+
 class GenerationPublisher:
     """Publish one module generation with a durable rollback journal.
 
@@ -276,6 +292,275 @@ class GenerationPublisher:
             manifest_path=destinations["manifest"],
         )
 
+    def publish_generation(
+        self,
+        generation: str,
+        items: tuple[tuple[object, EvidencePack | None], ...],
+    ) -> PublishedGenerationBatch:
+        """Publish a complete multi-object generation in one transaction."""
+
+        self._validate_generation(generation)
+        if not items:
+            raise PublicationError("generation must contain at least one object")
+
+        prepared: list[
+            tuple[str, str, dict[str, bytes], dict[str, Path]]
+        ] = []
+        seen_ids: set[str] = set()
+        try:
+            for model, evidence_pack in items:
+                object_id = self._safe_object_id(model)
+                object_type = _object_type(model)
+                if object_id in seen_ids:
+                    raise PublicationError(
+                        f"duplicate object id in generation: {object_id}"
+                    )
+                seen_ids.add(object_id)
+                if object_type == "module":
+                    if evidence_pack is None:
+                        raise PublicationError(
+                            "module publication requires an evidence pack"
+                        )
+                    compiled = {
+                        "canonical": compile_module_yaml(model, evidence_pack),
+                        "card": compile_module_card(model, evidence_pack),
+                        "wiki": compile_module_wiki(model, evidence_pack),
+                    }
+                else:
+                    compiled = _compile_outputs(model, None)
+                prepared.append(
+                    (
+                        object_id,
+                        object_type,
+                        compiled,
+                        self._destinations(object_id, object_type),
+                    )
+                )
+            prepared.sort(key=lambda item: (item[1], item[0]))
+            manifest = yaml.safe_dump(
+                {
+                    "active_generation": generation,
+                    "agent_views_generation": generation,
+                    "wiki_generation": generation,
+                    "objects": [
+                        {"id": object_id, "type": object_type}
+                        for object_id, object_type, _, _ in prepared
+                    ],
+                },
+                sort_keys=False,
+                allow_unicode=True,
+            ).encode("utf-8")
+        except PublicationError:
+            raise
+        except Exception as error:
+            raise PublicationError(
+                f"generation compilation failed: {error}"
+            ) from error
+
+        payload_entries: list[dict[str, Any]] = []
+        for index, (object_id, object_type, compiled, destinations) in enumerate(
+            prepared
+        ):
+            for kind in ("canonical", "card", "wiki"):
+                payload_entries.append(
+                    {
+                        "name": f"{index:04d}-{kind}",
+                        "kind": kind,
+                        "object_id": object_id,
+                        "object_type": object_type,
+                        "action": "replace",
+                        "data": compiled[kind],
+                        "destination": destinations[kind],
+                    }
+                )
+        current_identities = {
+            (object_id, object_type)
+            for object_id, object_type, _, _ in prepared
+        }
+        removed_identities = tuple(
+            sorted(set(self._manifest_objects()) - current_identities)
+        )
+        for index, (object_id, object_type) in enumerate(removed_identities):
+            destinations = self._destinations(object_id, object_type)
+            for kind in ("canonical", "card", "wiki"):
+                payload_entries.append(
+                    {
+                        "name": f"removed-{index:04d}-{kind}",
+                        "kind": kind,
+                        "object_id": object_id,
+                        "object_type": object_type,
+                        "action": "delete",
+                        "data": None,
+                        "destination": destinations[kind],
+                    }
+                )
+        manifest_path = self.knowledge_root / "manifest.yaml"
+        payload_entries.append(
+            {
+                "name": "manifest",
+                "kind": "manifest",
+                "object_id": None,
+                "object_type": None,
+                "action": "replace",
+                "data": manifest,
+                "destination": manifest_path,
+            }
+        )
+
+        try:
+            if self._manifest_generation() == generation:
+                for entry in payload_entries:
+                    if entry["action"] == "delete":
+                        if self._lexists(entry["destination"]):
+                            raise PublicationError(
+                                "generation id reuse with unexpected content: "
+                                f"{entry['name']}"
+                            )
+                        continue
+                    destination = entry["destination"]
+                    if not self._lexists(destination) or self._read_regular(
+                        destination
+                    ) != entry["data"]:
+                        raise PublicationError(
+                            "generation id reuse with missing or differing "
+                            f"content: {entry['name']}"
+                        )
+                return self._batch_result(generation, prepared, manifest_path)
+        except PublicationError:
+            raise
+        except OSError as error:
+            raise PublicationError(
+                f"generation reuse check failed: {error}"
+            ) from error
+
+        transaction = self.transactions_root / generation
+        try:
+            self._assert_safe_roots(create=True)
+            if any(self.transactions_root.iterdir()):
+                raise PublicationError(
+                    "unrecovered transactions exist; run recovery before publishing"
+                )
+            self._mkdir(transaction)
+            stage = transaction / "stage"
+            backup = transaction / "backup"
+            self._mkdir(stage)
+            self._mkdir(backup)
+
+            for entry in payload_entries:
+                if entry["action"] == "delete":
+                    entry["staged_path"] = None
+                    continue
+                staged = stage / entry["name"]
+                self._write_bytes(
+                    staged, entry["data"], f"stage.{entry['kind']}"
+                )
+                entry["staged_path"] = staged
+            self._fsync_directory(stage, "stage.directory.fsync")
+
+            journal_entries: list[dict[str, Any]] = []
+            for entry in payload_entries:
+                destination = entry["destination"]
+                self._ensure_managed_parent(destination.parent)
+                backup_path = backup / entry["name"]
+                had_destination = self._lexists(destination)
+                if had_destination:
+                    self._write_bytes(
+                        backup_path,
+                        self._read_regular(destination),
+                        f"backup.{entry['kind']}",
+                    )
+                journal_entries.append(
+                    {
+                        "name": entry["name"],
+                        "kind": entry["kind"],
+                        "object_id": entry["object_id"],
+                        "object_type": entry["object_type"],
+                        "action": entry["action"],
+                        "destination": str(
+                            destination.relative_to(self.knowledge_root)
+                        ),
+                        "staged": (
+                            str(entry["staged_path"].relative_to(transaction))
+                            if entry["staged_path"] is not None
+                            else None
+                        ),
+                        "backup": str(backup_path.relative_to(transaction)),
+                        "had_destination": had_destination,
+                    }
+                )
+            self._fsync_directory(backup, "backup.directory.fsync")
+
+            journal = {
+                "schema_version": 2,
+                "generation": generation,
+                "objects": [
+                    {"id": object_id, "type": object_type}
+                    for object_id, object_type, _, _ in prepared
+                ],
+                "removed_objects": [
+                    {"id": object_id, "type": object_type}
+                    for object_id, object_type in removed_identities
+                ],
+                "entries": journal_entries,
+            }
+            journal_bytes = (
+                json.dumps(journal, sort_keys=True, separators=(",", ":"))
+                + "\n"
+            ).encode("utf-8")
+            journal_temporary = transaction / "journal.tmp"
+            self._write_bytes(journal_temporary, journal_bytes, "journal")
+            self._inject("journal.replace")
+            os.replace(journal_temporary, transaction / "journal.json")
+            self._fsync_directory(transaction, "transaction.directory.fsync")
+
+            for entry in payload_entries:
+                destination = entry["destination"]
+                self._ensure_managed_parent(destination.parent)
+                if entry["action"] == "delete":
+                    self._inject(f"publish.{entry['kind']}.delete")
+                    if self._lexists(destination):
+                        self._unlink_file(destination)
+                else:
+                    self._inject(f"publish.{entry['kind']}.replace")
+                    os.replace(entry["staged_path"], destination)
+                self._fsync_directory(
+                    destination.parent,
+                    f"publish.{entry['kind']}.directory.fsync",
+                )
+        except Exception as error:
+            if isinstance(error, PublicationError):
+                raise
+            raise PublicationError(f"publication failed at {error}") from error
+
+        try:
+            self._remove_transaction(transaction)
+        except Exception as error:
+            if isinstance(error, PublicationError):
+                raise
+            raise PublicationError(f"publication cleanup failed: {error}") from error
+        return self._batch_result(generation, prepared, manifest_path)
+
+    @staticmethod
+    def _batch_result(
+        generation: str,
+        prepared: list[tuple[str, str, dict[str, bytes], dict[str, Path]]],
+        manifest_path: Path,
+    ) -> PublishedGenerationBatch:
+        return PublishedGenerationBatch(
+            generation=generation,
+            objects=tuple(
+                PublishedObject(
+                    object_id=object_id,
+                    object_type=object_type,
+                    canonical_path=destinations["canonical"],
+                    card_path=destinations["card"],
+                    wiki_path=destinations["wiki"],
+                )
+                for object_id, object_type, _, destinations in prepared
+            ),
+            manifest_path=manifest_path,
+        )
+
     def recover(self) -> None:
         """Recover every incomplete journal; safe to repeat after interruption."""
 
@@ -303,10 +588,20 @@ class GenerationPublisher:
             journal = json.loads(self._read_regular(journal_path))
             generation = journal["generation"]
             self._validate_generation(generation)
+            schema_version = journal.get("schema_version")
+            if schema_version == 2:
+                if generation != transaction.name:
+                    raise PublicationError(
+                        "transaction journal identity is invalid"
+                    )
+                self._recover_batch_transaction(
+                    transaction, journal, generation
+                )
+                return
             if (
                 generation != transaction.name
-                or type(journal.get("schema_version")) is not int
-                or journal.get("schema_version") != 1
+                or type(schema_version) is not int
+                or schema_version != 1
             ):
                 raise PublicationError("transaction journal identity is invalid")
             module_id = journal["object_id"]
@@ -357,6 +652,160 @@ class GenerationPublisher:
                 raise PublicationError("transaction journal backup flag is invalid")
             self._fsync_directory(
                 destination.parent, f"recovery.{name}.directory.fsync"
+            )
+        self._remove_transaction(transaction)
+
+    def _recover_batch_transaction(
+        self,
+        transaction: Path,
+        journal: dict[str, Any],
+        generation: str,
+    ) -> None:
+        objects = journal.get("objects")
+        removed_objects = journal.get("removed_objects", [])
+        entries = journal.get("entries")
+        if not isinstance(objects, list) or not objects:
+            raise PublicationError("batch journal objects are invalid")
+        if not isinstance(entries, list):
+            raise PublicationError("batch journal entries are invalid")
+        if not isinstance(removed_objects, list):
+            raise PublicationError("batch journal removed objects are invalid")
+
+        destinations_by_object: dict[tuple[str, str], dict[str, Path]] = {}
+        for item in objects:
+            if not isinstance(item, dict):
+                raise PublicationError("batch journal object is invalid")
+            object_id = self._validate_object_id(item.get("id"))
+            object_type = item.get("type")
+            if object_type not in _TYPE_DIRECTORIES:
+                raise PublicationError("batch journal object type is invalid")
+            identity = (object_id, object_type)
+            if identity in destinations_by_object:
+                raise PublicationError("batch journal object is duplicated")
+            destinations_by_object[identity] = self._destinations(
+                object_id, object_type
+            )
+
+        removed_destinations: dict[
+            tuple[str, str], dict[str, Path]
+        ] = {}
+        for item in removed_objects:
+            if not isinstance(item, dict):
+                raise PublicationError("batch journal removed object is invalid")
+            object_id = self._validate_object_id(item.get("id"))
+            object_type = item.get("type")
+            if object_type not in _TYPE_DIRECTORIES:
+                raise PublicationError(
+                    "batch journal removed object type is invalid"
+                )
+            identity = (object_id, object_type)
+            if (
+                identity in removed_destinations
+                or identity in destinations_by_object
+            ):
+                raise PublicationError(
+                    "batch journal removed object is duplicated"
+                )
+            removed_destinations[identity] = self._destinations(
+                object_id, object_type
+            )
+
+        expected_actions = {
+            (object_id, object_type, kind): "replace"
+            for object_id, object_type in destinations_by_object
+            for kind in ("canonical", "card", "wiki")
+        }
+        expected_actions.update(
+            {
+                (object_id, object_type, kind): "delete"
+                for object_id, object_type in removed_destinations
+                for kind in ("canonical", "card", "wiki")
+            }
+        )
+        expected_actions[(None, None, "manifest")] = "replace"
+        if len(entries) != len(expected_actions):
+            raise PublicationError("batch journal entry count is invalid")
+
+        normalized: list[tuple[dict[str, Any], Path]] = []
+        seen_names: set[str] = set()
+        seen_keys: set[tuple[str | None, str | None, str]] = set()
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise PublicationError("batch journal entry is invalid")
+            name = entry.get("name")
+            kind = entry.get("kind")
+            if not isinstance(name, str) or not _GENERATION.fullmatch(name):
+                raise PublicationError("batch journal entry name is invalid")
+            if name in seen_names:
+                raise PublicationError("batch journal entry name is duplicated")
+            seen_names.add(name)
+            object_id = entry.get("object_id")
+            object_type = entry.get("object_type")
+            key = (object_id, object_type, kind)
+            if key not in expected_actions or key in seen_keys:
+                raise PublicationError("batch journal entry identity is invalid")
+            action = entry.get("action")
+            if action != expected_actions[key]:
+                raise PublicationError("batch journal entry action is invalid")
+            seen_keys.add(key)
+            if kind == "manifest":
+                if name != "manifest":
+                    raise PublicationError("batch manifest entry is invalid")
+                destination = self.knowledge_root / "manifest.yaml"
+            else:
+                identity = (object_id, object_type)
+                destination_map = (
+                    destinations_by_object
+                    if action == "replace"
+                    else removed_destinations
+                )
+                destination = destination_map[identity][kind]
+            if entry.get("destination") != str(
+                destination.relative_to(self.knowledge_root)
+            ):
+                raise PublicationError(
+                    "batch journal destination escaped root"
+                )
+            expected_staged = f"stage/{name}" if action == "replace" else None
+            if entry.get("staged") != expected_staged:
+                raise PublicationError(
+                    "batch journal staged path escaped root"
+                )
+            if entry.get("backup") != f"backup/{name}":
+                raise PublicationError("batch journal backup escaped root")
+            normalized.append((entry, destination))
+        if seen_keys != set(expected_actions):
+            raise PublicationError("batch journal entries are incomplete")
+
+        if self._manifest_generation() == generation:
+            self._remove_transaction(transaction)
+            return
+
+        normalized.sort(key=lambda item: item[0]["kind"] == "manifest")
+        for entry, destination in normalized:
+            self._ensure_managed_parent(destination.parent)
+            name = entry["name"]
+            kind = entry["kind"]
+            if entry.get("had_destination") is True:
+                data = self._read_regular(transaction / "backup" / name)
+                restore = transaction / f"restore-{name}"
+                if self._lexists(restore):
+                    self._unlink_file(restore)
+                self._write_bytes(
+                    restore, data, f"recovery.{kind}.stage"
+                )
+                self._inject(f"recovery.{kind}.replace")
+                os.replace(restore, destination)
+            elif entry.get("had_destination") is False:
+                if self._lexists(destination):
+                    self._unlink_file(destination)
+            else:
+                raise PublicationError(
+                    "batch journal backup flag is invalid"
+                )
+            self._fsync_directory(
+                destination.parent,
+                f"recovery.{kind}.directory.fsync",
             )
         self._remove_transaction(transaction)
 
@@ -503,6 +952,37 @@ class GenerationPublisher:
             raise PublicationError(f"manifest is unreadable: {error}") from error
         return value.get("active_generation") if isinstance(value, dict) else None
 
+    def _manifest_objects(self) -> tuple[tuple[str, str], ...]:
+        path = self.knowledge_root / "manifest.yaml"
+        if not self._lexists(path):
+            return ()
+        try:
+            value = yaml.safe_load(self._read_regular(path))
+        except (ValueError, yaml.YAMLError):
+            return ()
+        except OSError as error:
+            if error.errno == errno.ENOENT:
+                return ()
+            raise PublicationError(f"manifest is unreadable: {error}") from error
+        if not isinstance(value, dict) or "objects" not in value:
+            return ()
+        objects = value["objects"]
+        if not isinstance(objects, list):
+            raise PublicationError("manifest object inventory is invalid")
+        identities: set[tuple[str, str]] = set()
+        for item in objects:
+            if not isinstance(item, dict):
+                raise PublicationError("manifest object inventory is invalid")
+            object_id = self._validate_object_id(item.get("id"))
+            object_type = item.get("type")
+            if object_type not in _TYPE_DIRECTORIES:
+                raise PublicationError("manifest object type is invalid")
+            identity = (object_id, object_type)
+            if identity in identities:
+                raise PublicationError("manifest object inventory is duplicated")
+            identities.add(identity)
+        return tuple(sorted(identities))
+
     @staticmethod
     def _lexists(path: Path) -> bool:
         return os.path.lexists(path)
@@ -523,4 +1003,10 @@ class GenerationPublisher:
             )
 
 
-__all__ = ["GenerationPublisher", "PublicationError", "PublishedGeneration"]
+__all__ = [
+    "GenerationPublisher",
+    "PublicationError",
+    "PublishedGeneration",
+    "PublishedGenerationBatch",
+    "PublishedObject",
+]

@@ -180,6 +180,23 @@ def test_runner_publishes_one_generation_and_completes(tmp_path: Path) -> None:
     assert manifest["active_generation"] == outcome.generation
 
 
+def test_runner_uses_the_atomic_generation_publisher(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from knowledge_compiler.storage import GenerationPublisher
+
+    def reject_legacy_publish(*args, **kwargs):
+        raise AssertionError("legacy per-object publication was used")
+
+    monkeypatch.setattr(GenerationPublisher, "publish", reject_legacy_publish)
+    orchestrator, _, _ = make_orchestrator(tmp_path)
+
+    outcome = orchestrator.run()
+
+    assert outcome.status == "complete"
+    assert outcome.published_object_ids == ("module.shop.checkout",)
+
+
 def test_runner_model_failure_fails_without_publication(tmp_path: Path) -> None:
     orchestrator, queue, tmp = make_orchestrator(tmp_path, worker=StubWorker(fail_extract=True))
     outcome = orchestrator.run()

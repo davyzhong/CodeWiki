@@ -210,3 +210,108 @@ def test_five_types_share_the_publication_contract(tmp_path: Path) -> None:
         import shutil
 
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_two_types_publish_atomically_in_one_generation(
+    tmp_path: Path,
+) -> None:
+    architecture = canonicalize("architecture").canonical
+    flow = canonicalize("flow").canonical
+    assert architecture is not None
+    assert flow is not None
+
+    published = GenerationPublisher(tmp_path).publish_generation(
+        "gen-multi-001",
+        ((architecture, None), (flow, None)),
+    )
+
+    assert tuple(item.object_id for item in published.objects) == (
+        architecture.id,
+        flow.id,
+    )
+    assert all(item.canonical_path.is_file() for item in published.objects)
+    assert all(item.card_path.is_file() for item in published.objects)
+    assert all(item.wiki_path.is_file() for item in published.objects)
+    manifest = yaml.safe_load(published.manifest_path.read_bytes())
+    assert manifest["active_generation"] == "gen-multi-001"
+    assert manifest["agent_views_generation"] == "gen-multi-001"
+    assert manifest["wiki_generation"] == "gen-multi-001"
+    assert manifest["objects"] == [
+        {"id": architecture.id, "type": "architecture"},
+        {"id": flow.id, "type": "flow"},
+    ]
+
+
+def test_multi_object_failure_recovers_the_previous_generation(
+    tmp_path: Path,
+) -> None:
+    architecture = canonicalize("architecture").canonical
+    flow = canonicalize("flow").canonical
+    rule = canonicalize("rule").canonical
+    assert architecture is not None
+    assert flow is not None
+    assert rule is not None
+    publisher = GenerationPublisher(tmp_path)
+    publisher.publish_generation(
+        "gen-multi-001",
+        ((architecture, None), (flow, None)),
+    )
+
+    knowledge = tmp_path / ".knowledge"
+
+    def visible_bytes() -> dict[str, bytes]:
+        return {
+            str(path.relative_to(knowledge)): path.read_bytes()
+            for path in sorted(knowledge.rglob("*"))
+            if path.is_file() and "state/transactions" not in str(path)
+        }
+
+    before = visible_bytes()
+    card_replacements = 0
+
+    def fail_on_second_card(point: str) -> None:
+        nonlocal card_replacements
+        if point == "publish.card.replace":
+            card_replacements += 1
+            if card_replacements == 2:
+                raise OSError("injected multi-object publication failure")
+
+    with pytest.raises(PublicationError):
+        GenerationPublisher(
+            tmp_path, fault_injector=fail_on_second_card
+        ).publish_generation(
+            "gen-multi-002",
+            ((architecture, None), (rule, None)),
+        )
+
+    GenerationPublisher(tmp_path).recover()
+
+    assert visible_bytes() == before
+
+
+def test_next_generation_removes_objects_absent_from_the_new_set(
+    tmp_path: Path,
+) -> None:
+    architecture = canonicalize("architecture").canonical
+    flow = canonicalize("flow").canonical
+    rule = canonicalize("rule").canonical
+    assert architecture is not None
+    assert flow is not None
+    assert rule is not None
+    publisher = GenerationPublisher(tmp_path)
+    first = publisher.publish_generation(
+        "gen-multi-001",
+        ((architecture, None), (flow, None)),
+    )
+    flow_paths = next(
+        item for item in first.objects if item.object_id == flow.id
+    )
+
+    publisher.publish_generation(
+        "gen-multi-002",
+        ((architecture, None), (rule, None)),
+    )
+
+    assert not flow_paths.canonical_path.exists()
+    assert not flow_paths.card_path.exists()
+    assert not flow_paths.wiki_path.exists()
