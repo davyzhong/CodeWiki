@@ -3,12 +3,14 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from pathlib import Path, PurePosixPath
-from typing import Any, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal, Union
 
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Discriminator,
     Field,
+    Tag,
     field_validator,
     model_validator,
 )
@@ -623,11 +625,6 @@ class DraftModuleKnowledge(_ModulePayload):
         return self
 
 
-try:  # local import to avoid a cycle: semantic imports knowledge
-    from knowledge_compiler.contracts.semantic import DraftKnowledge
-except ImportError:  # pragma: no cover
-    DraftKnowledge = DraftModuleKnowledge
-
 ARCHITECTURE_ID_PATTERN = re.compile(
     r"^architecture\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$"
 )
@@ -763,18 +760,6 @@ class ArchitectureKnowledge(_ContractModel):
 
 
 
-class ExtractionResult(_ContractModel):
-    contract_version: Literal["0.1"]
-    run_id: NonBlankString
-    target_id: NonBlankString
-    operation: Literal["extract"]
-    attempt: int = Field(strict=True, gt=0)
-    snapshot_id: NonBlankString
-    idempotency_key: NonBlankString
-    draft: DraftKnowledge
-    provenance: Provenance
-
-
 class ModuleKnowledge(_ModulePayload):
     claims: tuple[Claim, ...]
     provenance: Provenance
@@ -858,6 +843,36 @@ class DraftTechStackKnowledge(_TypedDraftBase, TechStackKnowledge):
     )
 
 
+def _draft_type(value: object) -> str:
+    if isinstance(value, dict):
+        return str(value.get("type", "module"))
+    return str(getattr(value, "type", "module"))
+
+
+DraftKnowledge = Annotated[
+    Union[
+        Annotated[DraftModuleKnowledge, Tag("module")],
+        Annotated[DraftArchitectureKnowledge, Tag("architecture")],
+        Annotated[DraftFlowKnowledge, Tag("flow")],
+        Annotated[DraftRuleKnowledge, Tag("rule")],
+        Annotated[DraftTechStackKnowledge, Tag("tech-stack")],
+    ],
+    Discriminator(_draft_type),
+]
+
+
+class ExtractionResult(_ContractModel):
+    contract_version: Literal["0.1"]
+    run_id: NonBlankString
+    target_id: NonBlankString
+    operation: Literal["extract"]
+    attempt: int = Field(strict=True, gt=0)
+    snapshot_id: NonBlankString
+    idempotency_key: NonBlankString
+    draft: DraftKnowledge
+    provenance: Provenance
+
+
 
 __all__ = [
     "DraftArchitectureKnowledge",
@@ -885,6 +900,7 @@ __all__ = [
     "Confidence",
     "Dependency",
     "DraftClaim",
+    "DraftKnowledge",
     "DraftModuleKnowledge",
     "ExtractionResult",
     "ModuleKnowledge",

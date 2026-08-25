@@ -49,6 +49,20 @@ class RunQueue:
         self._run = record
         self._store.save(record)
 
+    def save_extraction_context(
+        self, target_id: str, request: object, result: object
+    ) -> None:
+        self._store.save_extraction_context(
+            self._run.run_id, target_id, request, result
+        )
+
+    def load_extraction_context(
+        self, target_id: str
+    ) -> tuple[object, object]:
+        return self._store.load_extraction_context(
+            self._run.run_id, target_id
+        )
+
     # -- leases ------------------------------------------------------------
 
     def grant_extraction_lease(self, target_id: str, *, ttl: int) -> Lease:

@@ -138,6 +138,35 @@ def test_extraction_result_draft_union_rejects_unknown_type() -> None:
         ExtractionResult.model_validate(payload)
 
 
+def test_extraction_result_accepts_a_typed_architecture_draft() -> None:
+    import sys
+
+    sys.path.insert(0, str(ROOT / "tests/contracts"))
+    from test_architecture_models import architecture_payload
+
+    from knowledge_compiler.contracts.knowledge import (
+        DraftArchitectureKnowledge,
+        ExtractionResult,
+    )
+
+    draft = architecture_payload()
+    draft["claims"] = [
+        {key: value for key, value in claim.items() if key != "verification"}
+        for claim in draft["claims"]
+    ]
+    draft["validity"] = None
+    payload = json.loads(
+        (FIXTURES / "module-extraction.json").read_text(encoding="utf-8")
+    )
+    payload["target_id"] = draft["id"]
+    payload["draft"] = draft
+    payload["provenance"] = draft["provenance"]
+
+    result = ExtractionResult.model_validate(payload)
+
+    assert isinstance(result.draft, DraftArchitectureKnowledge)
+
+
 def test_module_uses_shared_base_without_golden_drift() -> None:
     payload = _module_from_golden()
     module = ModuleKnowledge.model_validate(payload)

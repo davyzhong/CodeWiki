@@ -200,8 +200,9 @@ class RunOrchestrator:
                     }
                 )
                 extraction = self.worker.extract(request)
-                self._extraction = extraction
-                self._request = request
+                self.queue.save_extraction_context(
+                    target_id, request, extraction
+                )
                 digest = hashlib.sha256(
                     extraction.model_dump_json().encode("utf-8")
                 ).hexdigest()
@@ -222,15 +223,19 @@ class RunOrchestrator:
                 break
             while record.state is TargetState.SEMANTIC_PENDING:
                 self.queue.grant_verification_lease(target_id, ttl=3600)
+                request, extraction = self.queue.load_extraction_context(
+                    target_id
+                )
+                pack = request.evidence_pack
                 verification_request = build_verification_request(
-                    self._request,
-                    self._extraction,
+                    request,
+                    extraction,
                     self.snapshot.root,
                 )
                 result = self.worker.verify(verification_request)
                 verified = apply_verification_result(
-                    self._request,
-                    self._extraction,
+                    request,
+                    extraction,
                     verification_request,
                     result,
                     self.snapshot.root,
@@ -276,9 +281,6 @@ class RunOrchestrator:
         updated = record.transition(TargetState.EVIDENCE_READY)
         self.queue.replace_record(self.queue.record().with_target(updated))
         return updated
-
-    _extraction = None
-    _request = None
 
     def _mark_published(self, ids: list[str], generation: str) -> None:
         updated_run = self.queue.record()

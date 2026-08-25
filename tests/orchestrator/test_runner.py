@@ -81,6 +81,11 @@ class StubWorker:
         return VerificationResult.model_validate(payload)
 
 
+class InterruptingVerificationWorker(StubWorker):
+    def verify(self, request):
+        raise KeyboardInterrupt("simulated process interruption")
+
+
 def make_orchestrator(
     tmp_path: Path,
     worker: StubWorker | None = None,
@@ -213,6 +218,40 @@ def test_runner_verify_failure_is_partial_not_published(tmp_path: Path) -> None:
     outcome = orchestrator.run()
     assert outcome.status == "failed"
     assert not (tmp / "out/.knowledge/manifest.yaml").exists()
+
+
+def test_runner_resumes_semantic_verification_after_process_restart(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.orchestrator.runner import RunOrchestrator
+
+    interrupted, queue, tmp = make_orchestrator(
+        tmp_path, worker=InterruptingVerificationWorker()
+    )
+    with pytest.raises(KeyboardInterrupt):
+        interrupted.run()
+
+    later = FixedClock()
+    later.now = 2_000_000
+    resumed_queue = RunQueue(
+        store_root=tmp / ".knowledge/state/runs",
+        run=queue.record(),
+        clock=later,
+    )
+    resumed_queue.expire_leases()
+    resumed = RunOrchestrator(
+        queue=resumed_queue,
+        snapshot=interrupted.snapshot,
+        evidence_provider=interrupted.evidence_provider,
+        worker=StubWorker(),
+        output_root=interrupted.output_root,
+        run_id=interrupted.run_id,
+    )
+
+    outcome = resumed.run()
+
+    assert outcome.status == "complete"
+    assert outcome.published_object_ids == ("module.shop.checkout",)
 
 
 def test_runner_preserves_previous_generation_on_failure(tmp_path: Path) -> None:
