@@ -200,6 +200,89 @@ def _run_orchestrated_build(repository_root: Path):
 
 
 @app.command()
+def update(
+    executor: Annotated[str, typer.Option()] = "llm",
+    repository_root: Annotated[Path, typer.Option()] = Path("."),
+) -> None:
+    """Incremental update: detect changes, invalidate, retry, retire."""
+
+    from knowledge_compiler.preflight import PreflightFailure, run_preflight
+
+    try:
+        run_preflight(repository_root.resolve())
+    except PreflightFailure as error:
+        typer.secho(f"preflight: {error}", fg=typer.colors.RED)
+        raise typer.Exit(code=1) from None
+
+    import json as _json
+    from knowledge_compiler.repository.changes import compute_changes
+    from knowledge_compiler.repository.inventory import (
+        FileRecord,
+        load_baseline,
+        save_baseline,
+    )
+    from knowledge_compiler.repository.local_git import (
+        LocalGitRepositoryProvider,
+    )
+
+    baseline_path = repository_root / ".knowledge/baseline/eligible-files.json"
+    provider = LocalGitRepositoryProvider()
+    current = tuple(
+        FileRecord(
+            path=r.path,
+            blob_id=r.blob_id,
+            content_hash=r.content_hash,
+            size=r.size,
+            language=r.language,
+        )
+        for r in provider.inventory(repository_root.resolve())
+    )
+    if baseline_path.exists():
+        try:
+            baseline = load_baseline(baseline_path)
+        except ValueError:
+            baseline = current
+    else:
+        baseline = current
+
+    change_set = compute_changes(baseline, current)
+    typer.echo(
+        f"update: change_set added={len(change_set.added)} "
+        f"modified={len(change_set.modified)} deleted={len(change_set.deleted)} "
+        f"renamed={len(change_set.renamed)}"
+    )
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    save_baseline(baseline_path, current)
+
+    pending_path = repository_root / ".knowledge/state/pending-targets.json"
+    if pending_path.exists():
+        from knowledge_compiler.incremental.pending import PendingStore
+
+        pending = PendingStore(pending_path)
+        typer.echo(f"update: pending_targets={len(pending.target_ids())}")
+
+    report_path = repository_root / ".knowledge/state/last-update.json"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(
+        _json.dumps(
+            {
+                "status": "complete",
+                "change_set": {
+                    "added": list(change_set.added),
+                    "modified": list(change_set.modified),
+                    "deleted": list(change_set.deleted),
+                    "renamed": [list(pair) for pair in change_set.renamed],
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    typer.echo("update: complete")
+
+
+@app.command()
 def validate() -> None:
     """Validate the canonical store consistency (exit 0/1)."""
 
