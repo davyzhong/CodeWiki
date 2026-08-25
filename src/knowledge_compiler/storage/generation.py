@@ -31,6 +31,72 @@ _OUTPUTS = (
     ("wiki", "views/wiki", ".md"),
 )
 
+_TYPE_DIRECTORIES = {
+    "module": "modules",
+    "architecture": "architecture",
+    "flow": "flows",
+    "rule": "rules",
+    "tech-stack": "tech-stack",
+}
+
+
+def _object_type(model: object) -> str:
+    from knowledge_compiler.contracts.knowledge import (
+        ArchitectureKnowledge,
+        FlowKnowledge,
+        RuleKnowledge,
+        TechStackKnowledge,
+    )
+
+    if isinstance(
+        model,
+        ArchitectureKnowledge
+        | FlowKnowledge
+        | RuleKnowledge
+        | TechStackKnowledge,
+    ):
+        return model.type
+    return "module"
+
+
+def _compile_outputs(model: object, evidence_pack: object) -> dict[str, bytes]:
+    """Precompile canonical, card, and wiki bytes for any typed object."""
+    from knowledge_compiler.compiler.typed_views import compile_typed_wiki
+    from knowledge_compiler.compiler.yaml import (
+        compile_architecture_yaml,
+        compile_flow_yaml,
+        compile_module_yaml,
+        compile_rule_card,
+        compile_rule_yaml,
+        compile_tech_stack_card,
+        compile_tech_stack_yaml,
+    )
+
+    object_type = _object_type(model)
+    if object_type == "module":
+        return {
+            "canonical": compile_module_yaml(model, evidence_pack),
+            "card": None,  # module card needs the pack below
+            "wiki": None,
+        }
+    yaml_compilers = {
+        "architecture": compile_architecture_yaml,
+        "flow": compile_flow_yaml,
+        "rule": compile_rule_yaml,
+        "tech-stack": compile_tech_stack_yaml,
+    }
+    card_compilers = {
+        "rule": compile_rule_card,
+        "tech-stack": compile_tech_stack_card,
+    }
+    canonical = yaml_compilers[object_type](model)
+    card = card_compilers.get(object_type)
+    return {
+        "canonical": canonical,
+        "card": card(model) if card else compile_typed_wiki(model),
+        "wiki": compile_typed_wiki(model),
+    }
+
 
 class PublicationError(RuntimeError):
     """Raised when a generation cannot be safely published or recovered."""
@@ -95,7 +161,8 @@ class GenerationPublisher:
 
         payloads = {**compiled, "manifest": manifest}
         module_id = self._safe_object_id(module)
-        destinations = self._destinations(module_id)
+        object_type = _object_type(module)
+        destinations = self._destinations(module_id, object_type)
         transaction = self.transactions_root / generation
         # A generation id names one committed content set. Republishing the
         # same id with differing bytes would let a later recovery mistake a
@@ -160,6 +227,7 @@ class GenerationPublisher:
                 "schema_version": 1,
                 "generation": generation,
                 "object_id": module_id,
+                "object_type": object_type,
                 "entries": entries,
             }
             journal_bytes = (
@@ -236,7 +304,12 @@ class GenerationPublisher:
             ):
                 raise PublicationError("transaction journal identity is invalid")
             module_id = journal["object_id"]
-            expected = self._destinations(self._validate_object_id(module_id))
+            object_type = journal.get("object_type", "module")
+            if object_type not in _TYPE_DIRECTORIES:
+                raise PublicationError("transaction journal object type is invalid")
+            expected = self._destinations(
+                self._validate_object_id(module_id), object_type
+            )
             entries = journal["entries"]
             if not isinstance(entries, list) or len(entries) != 4:
                 raise PublicationError("transaction journal entries are invalid")
@@ -281,11 +354,17 @@ class GenerationPublisher:
             )
         self._remove_transaction(transaction)
 
-    def _destinations(self, module_id: str) -> dict[str, Path]:
+    def _destinations(
+        self, module_id: str, object_type: str = "module"
+    ) -> dict[str, Path]:
+        type_directory = _TYPE_DIRECTORIES.get(object_type, "modules")
         result = {
             name: self.knowledge_root / directory / f"{module_id}{suffix}"
             for name, directory, suffix in _OUTPUTS
         }
+        result["canonical"] = (
+            self.knowledge_root / "objects" / type_directory / f"{module_id}.yaml"
+        )
         result["manifest"] = self.knowledge_root / "manifest.yaml"
         return result
 
