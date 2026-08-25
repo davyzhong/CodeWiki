@@ -16,10 +16,10 @@ class _SemanticModel(BaseModel):
 
 
 class ExtractionRequest(_SemanticModel):
-    contract_version: Literal["0.1"] = "0.1"
+    contract_version: Literal["0.1"]
     run_id: NonBlankString
     target_id: NonBlankString
-    operation: Literal["extract"] = "extract"
+    operation: Literal["extract"]
     attempt: int = Field(strict=True, gt=0)
     snapshot_id: NonBlankString
     idempotency_key: NonBlankString
@@ -58,10 +58,10 @@ class VerificationClaim(_SemanticModel):
 
 
 class VerificationRequest(_SemanticModel):
-    contract_version: Literal["0.1"] = "0.1"
+    contract_version: Literal["0.1"]
     run_id: NonBlankString
     target_id: NonBlankString
-    operation: Literal["verify"] = "verify"
+    operation: Literal["verify"]
     attempt: int = Field(strict=True, gt=0)
     snapshot_id: NonBlankString
     idempotency_key: NonBlankString
@@ -131,10 +131,10 @@ class ClaimVerificationResult(_SemanticModel):
 
 
 class VerificationResult(_SemanticModel):
-    contract_version: Literal["0.1"] = "0.1"
+    contract_version: Literal["0.1"]
     run_id: NonBlankString
     target_id: NonBlankString
-    operation: Literal["verify"] = "verify"
+    operation: Literal["verify"]
     attempt: int = Field(strict=True, gt=0)
     snapshot_id: NonBlankString
     idempotency_key: NonBlankString

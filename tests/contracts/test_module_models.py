@@ -160,6 +160,12 @@ def test_valid_draft_and_explicit_versioned_extraction_result() -> None:
     result = ExtractionResult.model_validate(
         {
             "contract_version": "0.1",
+            "run_id": "task-two-run",
+            "target_id": MODULE_ID,
+            "operation": "extract",
+            "attempt": 1,
+            "snapshot_id": "task-two-snapshot",
+            "idempotency_key": "task-two-run:module.checkout.payment:extract:1:task-two-snapshot",
             "draft": draft,
             "provenance": provenance_data(),
         }
@@ -394,6 +400,12 @@ def test_provenance_schema_version_is_pinned_to_contract() -> None:
         ExtractionResult.model_validate(
             {
                 "contract_version": "0.1",
+                "run_id": "task-two-run",
+                "target_id": MODULE_ID,
+                "operation": "extract",
+                "attempt": 1,
+                "snapshot_id": "task-two-snapshot",
+                "idempotency_key": "task-two-run:module.checkout.payment:extract:1:task-two-snapshot",
                 "draft": draft_data(),
                 "provenance": {**provenance_data(), "schema_version": "0.2"},
             }

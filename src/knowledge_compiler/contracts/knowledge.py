@@ -309,13 +309,13 @@ class DraftModuleKnowledge(_ModulePayload):
 
 
 class ExtractionResult(_ContractModel):
-    contract_version: Literal["0.1"] = "0.1"
-    run_id: NonBlankString = "legacy"
-    target_id: NonBlankString = "legacy"
-    operation: Literal["extract"] = "extract"
-    attempt: int = Field(default=1, strict=True, gt=0)
-    snapshot_id: NonBlankString = "legacy"
-    idempotency_key: NonBlankString = "legacy"
+    contract_version: Literal["0.1"]
+    run_id: NonBlankString
+    target_id: NonBlankString
+    operation: Literal["extract"]
+    attempt: int = Field(strict=True, gt=0)
+    snapshot_id: NonBlankString
+    idempotency_key: NonBlankString
     draft: DraftModuleKnowledge
     provenance: Provenance
 

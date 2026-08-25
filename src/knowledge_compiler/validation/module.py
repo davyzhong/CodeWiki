@@ -175,7 +175,12 @@ def _claim_ids_from_payload(draft: Any) -> list[tuple[str, str]]:
     return refs
 
 
-def _validate_structure(extraction: ExtractionResult, pack: EvidencePack, issues: list[ValidationIssue]) -> None:
+def _validate_structure(
+    extraction: ExtractionResult,
+    pack: EvidencePack,
+    repository_root: Path,
+    issues: list[ValidationIssue],
+) -> None:
     draft = _get(extraction, "draft")
     repository = _get(pack, "repository")
     target = _get(pack, "target")
@@ -215,15 +220,38 @@ def _validate_structure(extraction: ExtractionResult, pack: EvidencePack, issues
     for field in ("branch", "dirty", "working_tree_hash"):
         if _get(scope, field) != _get(repository, field):
             _issue(issues, f"identity.{field}", f"draft.scope.{field}", f"draft {field} must match evidence repository")
-    repository_root = _get(repository, "root")
+    pack_root = _get(repository, "root")
     scope_root = _get(scope, "root")
-    if repository_root is not None and scope_root is not None:
+    supplied_root = Path(repository_root).resolve()
+    if pack_root is not None and scope_root is not None:
+        declared_pack_root: Path | None = None
+        declared_scope_root: Path | None = None
         try:
-            roots_match = Path(repository_root).resolve() == Path(scope_root).resolve()
+            declared_pack_root = Path(pack_root).resolve()
+            declared_scope_root = Path(scope_root).resolve()
+            roots_match = declared_pack_root == declared_scope_root
         except (OSError, TypeError):
             roots_match = False
         if not roots_match:
             _issue(issues, "identity.root", "draft.scope.root", "draft root must match evidence repository root")
+        if (
+            not roots_match
+            or supplied_root != declared_pack_root
+            or supplied_root != declared_scope_root
+        ):
+            _issue(
+                issues,
+                "identity.repository_root",
+                "repository_root",
+                "supplied repository root must match pack and draft declared roots",
+            )
+    else:
+        _issue(
+            issues,
+            "identity.repository_root",
+            "repository_root",
+            "pack and draft must declare the supplied repository root",
+        )
     claims = tuple(_get(draft, "claims", ()))
     claim_ids = [_get(claim, "id") for claim in claims]
     known_claims = set(claim_ids)
@@ -247,6 +275,16 @@ def _validate_structure(extraction: ExtractionResult, pack: EvidencePack, issues
             _issue(issues, "claim.reference.unknown", location, f"unknown Claim ID: {claim_id}")
     if not tuple(_get(draft, "responsibilities", ())):
         _issue(issues, "responsibility.required", "draft.responsibilities", "Module requires at least one responsibility")
+    responsibility_texts = [
+        _get(item, "text") for item in tuple(_get(draft, "responsibilities", ()))
+    ]
+    if len(responsibility_texts) != len(set(responsibility_texts)):
+        _issue(
+            issues,
+            "responsibility.duplicate",
+            "draft.responsibilities",
+            "responsibility text must be unique",
+        )
     required_text = (
         ("draft.title", _get(draft, "title")),
         ("draft.summary.text", _get(_get(draft, "summary"), "text")),
@@ -279,7 +317,7 @@ def validate_module_extraction(
     extraction: ExtractionResult, evidence_pack: EvidencePack, repository_root: Path
 ) -> ModuleValidationResult:
     issues: list[ValidationIssue] = []
-    _validate_structure(extraction, evidence_pack, issues)
+    _validate_structure(extraction, evidence_pack, repository_root, issues)
     _validate_sources(evidence_pack, repository_root, issues)
     return _result(issues)
 
@@ -411,12 +449,10 @@ def apply_verification_result(
         for claim_id in sorted(draft_claims)
     )
     draft_payload = extraction.draft.model_dump()
-    scope = dict(draft_payload["scope"])
-    scope["root"] = Path(repository_root).resolve()
     module = ModuleKnowledge.model_validate(
         {
             **draft_payload,
-            "scope": scope,
+            "scope": draft_payload["scope"],
             "claims": claims,
             "confidence": extraction.draft.confidence,
             "provenance": extraction.provenance,

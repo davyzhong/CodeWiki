@@ -3,15 +3,19 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from knowledge_compiler.contracts import EvidencePack
 from knowledge_compiler.contracts.knowledge import ExtractionResult
 from knowledge_compiler.contracts.semantic import (
     ClaimVerificationResult,
+    ExtractionRequest,
+    VerificationRequest,
     VerificationResult,
 )
 from knowledge_compiler.validation.module import (
@@ -44,6 +48,57 @@ def pack(payload: dict[str, object] | None = None, root: Path = REPO) -> Evidenc
 
 def issue_codes(result) -> set[str]:
     return {issue.code for issue in result.issues}
+
+
+ENVELOPE_FIELDS = (
+    "contract_version",
+    "run_id",
+    "target_id",
+    "operation",
+    "attempt",
+    "snapshot_id",
+    "idempotency_key",
+)
+
+
+@pytest.mark.parametrize("field", ENVELOPE_FIELDS)
+def test_extraction_result_requires_every_envelope_field(field: str) -> None:
+    data = load("module-extraction.json")
+    data["draft"]["scope"]["root"] = REPO
+    data.pop(field)
+
+    with pytest.raises(ValidationError, match=field):
+        ExtractionResult.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    ("extraction-request", "verification-request", "verification-result"),
+)
+@pytest.mark.parametrize("field", ENVELOPE_FIELDS)
+def test_semantic_contracts_require_every_envelope_field(
+    model_name: str, field: str
+) -> None:
+    value = extraction()
+    evidence_pack = pack()
+    request = build_verification_request(value, evidence_pack, REPO)
+    result_data = load("module-verification.json")
+    if model_name == "extraction-request":
+        model = ExtractionRequest
+        payload = {
+            **{name: getattr(value, name) for name in ENVELOPE_FIELDS},
+            "evidence_pack": evidence_pack,
+        }
+    elif model_name == "verification-request":
+        model = VerificationRequest
+        payload = request.model_dump()
+    else:
+        model = VerificationResult
+        payload = result_data
+    payload.pop(field)
+
+    with pytest.raises(ValidationError, match=field):
+        model.model_validate(payload)
 
 
 @pytest.mark.parametrize("bad_path", ("/tmp/x.py", "../x.py", "C:\\x.py", "x.py\0"))
@@ -148,12 +203,52 @@ def test_binding_rejects_unknown_evidence_missing_responsibility_and_empty_claim
     assert result.issues == tuple(sorted(result.issues, key=lambda i: (i.code, i.location)))
 
 
+def test_binding_rejects_duplicate_responsibility_text_and_blocks_canonicalization() -> None:
+    value, evidence_pack, request, verification = valid_semantic_objects()
+    duplicate = value.draft.responsibilities[0]
+    changed_draft = value.draft.model_copy(
+        update={"responsibilities": (*value.draft.responsibilities, duplicate)}
+    )
+    changed = value.model_copy(update={"draft": changed_draft})
+
+    checked = validate_module_extraction(changed, evidence_pack, REPO)
+    applied = apply_verification_result(
+        changed, evidence_pack, request, verification, REPO
+    )
+
+    assert "responsibility.duplicate" in issue_codes(checked)
+    assert checked.issues == tuple(
+        sorted(checked.issues, key=lambda issue: (issue.code, issue.location))
+    )
+    assert applied.module is None
+    assert "responsibility.duplicate" in issue_codes(applied)
+
+
 def test_binding_rejects_snapshot_mismatch_and_never_repairs_input() -> None:
     value = extraction()
     object.__setattr__(value, "snapshot_id", "sha256:" + "f" * 64)
     before = value.model_dump()
     result = validate_module_extraction(value, pack(), REPO)
     assert "identity.snapshot" in issue_codes(result)
+    assert value.model_dump() == before
+
+
+def test_rejects_byte_identical_supplied_root_that_differs_from_declared_root(
+    tmp_path: Path,
+) -> None:
+    alternate = tmp_path / "alternate-repository"
+    shutil.copytree(REPO, alternate)
+    value, evidence_pack, request, verification = valid_semantic_objects()
+    before = value.model_dump()
+
+    checked = validate_module_extraction(value, evidence_pack, alternate)
+    applied = apply_verification_result(
+        value, evidence_pack, request, verification, alternate
+    )
+
+    assert issue_codes(checked) == {"identity.repository_root"}
+    assert applied.module is None
+    assert "identity.repository_root" in issue_codes(applied)
     assert value.model_dump() == before
 
 
