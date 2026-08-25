@@ -55,6 +55,26 @@ def _update_gitignore(root: Path) -> None:
     )
 
 
+from knowledge_compiler import cli_agent_queue as _agent_queue  # noqa: E402
+from knowledge_compiler.cli_agent_queue import (  # noqa: E402,F401
+    evidence as _agent_evidence,
+    finalize as _agent_finalize,
+    next_work as _agent_next,
+    prepare as _agent_prepare,
+    submit_extraction as _agent_submit_extraction,
+    submit_verification as _agent_submit_verification,
+    verify_next as _agent_verify_next,
+)
+
+app.command(name="prepare", hidden=True)(_agent_prepare)
+app.command(name="next", hidden=True)(_agent_next)
+app.command(name="evidence", hidden=True)(_agent_evidence)
+app.command(name="submit-extraction", hidden=True)(_agent_submit_extraction)
+app.command(name="verify-next", hidden=True)(_agent_verify_next)
+app.command(name="submit-verification", hidden=True)(_agent_submit_verification)
+app.command(name="finalize", hidden=True)(_agent_finalize)
+
+
 @app.callback()
 def _main() -> None:
     """Knowledge Compiler repository tooling."""
