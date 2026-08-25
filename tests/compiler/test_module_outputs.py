@@ -67,7 +67,16 @@ def _verified_inputs() -> tuple[ModuleKnowledge, EvidencePack]:
     )
     assert result.is_valid
     assert result.module is not None
-    return result.module, pack
+    # Compilation does not access the repository, so rebind the already-validated
+    # fixture pair to a stable absolute root for portable byte golden files.
+    module_data = result.module.model_dump(mode="json")
+    module_data["scope"]["root"] = "/fixture/probe_repo"
+    pack_data = pack.model_dump(mode="json")
+    pack_data["repository"]["root"] = "/fixture/probe_repo"
+    return (
+        ModuleKnowledge.model_validate(module_data),
+        EvidencePack.model_validate(pack_data),
+    )
 
 
 def test_compiles_canonical_yaml_bytes() -> None:
@@ -77,6 +86,7 @@ def test_compiles_canonical_yaml_bytes() -> None:
 
     assert isinstance(output, bytes)
     assert output.endswith(b"\n")
+    assert output == (GOLDEN / "module.yaml").read_bytes()
     assert yaml.safe_load(output) == module.model_dump(mode="json")
 
 
