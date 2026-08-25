@@ -123,6 +123,16 @@ class FakeEvidenceProvider:
             raise ValueError("repository snapshot metadata mismatch")
         return repo
 
+    def bound_repository(self) -> RepositorySnapshot:
+        """Return the fixture repository snapshot this provider serves.
+
+        The fake provider owns its fixture world, so the test-only vertical
+        slice resolves its repository identity here instead of duplicating
+        fixture parsing; production callers keep supplying their own snapshot.
+        """
+
+        return RepositorySnapshot.model_validate(self._pack.repository.model_dump())
+
     def inspect(self, repo: RepositorySnapshot) -> RepositorySurvey:
         self._validate_repository(repo)
         return RepositorySurvey.model_validate(self._survey.model_dump())

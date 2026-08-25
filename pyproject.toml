@@ -22,6 +22,7 @@ dev = [
 
 [project.scripts]
 knowledge-codewiki-spike = "knowledge_compiler.spikes.main:app"
+knowledge-fake-module-slice = "knowledge_compiler.vertical_slice:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
