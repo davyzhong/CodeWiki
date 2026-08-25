@@ -230,7 +230,9 @@ Expected: no product-code boundary violations. The Phase 0 spike may invoke the 
 - [x] Run an independent plan-document review against the V0.1 design and fix until approved. (CHANGES REQUIRED with 1 Critical + 8 smaller findings, all applied; re-review APPROVED at `955eb44`.)
 - [ ] Commit the approved plan before implementation.
 
-### M2.2 Local Git repository identity and eligible-file inventory
+### M2.2 Local Git repository identity and eligible-file inventory — implemented, independent reviews pending
+
+> Review debt: four reviewer dispatches stalled on infrastructure (model stream timeouts). A documented self-review found and fixed the missing git timeout. Independent specification and quality reviews for M2.2 MUST run and pass before the M2 exit gate; do not treat the self-review as approval.
 
 **Suggested files:** `repository/base.py`, `repository/local_git.py`, `contracts/repository.py`, `tests/repository/test_local_git.py`.
 
