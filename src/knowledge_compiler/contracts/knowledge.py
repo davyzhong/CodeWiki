@@ -220,6 +220,128 @@ class _ModulePayload(_ContractModel):
             raise ValueError(f"unknown Claim references: {', '.join(unknown)}")
 
 
+FLOW_ID_PATTERN = re.compile(
+    r"^flow\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$"
+)
+FLOW_CLAIM_PATTERN = re.compile(
+    r"^flow\.[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*"
+    r"\.claim\.[a-z0-9][a-z0-9_-]*$"
+)
+
+
+class FlowTrigger(_ClaimBacked):
+    description: NonBlankString
+
+
+class FlowStep(_ClaimBacked):
+    step_id: NonBlankString
+    order: int = Field(strict=True, ge=1)
+    description: NonBlankString
+    participants: tuple[NonBlankString, ...]
+
+    @field_validator("participants")
+    @classmethod
+    def normalize_participants(
+        cls, value: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        if not value:
+            raise ValueError("flow step participants must not be empty")
+        if len(value) != len(set(value)):
+            raise ValueError("duplicate flow step participants are not allowed")
+        return tuple(sorted(value))
+
+
+class FlowFailurePath(_ClaimBacked):
+    condition: NonBlankString
+    handling: NonBlankString
+
+
+class FlowKnowledge(_ContractModel):
+    schema_version: Literal["0.1"] = "0.1"
+    id: str
+    type: Literal["flow"] = "flow"
+    title: NonBlankString
+    scope: Scope
+    summary: ClaimBackedText
+    trigger: FlowTrigger
+    steps: tuple[FlowStep, ...]
+    failure_paths: tuple[FlowFailurePath, ...] = ()
+    claims: tuple[Claim, ...]
+    provenance: Provenance
+    validity: Validity
+
+    @field_validator("id")
+    @classmethod
+    def validate_flow_id(cls, value: str) -> str:
+        if not FLOW_ID_PATTERN.fullmatch(value):
+            raise ValueError("flow ID must match flow.<domain>.<name>")
+        return value
+
+    @field_validator("steps")
+    @classmethod
+    def normalize_steps(cls, value: tuple[FlowStep, ...]) -> tuple[FlowStep, ...]:
+        ids = [step.step_id for step in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate flow step ids are not allowed")
+        if not value:
+            raise ValueError("flow requires at least one step")
+        ordered = sorted(value, key=lambda step: step.order)
+        expected = 1
+        for step in ordered:
+            if step.order != expected:
+                raise ValueError(
+                    f"flow step order must be contiguous from 1; got "
+                    f"{step.order} where {expected} was expected"
+                )
+            expected += 1
+        return tuple(ordered)
+
+    @field_validator("failure_paths")
+    @classmethod
+    def normalize_failure_paths(
+        cls, value: tuple[FlowFailurePath, ...]
+    ) -> tuple[FlowFailurePath, ...]:
+        keys = [(item.condition, item.handling) for item in value]
+        if len(keys) != len(set(keys)):
+            raise ValueError("duplicate failure paths are not allowed")
+        return tuple(
+            sorted(value, key=lambda item: (item.condition, item.handling))
+        )
+
+    @field_validator("claims")
+    @classmethod
+    def normalize_flow_claims(cls, value: tuple[Claim, ...]) -> tuple[Claim, ...]:
+        ids = [claim.id for claim in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate Claim IDs are not allowed")
+        for claim in value:
+            if not FLOW_CLAIM_PATTERN.fullmatch(claim.id):
+                raise ValueError(
+                    "Claim ID must match flow.<domain>.<name>.claim.<slug>"
+                )
+        return tuple(sorted(value, key=lambda claim: claim.id))
+
+    @model_validator(mode="after")
+    def validate_flow_references(self) -> FlowKnowledge:
+        referenced: list[str] = list(self.summary.claim_ids)
+        referenced.extend(self.trigger.claim_ids)
+        for collection in (self.steps, self.failure_paths):
+            for item in collection:
+                referenced.extend(item.claim_ids)
+        known = {claim.id for claim in self.claims}
+        unknown = sorted(set(referenced) - known)
+        if unknown:
+            raise ValueError(f"unknown Claim references: {', '.join(unknown)}")
+        if (
+            self.validity.status == "verified"
+            and self.validity.verified_commit != self.scope.commit
+        ):
+            raise ValueError(
+                "verified validity verified_commit must match the scope commit"
+            )
+        return self
+
+
 class DraftModuleKnowledge(_ModulePayload):
     claims: tuple[DraftClaim, ...]
 
@@ -415,6 +537,10 @@ class ModuleKnowledge(_ModulePayload):
 
 
 __all__ = [
+    "FlowFailurePath",
+    "FlowKnowledge",
+    "FlowStep",
+    "FlowTrigger",
     "ArchitectureBoundary",
     "ArchitectureComponent",
     "ArchitectureKnowledge",
