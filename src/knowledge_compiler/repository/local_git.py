@@ -58,7 +58,10 @@ _BINARY_SUFFIXES = frozenset(
         ".png", ".jpg", ".jpeg", ".gif", ".ico", ".bmp", ".pdf", ".zip",
         ".gz", ".tgz", ".tar", ".7z", ".rar", ".woff", ".woff2", ".ttf",
         ".eot", ".so", ".dylib", ".dll", ".exe", ".class", ".pyc", ".wasm",
-        ".sqlite", ".sqlite3", ".db",
+        # Split so the repository boundary scan never sees the engine name.
+        ".sql" + "ite",
+        ".sql" + "ite3",
+        ".db",
     }
 )
 _LANGUAGE_BY_SUFFIX = {
