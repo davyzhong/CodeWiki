@@ -11,6 +11,8 @@
 4. [跨项目方法沉淀](01-local-practice/cross-project-lessons.md)：从 ATLAS 和 Enterprise Intelligence 提炼、且适合公开复用的知识工程方法。
 5. [技能资料索引](03-skills/README.md)：上游 CodeWiki Skill 快照，以及 Knowledge Compiler 四个拟议 Skill 的历史状态。
 6. [来源目录](source-catalog.md)：每份材料的来源、性质、许可、日期和是否入库。
+7. [2026-08-25 接续归档清单](archives/2026-08-25-archive-manifest.md)：当天沉淀文档、实施会话、代码证据和图片/可视化清点的统一入口。
+8. [2026-08-25 M1 实施会话归档](archives/2026-08-25-m1-implementation-session.md)：当天用户请求、决策、实现、审查、提交、测试和准确暂停点。
 
 ## 正式项目文档
 
@@ -20,6 +22,8 @@
 - [Phase 0 CodeWiki Adapter Spike 计划](../superpowers/plans/2026-08-24-codewiki-adapter-spike.md)
 - [Phase 0 公共接口报告](../spikes/codewiki-public-surface.md)
 - [Phase 1 Fake Provider 垂直切片计划](../superpowers/plans/2026-08-24-fake-provider-module-vertical-slice.md)
+- [V0.1 总执行路线图](../superpowers/plans/2026-08-25-v0-1-execution-roadmap.md)
+- [V0.1 完整接续 To-do（M1–M7）](../superpowers/plans/2026-08-25-v0-1-complete-handoff-todo.md)
 
 下载目录中的两份原始设计文件与上述正式规格、Phase 0 计划 SHA-256 完全一致，因此采用“单一权威副本 + 来源哈希”的方式去重。
 

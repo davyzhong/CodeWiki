@@ -11,6 +11,9 @@
 | `codewiki-adapter-spike-plan.md` | `355a3c23b09ffedee8de2b12b226d9c2eef6b09979f6515e1b0052814dd2ce3b` | 与正式计划逐字相同，去重 | `docs/superpowers/plans/2026-08-24-codewiki-adapter-spike.md` |
 | Phase 0 实测 fixture | CodeWiki `0.6.5` | 原始结构化观测，已做路径/敏感信息清理 | `tests/fixtures/codewiki/0.6/cli-observations.json` |
 | Phase 0 实验报告 | 当前分支 | 保留为公共合同研究结论 | `docs/spikes/codewiki-public-surface.md` |
+| 2026-08-25 M1 实施会话归档 | 当天用户可见请求、提交、测试和审查记录的公开安全重建 | 保留实施与暂停上下文；不包含系统提示、内部推理、会话 ID 或凭据 | `archives/2026-08-25-m1-implementation-session.md` |
+| 2026-08-25 完整接续 To-do | M1 剩余验收及 M2–M7 详细任务清单 | 作为跨 Agent 当前执行入口 | `docs/superpowers/plans/2026-08-25-v0-1-complete-handoff-todo.md` |
+| 2026-08-25 归档清单 | 项目资料、代码证据和可视化资产清点 | 作为下一位 Agent 的资料导航 | `archives/2026-08-25-archive-manifest.md` |
 
 ## 本机关联项目
 
@@ -47,3 +50,10 @@
 - 可重新生成的大型缓存、数据库、压缩包和二进制资产。
 
 完整未清理原件继续留在其原始本机位置，不由本仓库复制或发布。
+
+## 2026-08-25 图片与可视化清点
+
+- 检查当前 Codex visualization 工作目录：未发现文件。
+- 检查 Downloads 在 2026-08-24—25 形成的 PNG、JPG、JPEG、SVG、WebP、GIF：未发现本项目相关文件。
+- 2026-08-24 早期会话曾引用 localhost 可视化伴侣，但没有可恢复的静态资产；链接已经失效。
+- 可视化表达的产品决策与架构已在 V0.1 设计、公开安全会话归档和 2026-08-25 实施归档中以文本保留。

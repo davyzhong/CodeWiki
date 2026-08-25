@@ -11,6 +11,9 @@
 | 2026-08-24 | 仓库迁移与更名 | 项目远端最终使用 `davyzhong/CodeWiki`，本地工作区也统一更名为 `CodeWiki`。 |
 | 2026-08-24 | Phase 0 完成 | 锁定并实测公开 `codewiki 0.6.5` 表面；CLI 足以覆盖 V0.1 所需最小契约，结论为 `go`。 |
 | 2026-08-24 | Phase 1 计划 | 基于实测 DTO 设计 Fake Provider + Module Knowledge 的首个垂直切片。 |
+| 2026-08-25 | M1.1—M1.5 完成 | Repository/Evidence、Module Knowledge、Fake Provider、验证/语义核验和确定性编译器全部实现并通过独立规格与质量审查。 |
+| 2026-08-25 | M1.6 实现 | 完成可恢复 generation publication、38 个故障边界和幂等恢复测试；独立审查因额度/服务限制留待接续。 |
+| 2026-08-25 | 跨 Agent 接续归档 | 冻结当前 main 状态，形成 M1–M7 完整 To-do、当天实施会话和项目归档清单，供其他 Agent 继续并最终回交验收。 |
 
 ## 贯穿始终的决策链
 
