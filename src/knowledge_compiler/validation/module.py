@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
+import os
 import re
+import stat
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from knowledge_compiler.contracts.evidence import EvidencePack, build_evidence_id
 from knowledge_compiler.contracts.knowledge import (
@@ -17,12 +20,16 @@ from knowledge_compiler.contracts.knowledge import (
     Validity,
 )
 from knowledge_compiler.contracts.semantic import (
+    ExtractionRequest,
     VerificationClaim,
     VerificationEvidence,
     VerificationRequest,
     VerificationResult,
 )
 from knowledge_compiler.contracts.repository import build_snapshot_id
+
+
+_ORIGINAL_OS_OPEN = os.open
 
 
 class ValidationIssue(BaseModel):
@@ -44,8 +51,20 @@ class ModuleValidationResult(BaseModel):
         return not self.issues
 
 
+class ModuleValidationError(ValueError):
+    """Typed failure raised when a verification request cannot be built safely."""
+
+    def __init__(self, issues: tuple[ValidationIssue, ...]) -> None:
+        self.issues = issues
+        super().__init__("module validation failed: " + "; ".join(
+            f"{issue.code}@{issue.location}: {issue.message}" for issue in issues
+        ))
+
+
 def _result(issues: list[ValidationIssue], module: ModuleKnowledge | None = None) -> ModuleValidationResult:
-    ordered = tuple(sorted(issues, key=lambda item: (item.code, item.location)))
+    ordered = tuple(
+        sorted(issues, key=lambda item: (item.code, item.location, item.message))
+    )
     return ModuleValidationResult(issues=ordered, module=None if ordered else module)
 
 
@@ -61,7 +80,7 @@ def _evidence_items(pack: EvidencePack) -> tuple[Any, ...]:
     return tuple(_get(pack, "evidence", ()))
 
 
-def _safe_source_path(root: Path, raw_path: Any) -> tuple[Path | None, str | None]:
+def _safe_source_parts(raw_path: Any) -> tuple[tuple[str, ...] | None, str | None]:
     if not isinstance(raw_path, str):
         return None, "invalid"
     parsed = PurePosixPath(raw_path)
@@ -76,14 +95,84 @@ def _safe_source_path(root: Path, raw_path: Any) -> tuple[Path | None, str | Non
         or raw_path in {"", "."}
     ):
         return None, "invalid"
-    candidate = root.joinpath(*parsed.parts)
+    return parsed.parts, None
+
+
+def _is_symlink_at(name: str, directory_fd: int) -> bool:
     try:
-        resolved = candidate.resolve(strict=False)
+        details = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
     except OSError:
-        return None, "invalid"
-    if not resolved.is_relative_to(root):
-        return None, "escape"
-    return resolved, None
+        return False
+    return stat.S_ISLNK(details.st_mode)
+
+
+def _os_error_message(error: OSError) -> str:
+    error_name = errno.errorcode.get(error.errno or 0, "UNKNOWN")
+    return f"secure source open failed: {error_name}"
+
+
+def _secure_read_source(
+    root: Path, parts: tuple[str, ...]
+) -> tuple[bytes | None, str | None, str | None]:
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    directory = getattr(os, "O_DIRECTORY", None)
+    supports_dir_fd = getattr(os, "supports_dir_fd", set())
+    if nofollow is None or directory is None or _ORIGINAL_OS_OPEN not in supports_dir_fd:
+        return None, "unsupported", "secure descriptor-relative opening is unavailable"
+    descriptors: list[int] = []
+    try:
+        root_fd = os.open(root, os.O_RDONLY | directory | nofollow)
+        descriptors.append(root_fd)
+        parent_fd = root_fd
+        for component in parts[:-1]:
+            try:
+                child_fd = os.open(
+                    component,
+                    os.O_RDONLY | directory | nofollow,
+                    dir_fd=parent_fd,
+                )
+            except OSError as error:
+                if error.errno in {errno.ELOOP, errno.ENOTDIR} and _is_symlink_at(
+                    component, parent_fd
+                ):
+                    return None, "escape", "source path contains a symlink"
+                if error.errno == errno.ENOENT:
+                    return None, "missing", "source file does not exist"
+                return None, "read", _os_error_message(error)
+            descriptors.append(child_fd)
+            parent_fd = child_fd
+        try:
+            source_fd = os.open(
+                parts[-1],
+                os.O_RDONLY | nofollow | getattr(os, "O_NONBLOCK", 0),
+                dir_fd=parent_fd,
+            )
+        except OSError as error:
+            if error.errno in {errno.ELOOP, errno.ENOTDIR} and _is_symlink_at(
+                parts[-1], parent_fd
+            ):
+                return None, "escape", "source path resolves through a symlink"
+            if error.errno == errno.ENOENT:
+                return None, "missing", "source file does not exist"
+            return None, "read", _os_error_message(error)
+        descriptors.append(source_fd)
+        if not stat.S_ISREG(os.fstat(source_fd).st_mode):
+            return None, "not_regular", "source path does not name a regular file"
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(source_fd, 64 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        return b"".join(chunks), None, None
+    except OSError as error:
+        return None, "read", _os_error_message(error)
+    finally:
+        for descriptor in reversed(descriptors):
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
 
 
 def _validate_sources(pack: EvidencePack, repository_root: Path, issues: list[ValidationIssue]) -> dict[str, Any]:
@@ -96,20 +185,23 @@ def _validate_sources(pack: EvidencePack, repository_root: Path, issues: list[Va
     for index, item in enumerate(_evidence_items(pack)):
         location = f"evidence[{index}]"
         evidence_id = _get(item, "id")
-        path, error = _safe_source_path(root, _get(item, "path"))
+        parts, error = _safe_source_parts(_get(item, "path"))
         if error:
             code = "source.path.escape" if error == "escape" else "source.path.invalid"
             _issue(issues, code, f"{location}.path", "source path is not safely contained by repository root")
             continue
-        assert path is not None
-        if not path.exists() or not path.is_file():
-            _issue(issues, "source.missing", f"{location}.path", "source file does not exist")
+        assert parts is not None
+        original, open_error, open_message = _secure_read_source(root, parts)
+        if open_error:
+            code = {
+                "escape": "source.path.escape",
+                "missing": "source.missing",
+                "not_regular": "source.not_regular",
+                "unsupported": "source.secure_open.unsupported",
+            }.get(open_error, "source.read")
+            _issue(issues, code, f"{location}.path", open_message or open_error)
             continue
-        try:
-            original = path.read_bytes()
-        except OSError as error_read:
-            _issue(issues, "source.read", f"{location}.path", str(error_read))
-            continue
+        assert original is not None
         try:
             original.decode("utf-8")
         except UnicodeDecodeError:
@@ -313,12 +405,87 @@ def _validate_structure(
             _issue(issues, "payload.duplicate", f"draft.{field}", "factual payload keys must be unique")
 
 
-def validate_module_extraction(
-    extraction: ExtractionResult, evidence_pack: EvidencePack, repository_root: Path
-) -> ModuleValidationResult:
+ModelT = TypeVar("ModelT", bound=BaseModel)
+_ENVELOPE_FIELDS = (
+    "contract_version",
+    "run_id",
+    "target_id",
+    "operation",
+    "attempt",
+    "snapshot_id",
+    "idempotency_key",
+)
+
+
+def _revalidate_model(
+    model_type: type[ModelT], value: Any, boundary: str, issues: list[ValidationIssue]
+) -> ModelT | None:
+    try:
+        return model_type.model_validate(value)
+    except ValidationError as error:
+        for detail in error.errors(include_url=False, include_context=False):
+            suffix = ".".join(str(part) for part in detail["loc"])
+            location = boundary if not suffix else f"{boundary}.{suffix}"
+            _issue(issues, "contract.invalid", location, detail["msg"])
+        return None
+
+
+def _validated_extraction_context(
+    request: ExtractionRequest,
+    extraction: ExtractionResult,
+    repository_root: Path,
+) -> tuple[ExtractionRequest | None, ExtractionResult | None, list[ValidationIssue]]:
     issues: list[ValidationIssue] = []
-    _validate_structure(extraction, evidence_pack, repository_root, issues)
-    _validate_sources(evidence_pack, repository_root, issues)
+    validated_request = _revalidate_model(
+        ExtractionRequest, request, "extraction_request", issues
+    )
+    validated_extraction = _revalidate_model(
+        ExtractionResult, extraction, "extraction_result", issues
+    )
+    if validated_request is None or validated_extraction is None:
+        return validated_request, validated_extraction, issues
+    # Revalidate the nested pack explicitly at this public trust boundary.
+    validated_pack = _revalidate_model(
+        EvidencePack,
+        validated_request.evidence_pack,
+        "extraction_request.evidence_pack",
+        issues,
+    )
+    if validated_pack is None:
+        return validated_request, validated_extraction, issues
+    validated_request = validated_request.model_copy(
+        update={"evidence_pack": validated_pack}
+    )
+    mismatched = [
+        field
+        for field in _ENVELOPE_FIELDS
+        if getattr(validated_request, field) != getattr(validated_extraction, field)
+    ]
+    for field in mismatched:
+        _issue(
+            issues,
+            "extraction.correlation",
+            field,
+            f"extraction result {field} does not echo extraction request",
+        )
+    _validate_structure(
+        validated_extraction,
+        validated_pack,
+        repository_root,
+        issues,
+    )
+    _validate_sources(validated_pack, repository_root, issues)
+    return validated_request, validated_extraction, issues
+
+
+def validate_module_extraction(
+    request: ExtractionRequest,
+    extraction: ExtractionResult,
+    repository_root: Path,
+) -> ModuleValidationResult:
+    _, _, issues = _validated_extraction_context(
+        request, extraction, repository_root
+    )
     return _result(issues)
 
 
@@ -350,11 +517,17 @@ def _verification_key(extraction: ExtractionResult) -> str:
 
 
 def build_verification_request(
-    extraction: ExtractionResult, evidence_pack: EvidencePack, repository_root: Path
+    extraction_request: ExtractionRequest,
+    extraction: ExtractionResult,
+    repository_root: Path,
 ) -> VerificationRequest:
-    checked = validate_module_extraction(extraction, evidence_pack, repository_root)
-    if not checked.is_valid:
-        raise ValueError("cannot build verification request from invalid extraction")
+    validated_request, validated_extraction, issues = _validated_extraction_context(
+        extraction_request, extraction, repository_root
+    )
+    if issues or validated_request is None or validated_extraction is None:
+        raise ModuleValidationError(_result(issues).issues)
+    evidence_pack = validated_request.evidence_pack
+    extraction = validated_extraction
     evidence_by_id = {item.id: item for item in evidence_pack.evidence}
     claims = tuple(
         VerificationClaim(
@@ -385,17 +558,48 @@ def build_verification_request(
 
 
 def apply_verification_result(
+    extraction_request: ExtractionRequest,
     extraction: ExtractionResult,
-    evidence_pack: EvidencePack,
     request: VerificationRequest,
     verification_result: VerificationResult,
     repository_root: Path,
 ) -> ModuleValidationResult:
-    issues = list(validate_module_extraction(extraction, evidence_pack, repository_root).issues)
-    try:
-        expected_request = build_verification_request(extraction, evidence_pack, repository_root)
-    except ValueError:
+    validated_extraction_request, validated_extraction, issues = (
+        _validated_extraction_context(
+            extraction_request, extraction, repository_root
+        )
+    )
+    validated_verification_request = _revalidate_model(
+        VerificationRequest,
+        request,
+        "verification_request",
+        issues,
+    )
+    validated_verification_result = _revalidate_model(
+        VerificationResult,
+        verification_result,
+        "verification_result",
+        issues,
+    )
+    if (
+        issues
+        or validated_extraction_request is None
+        or validated_extraction is None
+        or validated_verification_request is None
+        or validated_verification_result is None
+    ):
         return _result(issues)
+    try:
+        expected_request = build_verification_request(
+            validated_extraction_request,
+            validated_extraction,
+            repository_root,
+        )
+    except ModuleValidationError as error:
+        return _result([*issues, *error.issues])
+    extraction = validated_extraction
+    request = validated_verification_request
+    verification_result = validated_verification_result
     for field in (
         "contract_version", "run_id", "target_id", "operation", "attempt",
         "snapshot_id", "idempotency_key", "verification_request_digest",
@@ -433,41 +637,53 @@ def apply_verification_result(
     if issues:
         return _result(issues)
     draft_claims = {claim.id: claim for claim in extraction.draft.claims}
-    claims = tuple(
-        Claim.model_validate(
+    try:
+        claims = tuple(
+            Claim.model_validate(
+                {
+                    **draft_claims[claim_id].model_dump(),
+                    "verification": ClaimVerification(
+                        status=actual_by_id[claim_id].status,
+                        verifier=actual_by_id[claim_id].verifier,
+                        evidence_ids=actual_by_id[claim_id].evidence_ids,
+                        excerpt_hashes=actual_by_id[claim_id].excerpt_hashes,
+                        verification_request_digest=request.verification_request_digest,
+                    ),
+                }
+            )
+            for claim_id in sorted(draft_claims)
+        )
+        draft_payload = extraction.draft.model_dump()
+        module = ModuleKnowledge.model_validate(
             {
-                **draft_claims[claim_id].model_dump(),
-                "verification": ClaimVerification(
-                    status=actual_by_id[claim_id].status,
-                    verifier=actual_by_id[claim_id].verifier,
-                    evidence_ids=actual_by_id[claim_id].evidence_ids,
-                    excerpt_hashes=actual_by_id[claim_id].excerpt_hashes,
-                    verification_request_digest=request.verification_request_digest,
+                **draft_payload,
+                "scope": draft_payload["scope"],
+                "claims": claims,
+                "confidence": extraction.draft.confidence,
+                "provenance": extraction.provenance,
+                "validity": Validity(
+                    status="verified",
+                    verified_commit=extraction.draft.scope.commit,
+                    validation_report=("source-integrity", "structural", "semantic"),
                 ),
             }
         )
-        for claim_id in sorted(draft_claims)
-    )
-    draft_payload = extraction.draft.model_dump()
-    module = ModuleKnowledge.model_validate(
-        {
-            **draft_payload,
-            "scope": draft_payload["scope"],
-            "claims": claims,
-            "confidence": extraction.draft.confidence,
-            "provenance": extraction.provenance,
-            "validity": Validity(
-                status="verified",
-                verified_commit=extraction.draft.scope.commit,
-                validation_report=("source-integrity", "structural", "semantic"),
-            ),
-        }
-    )
+    except ValidationError as error:
+        for detail in error.errors(include_url=False, include_context=False):
+            suffix = ".".join(str(part) for part in detail["loc"])
+            _issue(
+                issues,
+                "contract.invalid",
+                "canonical_module" if not suffix else f"canonical_module.{suffix}",
+                detail["msg"],
+            )
+        return _result(issues)
     return _result([], module)
 
 
 __all__ = [
     "ModuleValidationResult",
+    "ModuleValidationError",
     "ValidationIssue",
     "apply_verification_result",
     "build_verification_request",

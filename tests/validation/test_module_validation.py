@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -19,9 +20,10 @@ from knowledge_compiler.contracts.semantic import (
     VerificationResult,
 )
 from knowledge_compiler.validation.module import (
+    ModuleValidationError,
     apply_verification_result,
-    build_verification_request,
-    validate_module_extraction,
+    build_verification_request as build_verification_request_boundary,
+    validate_module_extraction as validate_module_extraction_boundary,
 )
 
 
@@ -46,8 +48,60 @@ def pack(payload: dict[str, object] | None = None, root: Path = REPO) -> Evidenc
     return EvidencePack.model_validate(data)
 
 
+def extraction_request(
+    value: ExtractionResult | None = None,
+    evidence_pack: EvidencePack | None = None,
+) -> ExtractionRequest:
+    value = value or extraction()
+    return ExtractionRequest.model_validate(
+        {
+            **{name: getattr(value, name) for name in ENVELOPE_FIELDS},
+            "evidence_pack": evidence_pack or pack(),
+        }
+    )
+
+
+def validate_module_extraction(
+    value: ExtractionResult, evidence_pack: EvidencePack, repository_root: Path
+):
+    return validate_module_extraction_boundary(
+        extraction_request(value, evidence_pack), value, repository_root
+    )
+
+
+def build_verification_request(
+    value: ExtractionResult, evidence_pack: EvidencePack, repository_root: Path
+) -> VerificationRequest:
+    return build_verification_request_boundary(
+        extraction_request(value, evidence_pack), value, repository_root
+    )
+
+
+def apply_verification(
+    value: ExtractionResult,
+    evidence_pack: EvidencePack,
+    request: VerificationRequest,
+    result: VerificationResult,
+    repository_root: Path,
+):
+    return apply_verification_result(
+        extraction_request(value, evidence_pack),
+        value,
+        request,
+        result,
+        repository_root,
+    )
+
+
 def issue_codes(result) -> set[str]:
     return {issue.code for issue in result.issues}
+
+
+def bound_fixture(root: Path) -> tuple[ExtractionRequest, ExtractionResult]:
+    result_data = load("module-extraction.json")
+    result_data["draft"]["scope"]["root"] = root
+    value = ExtractionResult.model_validate(result_data)
+    return extraction_request(value, pack(root=root)), value
 
 
 ENVELOPE_FIELDS = (
@@ -101,6 +155,107 @@ def test_semantic_contracts_require_every_envelope_field(
         model.model_validate(payload)
 
 
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    (
+        ("contract_version", "0.2"),
+        ("run_id", "other-run"),
+        ("target_id", "module.shop.other"),
+        ("operation", "verify"),
+        ("attempt", 2),
+        ("snapshot_id", "sha256:" + "f" * 64),
+        ("idempotency_key", "other-key"),
+    ),
+)
+def test_extraction_request_and_result_require_complete_envelope_correlation(
+    field: str, replacement: object
+) -> None:
+    value = extraction()
+    request = extraction_request(value, pack())
+    changed = value.model_copy(update={field: replacement})
+
+    checked = validate_module_extraction_boundary(request, changed, REPO)
+
+    assert checked.module is None
+    expected_code = (
+        "contract.invalid"
+        if field in {"contract_version", "operation"}
+        else "extraction.correlation"
+    )
+    assert expected_code in issue_codes(checked)
+
+
+def test_validation_revalidates_copied_extraction_claim_and_provenance() -> None:
+    value = extraction()
+    bad_claim = value.draft.claims[0].model_copy(
+        update={"statement": "", "evidence_ids": ()}
+    )
+    bad_draft = value.draft.model_copy(
+        update={"claims": (bad_claim, *value.draft.claims[1:])}
+    )
+    bad_provenance = value.provenance.model_copy(
+        update={"generated_at": datetime(2026, 8, 25, 9, 30)}
+    )
+    changed = value.model_copy(
+        update={"draft": bad_draft, "provenance": bad_provenance}
+    )
+
+    checked = validate_module_extraction_boundary(
+        extraction_request(value, pack()), changed, REPO
+    )
+
+    assert checked.module is None
+    assert "contract.invalid" in issue_codes(checked)
+    assert any("statement" in issue.location for issue in checked.issues)
+    assert any("evidence_ids" in issue.location for issue in checked.issues)
+    assert any("generated_at" in issue.location for issue in checked.issues)
+
+
+def test_validation_revalidates_nested_copied_evidence_pack() -> None:
+    value = extraction()
+    evidence_pack = pack()
+    bad_item = evidence_pack.evidence[0].model_copy(
+        update={"excerpt_hash": "malformed"}
+    )
+    bad_pack = evidence_pack.model_copy(
+        update={"evidence": (bad_item, *evidence_pack.evidence[1:])}
+    )
+    bad_request = extraction_request(value, evidence_pack).model_copy(
+        update={"evidence_pack": bad_pack}
+    )
+
+    checked = validate_module_extraction_boundary(bad_request, value, REPO)
+
+    assert checked.module is None
+    assert "contract.invalid" in issue_codes(checked)
+    assert any("evidence_pack.evidence.0.excerpt_hash" in issue.location for issue in checked.issues)
+
+
+def test_build_raises_typed_validation_error_with_stable_issues() -> None:
+    value = extraction()
+    bad_claim = value.draft.claims[0].model_copy(update={"statement": ""})
+    changed = value.model_copy(
+        update={
+            "draft": value.draft.model_copy(
+                update={"claims": (bad_claim, *value.draft.claims[1:])}
+            )
+        }
+    )
+
+    with pytest.raises(ModuleValidationError) as caught:
+        build_verification_request_boundary(
+            extraction_request(value, pack()), changed, REPO
+        )
+
+    assert caught.value.issues
+    assert caught.value.issues == tuple(
+        sorted(
+            caught.value.issues,
+            key=lambda issue: (issue.code, issue.location, issue.message),
+        )
+    )
+
+
 @pytest.mark.parametrize("bad_path", ("/tmp/x.py", "../x.py", "C:\\x.py", "x.py\0"))
 def test_source_integrity_rejects_unsafe_paths(tmp_path: Path, bad_path: str) -> None:
     data = load("evidence-pack.json")
@@ -109,21 +264,61 @@ def test_source_integrity_rejects_unsafe_paths(tmp_path: Path, bad_path: str) ->
     evidence_pack = EvidencePack.model_construct(
         **{**data, "repository": pack(root=tmp_path).repository}
     )
-    result = validate_module_extraction(extraction(), evidence_pack, tmp_path)
-    assert "source.path.invalid" in issue_codes(result)
+    value = extraction()
+    valid_request = extraction_request(value, pack(root=tmp_path))
+    request = valid_request.model_copy(update={"evidence_pack": evidence_pack})
+    result = validate_module_extraction_boundary(request, value, tmp_path)
+    assert "contract.invalid" in issue_codes(result)
 
 
-def test_source_integrity_rejects_symlink_escape(tmp_path: Path) -> None:
+@pytest.mark.parametrize("link_kind", ("final", "intermediate"))
+def test_source_integrity_rejects_symlink_escape(
+    tmp_path: Path, link_kind: str
+) -> None:
+    repository_root = tmp_path / "repository"
+    shutil.copytree(REPO, repository_root)
     outside = tmp_path.parent / "outside.py"
-    outside.write_text("secret\n", encoding="utf-8")
-    os.symlink(outside, tmp_path / "escape.py")
-    data = load("evidence-pack.json")
-    item = data["evidence"][0]
-    item["path"] = "escape.py"
-    evidence_pack = EvidencePack.model_construct(
-        **{**data, "repository": pack(root=tmp_path).repository}
-    )
-    result = validate_module_extraction(extraction(), evidence_pack, tmp_path)
+    if link_kind == "final":
+        source = repository_root / "src/shop/checkout.py"
+        outside.write_bytes(source.read_bytes())
+        source.unlink()
+        os.symlink(outside, source)
+    else:
+        outside_directory = tmp_path / "outside-shop"
+        shutil.move(repository_root / "src/shop", outside_directory)
+        os.symlink(outside_directory, repository_root / "src/shop")
+    request, value = bound_fixture(repository_root)
+
+    result = validate_module_extraction_boundary(request, value, repository_root)
+
+    assert "source.path.escape" in issue_codes(result)
+
+
+def test_secure_open_rejects_final_component_swapped_to_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository_root = tmp_path / "repository"
+    shutil.copytree(REPO, repository_root)
+    source = repository_root / "src/shop/checkout.py"
+    outside = tmp_path / "outside.py"
+    outside.write_bytes(source.read_bytes())
+    request, value = bound_fixture(repository_root)
+    real_open = os.open
+    swapped = False
+
+    def racing_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if path == "checkout.py" and dir_fd is not None and not swapped:
+            swapped = True
+            source.unlink()
+            os.symlink(outside, source)
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr("knowledge_compiler.validation.module.os.open", racing_open)
+
+    result = validate_module_extraction_boundary(request, value, repository_root)
+
+    assert swapped
     assert "source.path.escape" in issue_codes(result)
 
 
@@ -157,8 +352,13 @@ def test_source_integrity_rejects_hash_or_derived_id_mismatch(field: str, code: 
     evidence_pack = EvidencePack.model_construct(
         **{**data, "repository": pack().repository}
     )
-    result = validate_module_extraction(extraction(), evidence_pack, REPO)
-    assert code in issue_codes(result)
+    value = extraction()
+    request = extraction_request(value, pack()).model_copy(
+        update={"evidence_pack": evidence_pack}
+    )
+    result = validate_module_extraction_boundary(request, value, REPO)
+    expected = "contract.invalid" if field in {"content_hash", "id"} else code
+    assert expected in issue_codes(result)
 
 
 def test_exact_source_bytes_preserve_crlf_and_trailing_newline(tmp_path: Path) -> None:
@@ -181,6 +381,7 @@ def test_exact_source_bytes_preserve_crlf_and_trailing_newline(tmp_path: Path) -
 def test_binding_rejects_unknown_claim_in_every_factual_field(field: str) -> None:
     result_data = load("module-extraction.json")
     draft = result_data["draft"]
+    draft["scope"]["root"] = REPO
     if field == "summary":
         draft[field]["claim_ids"] = ["module.shop.checkout.claim.unknown"]
     else:
@@ -188,19 +389,22 @@ def test_binding_rejects_unknown_claim_in_every_factual_field(field: str) -> Non
     result = validate_module_extraction(
         ExtractionResult.model_construct(**result_data), pack(), REPO
     )
-    assert "claim.reference.unknown" in issue_codes(result)
+    assert "contract.invalid" in issue_codes(result)
 
 
 def test_binding_rejects_unknown_evidence_missing_responsibility_and_empty_claim() -> None:
     data = load("module-extraction.json")
+    data["draft"]["scope"]["root"] = REPO
     data["draft"]["claims"][0]["evidence_ids"] = ["sha256:" + "f" * 64]
     data["draft"]["claims"][1]["evidence_ids"] = []
     data["draft"]["responsibilities"] = []
     result = validate_module_extraction(
         ExtractionResult.model_construct(**data), pack(), REPO
     )
-    assert {"claim.evidence.unknown", "claim.evidence.missing", "responsibility.required"} <= issue_codes(result)
-    assert result.issues == tuple(sorted(result.issues, key=lambda i: (i.code, i.location)))
+    assert "contract.invalid" in issue_codes(result)
+    assert result.issues == tuple(
+        sorted(result.issues, key=lambda i: (i.code, i.location, i.message))
+    )
 
 
 def test_binding_rejects_duplicate_responsibility_text_and_blocks_canonicalization() -> None:
@@ -212,13 +416,16 @@ def test_binding_rejects_duplicate_responsibility_text_and_blocks_canonicalizati
     changed = value.model_copy(update={"draft": changed_draft})
 
     checked = validate_module_extraction(changed, evidence_pack, REPO)
-    applied = apply_verification_result(
+    applied = apply_verification(
         changed, evidence_pack, request, verification, REPO
     )
 
     assert "responsibility.duplicate" in issue_codes(checked)
     assert checked.issues == tuple(
-        sorted(checked.issues, key=lambda issue: (issue.code, issue.location))
+        sorted(
+            checked.issues,
+            key=lambda issue: (issue.code, issue.location, issue.message),
+        )
     )
     assert applied.module is None
     assert "responsibility.duplicate" in issue_codes(applied)
@@ -242,7 +449,7 @@ def test_rejects_byte_identical_supplied_root_that_differs_from_declared_root(
     before = value.model_dump()
 
     checked = validate_module_extraction(value, evidence_pack, alternate)
-    applied = apply_verification_result(
+    applied = apply_verification(
         value, evidence_pack, request, verification, alternate
     )
 
@@ -286,6 +493,32 @@ def valid_semantic_objects():
     return value, evidence_pack, request, VerificationResult.model_validate(raw)
 
 
+def test_apply_revalidates_copied_verification_request_and_result() -> None:
+    value, evidence_pack, request, result = valid_semantic_objects()
+    extraction_boundary = extraction_request(value, evidence_pack)
+    bad_request_claim = request.claims[0].model_copy(
+        update={"statement": "", "evidence": ()}
+    )
+    bad_request = request.model_copy(
+        update={"claims": (bad_request_claim, *request.claims[1:])}
+    )
+    bad_result_claim = result.verifications[0].model_copy(
+        update={"evidence_ids": (), "excerpt_hashes": (), "excerpts": ()}
+    )
+    bad_result = result.model_copy(
+        update={"verifications": (bad_result_claim, *result.verifications[1:])}
+    )
+
+    checked = apply_verification_result(
+        extraction_boundary, value, bad_request, bad_result, REPO
+    )
+
+    assert checked.module is None
+    assert "contract.invalid" in issue_codes(checked)
+    assert any("verification_request.claims.0.statement" in issue.location for issue in checked.issues)
+    assert any("verification_result.verifications.0" in issue.location for issue in checked.issues)
+
+
 @pytest.mark.parametrize(
     ("field", "replacement"),
     (
@@ -297,9 +530,12 @@ def valid_semantic_objects():
 def test_apply_rejects_uncorrelated_result_envelope(field: str, replacement: object) -> None:
     value, evidence_pack, request, result = valid_semantic_objects()
     changed = result.model_copy(update={field: replacement})
-    checked = apply_verification_result(value, evidence_pack, request, changed, REPO)
+    checked = apply_verification(value, evidence_pack, request, changed, REPO)
     assert checked.module is None
-    assert any(issue.code.startswith("verification.correlation") for issue in checked.issues)
+    if field == "operation":
+        assert "contract.invalid" in issue_codes(checked)
+    else:
+        assert any(issue.code.startswith("verification.correlation") for issue in checked.issues)
 
 
 @pytest.mark.parametrize("status", ("partial", "unsupported", "conflicted"))
@@ -307,7 +543,7 @@ def test_apply_rejects_every_non_supported_status(status: str) -> None:
     value, evidence_pack, request, result = valid_semantic_objects()
     first = result.verifications[0].model_copy(update={"status": status})
     changed = result.model_copy(update={"verifications": (first, *result.verifications[1:])})
-    checked = apply_verification_result(value, evidence_pack, request, changed, REPO)
+    checked = apply_verification(value, evidence_pack, request, changed, REPO)
     assert "verification.status" in issue_codes(checked)
 
 
@@ -329,14 +565,14 @@ def test_apply_rejects_missing_or_changed_claim_bindings(mutation: str) -> None:
             first = first.model_copy(update={"verification_request_digest": "sha256:" + "f" * 64})
         verifications[0] = first
     changed = result.model_copy(update={"verifications": tuple(verifications)})
-    checked = apply_verification_result(value, evidence_pack, request, changed, REPO)
+    checked = apply_verification(value, evidence_pack, request, changed, REPO)
     assert checked.module is None
     assert any(issue.code.startswith("verification.") for issue in checked.issues)
 
 
 def test_apply_constructs_new_canonical_module_and_copies_provenance() -> None:
     value, evidence_pack, request, result = valid_semantic_objects()
-    checked = apply_verification_result(value, evidence_pack, request, result, REPO)
+    checked = apply_verification(value, evidence_pack, request, result, REPO)
     assert checked.is_valid and checked.module is not None
     assert checked.module.provenance == value.provenance
     assert checked.module.confidence == value.draft.confidence
