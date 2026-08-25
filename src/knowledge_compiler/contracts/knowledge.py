@@ -235,6 +235,12 @@ class DraftModuleKnowledge(_ModulePayload):
         return self
 
 
+try:  # local import to avoid a cycle: semantic imports knowledge
+    from knowledge_compiler.contracts.semantic import DraftKnowledge
+except ImportError:  # pragma: no cover
+    DraftKnowledge = DraftModuleKnowledge
+
+
 class ExtractionResult(_ContractModel):
     contract_version: Literal["0.1"]
     run_id: NonBlankString
@@ -243,7 +249,7 @@ class ExtractionResult(_ContractModel):
     attempt: int = Field(strict=True, gt=0)
     snapshot_id: NonBlankString
     idempotency_key: NonBlankString
-    draft: DraftModuleKnowledge
+    draft: DraftKnowledge
     provenance: Provenance
 
 

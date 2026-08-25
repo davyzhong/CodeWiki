@@ -65,6 +65,35 @@ def test_shared_models_exist_and_validate() -> None:
     ).predicate == "depends_on"
 
 
+def test_target_type_union_accepts_five_types_and_rejects_unknown() -> None:
+    from knowledge_compiler.contracts.repository import PlanTarget
+
+    for knowledge_type in (
+        "module", "architecture", "flow", "rule", "tech-stack"
+    ):
+        target = PlanTarget(
+            id=f"{knowledge_type}.demo.example", type=knowledge_type, topic="demo"
+        )
+        assert target.type == knowledge_type
+    with pytest.raises(ValueError):
+        PlanTarget(id="incident.demo.example", type="incident", topic="demo")
+
+
+def test_extraction_result_draft_union_rejects_unknown_type() -> None:
+    from knowledge_compiler.contracts.knowledge import ExtractionResult
+
+    payload = json.loads(
+        (FIXTURES / "module-extraction.json").read_text(encoding="utf-8")
+    )
+    payload["draft"]["scope"]["root"] = "/fixture/probe_repo"
+    result = ExtractionResult.model_validate(payload)
+    assert result.draft.type == "module"
+
+    payload["draft"]["type"] = "hologram"
+    with pytest.raises(ValueError):
+        ExtractionResult.model_validate(payload)
+
+
 def test_module_uses_shared_base_without_golden_drift() -> None:
     payload = _module_from_golden()
     module = ModuleKnowledge.model_validate(payload)

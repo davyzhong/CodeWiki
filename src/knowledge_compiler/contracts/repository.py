@@ -56,13 +56,18 @@ class RepositorySnapshot(BaseModel):
         return self
 
 
+KnowledgeType = Literal[
+    "module", "architecture", "flow", "rule", "tech-stack"
+]
+
+
 class PlanTarget(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, revalidate_instances="always"
     )
 
     id: NonBlankString
-    type: Literal["module"] = "module"
+    type: KnowledgeType = "module"
     topic: NonBlankString
     evidence_seeds: tuple[NonBlankString, ...] = ()
 

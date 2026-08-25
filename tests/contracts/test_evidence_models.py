@@ -141,7 +141,7 @@ def test_plan_target_and_positive_evidence_budget_contracts() -> None:
     assert target.type == "module"
 
     with pytest.raises(ValidationError):
-        PlanTarget(id="flow.shop.checkout", type="flow", topic="checkout", evidence_seeds=[])
+        PlanTarget(id="incident.shop.checkout", type="incident", topic="checkout", evidence_seeds=[])
 
     for field in ("max_items", "max_characters", "max_tokens"):
         values = {"max_items": 1, "max_characters": 1, "max_tokens": 1, field: 0}
