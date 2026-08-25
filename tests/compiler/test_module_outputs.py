@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from copy import deepcopy
 from pathlib import Path
@@ -14,7 +15,9 @@ from knowledge_compiler.compiler import (
     compile_module_yaml,
 )
 from knowledge_compiler.contracts import EvidencePack
+from knowledge_compiler.contracts.evidence import build_evidence_id
 from knowledge_compiler.contracts.knowledge import ExtractionResult, ModuleKnowledge
+from knowledge_compiler.contracts.repository import build_snapshot_id
 from knowledge_compiler.contracts.semantic import ExtractionRequest, VerificationResult
 from knowledge_compiler.validation.module import (
     apply_verification_result,
@@ -79,6 +82,85 @@ def _verified_inputs() -> tuple[ModuleKnowledge, EvidencePack]:
     )
 
 
+def _adversarial_inputs() -> tuple[ModuleKnowledge, EvidencePack]:
+    module, pack = _verified_inputs()
+    module_data = module.model_dump(mode="json")
+    pack_data = pack.model_dump(mode="json")
+
+    commit = "commit`break|cell\n## Forged commit <script>alert(1)</script>"
+    branch = "main|forged\n## Forged branch <img src=x onerror=alert(1)>"
+    snapshot_id = build_snapshot_id(
+        pack.repository.repository_id,
+        commit,
+        pack.repository.dirty,
+        pack.repository.working_tree_hash,
+    )
+    pack_data["repository"]["commit"] = commit
+    pack_data["repository"]["branch"] = branch
+    pack_data["repository"]["snapshot_id"] = snapshot_id
+
+    old_to_new_ids: dict[str, str] = {}
+    for index, item in enumerate(pack_data["evidence"]):
+        old_id = item["id"]
+        item["path"] = f"src/unsafe[{index}]|tick`<tag>&.py"
+        item["commit"] = commit
+        item["excerpt"] = (
+            "[evidence](javascript:alert(1))\n<script>evidence()</script>"
+        )
+        item["excerpt_hash"] = "sha256:" + hashlib.sha256(
+            item["excerpt"].encode("utf-8")
+        ).hexdigest()
+        item["id"] = build_evidence_id(
+            pack.repository.repository_id,
+            snapshot_id,
+            item["path"],
+            item["symbol"],
+            item["start_line"],
+            item["end_line"],
+            item["content_hash"],
+        )
+        old_to_new_ids[old_id] = item["id"]
+
+    evidence_by_id = {item["id"]: item for item in pack_data["evidence"]}
+    for claim in module_data["claims"]:
+        new_ids = [old_to_new_ids[item] for item in claim["evidence_ids"]]
+        claim["evidence_ids"] = new_ids
+        claim["verification"]["evidence_ids"] = new_ids
+        claim["verification"]["excerpt_hashes"] = [
+            evidence_by_id[item]["excerpt_hash"] for item in new_ids
+        ]
+        claim["statement"] = (
+            "Claim [link](javascript:alert(1)) `break` | cell\n"
+            "## Forged claim <script>claim()</script> & text"
+        )
+
+    module_data["title"] = "Title\n## Forged title <script>title()</script>"
+    module_data["scope"]["commit"] = commit
+    module_data["scope"]["branch"] = branch
+    module_data["validity"]["verified_commit"] = commit
+    module_data["summary"]["text"] = (
+        "Summary\n## Forged summary <img src=x> [click](javascript:bad)"
+    )
+    module_data["responsibilities"][0]["text"] = (
+        "Responsibility\n- forged list <script>r()</script>"
+    )
+    module_data["public_interfaces"][0]["name"] = "api`break|cell<tag>"
+    module_data["public_interfaces"][0]["description"] = (
+        "Interface [link](javascript:bad)\n## Forged interface <b>x</b>"
+    )
+    module_data["dependencies"][0]["target"] = "dep`break|cell<tag>"
+    module_data["dependencies"][0]["description"] = (
+        "Dependency\n## Forged dependency <script>d()</script>"
+    )
+    module_data["relations"][0]["predicate"] = "rel\n## Forged relation"
+    module_data["relations"][0]["target"] = "target|cell`break<script>x</script>"
+
+    return (
+        ModuleKnowledge.model_validate(module_data),
+        EvidencePack.model_validate(pack_data),
+    )
+
+
 def test_compiles_canonical_yaml_bytes() -> None:
     module, pack = _verified_inputs()
 
@@ -109,7 +191,7 @@ def test_compiles_golden_markdown_with_claim_and_evidence_pointers(
     assert "module.shop.checkout.claim.inventory-dependency" in text
     assert "src/shop/checkout.py:4-11" in text
     assert "src/shop/inventory.py:1-3" in text
-    assert "depends_on → module.shop.inventory" in text
+    assert r"depends\_on → module.shop.inventory" in text
     assert "unsupported explanatory prose" not in text
 
 
@@ -178,3 +260,53 @@ def test_compiler_rejects_untrusted_claim_evidence_binding(compiler) -> None:
 
     with pytest.raises(CompilerInputError, match="excerpt hash"):
         compiler(changed, pack)
+
+
+@pytest.mark.parametrize(
+    "compiler", (compile_module_yaml, compile_module_card, compile_module_wiki)
+)
+@pytest.mark.parametrize("hostile_boundary", ("module", "pack"))
+def test_compiler_converts_hostile_copy_serialization_failures(
+    compiler, hostile_boundary: str
+) -> None:
+    module, pack = _verified_inputs()
+    if hostile_boundary == "module":
+        module = module.model_copy(update={"summary": object()})
+    else:
+        pack = pack.model_copy(update={"evidence": (object(), *pack.evidence[1:])})
+
+    with pytest.raises(CompilerInputError) as caught:
+        compiler(module, pack)
+
+    expected = (
+        "module contract dump/revalidation failed"
+        if hostile_boundary == "module"
+        else "evidence pack contract dump/revalidation failed"
+    )
+    assert str(caught.value) == expected
+
+
+@pytest.mark.parametrize("compiler", (compile_module_card, compile_module_wiki))
+def test_markdown_escapes_adversarial_contract_text_without_structure_injection(
+    compiler,
+) -> None:
+    module, pack = _adversarial_inputs()
+
+    first = compiler(module, pack)
+    second = compiler(module, pack)
+    text = first.decode("utf-8")
+
+    assert first == second
+    assert "\n## Forged" not in text
+    assert "\n- forged list" not in text
+    assert "<script" not in text
+    assert "<img" not in text
+    assert "<b>" not in text
+    assert "](javascript:" not in text
+    assert "&lt;script&gt;" in text
+    assert "&amp;" in text
+    assert " ⏎ " in text
+    assert r"\|" in text
+    assert "``api`break" in text
+    assert "``dep`break" in text
+    assert "[evidence](javascript:" not in text

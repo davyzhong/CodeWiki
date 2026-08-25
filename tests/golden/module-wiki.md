@@ -44,7 +44,7 @@ Uses Inventory.reserve to reserve the requested quantity.
 
 ## Relations
 
-### depends_on → module.shop.inventory
+### depends\_on → module.shop.inventory
 
 - Claims: `module.shop.checkout.claim.inventory-dependency`
 - Evidence: `src/shop/checkout.py:4-11`, `src/shop/inventory.py:1-3`
@@ -53,7 +53,7 @@ Uses Inventory.reserve to reserve the requested quantity.
 
 ### `module.shop.checkout.claim.interface`
 
-CheckoutService exposes checkout(sku, quantity) returning a string.
+CheckoutService exposes checkout\(sku, quantity\) returning a string.
 
 - Evidence: `src/shop/checkout.py:4-11`
 

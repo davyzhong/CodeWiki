@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html
+import re
 from collections.abc import Iterable
 
 from knowledge_compiler.compiler.yaml import _validate_inputs
@@ -7,8 +9,26 @@ from knowledge_compiler.contracts.evidence import EvidenceItem, EvidencePack
 from knowledge_compiler.contracts.knowledge import ModuleKnowledge
 
 
+def _visible_text(value: str) -> str:
+    normalized = re.sub(r"\r\n?|\n", " ⏎ ", value)
+    return html.escape(normalized, quote=False)
+
+
+def _text(value: str) -> str:
+    escaped = _visible_text(value).replace("\\", "\\\\")
+    escaped = re.sub(r"([`*_\[\]()|])", r"\\\1", escaped)
+    if re.match(r"^(?:#{1,6}(?:\s|$)|>|[-+]\s|\d+[.)]\s)", escaped):
+        escaped = "\\" + escaped
+    return escaped
+
+
 def _code(value: str) -> str:
-    return f"`{value.replace('`', '\N{MODIFIER LETTER GRAVE ACCENT}')}`"
+    content = _visible_text(value).replace("|", r"\|")
+    runs = [len(match.group(0)) for match in re.finditer(r"`+", content)]
+    fence = "`" * (max(runs, default=0) + 1)
+    if content.startswith(("`", " ")) or content.endswith(("`", " ")):
+        content = f" {content} "
+    return f"{fence}{content}{fence}"
 
 
 def _claim_evidence(
@@ -65,11 +85,11 @@ def compile_module_card(
 
     canonical, claims, evidence = _context(module, evidence_pack)
     lines = [
-        f"# {canonical.title}",
+        f"# {_text(canonical.title)}",
         "",
         f"{_code(canonical.id)} · verified at {_code(canonical.validity.verified_commit)}",
         "",
-        canonical.summary.text,
+        _text(canonical.summary.text),
         "",
         *_pointers(canonical.summary.claim_ids, claims, evidence),
         "",
@@ -77,19 +97,19 @@ def compile_module_card(
         "",
     ]
     for item in canonical.responsibilities:
-        lines.append(f"- {item.text}")
+        lines.append(f"- {_text(item.text)}")
         lines.extend(_pointers(item.claim_ids, claims, evidence, "  "))
     lines.extend(["", "## Public interfaces", ""])
     for item in canonical.public_interfaces:
-        lines.append(f"- {_code(item.name)} — {item.description}")
+        lines.append(f"- {_code(item.name)} — {_text(item.description)}")
         lines.extend(_pointers(item.claim_ids, claims, evidence, "  "))
     lines.extend(["", "## Dependencies", ""])
     for item in canonical.dependencies:
-        lines.append(f"- {_code(item.target)} — {item.description}")
+        lines.append(f"- {_code(item.target)} — {_text(item.description)}")
         lines.extend(_pointers(item.claim_ids, claims, evidence, "  "))
     lines.extend(["", "## Relations", ""])
     for item in canonical.relations:
-        lines.append(f"- {item.predicate} → {item.target}")
+        lines.append(f"- {_text(item.predicate)} → {_text(item.target)}")
         lines.extend(_pointers(item.claim_ids, claims, evidence, "  "))
     return ("\n".join(lines) + "\n").encode("utf-8")
 
@@ -102,7 +122,7 @@ def compile_module_wiki(
     canonical, claims, evidence = _context(module, evidence_pack)
     branch = canonical.scope.branch or "(detached)"
     lines = [
-        f"# {canonical.title}",
+        f"# {_text(canonical.title)}",
         "",
         "## Scope",
         "",
@@ -116,7 +136,7 @@ def compile_module_wiki(
         "",
         "## Summary",
         "",
-        canonical.summary.text,
+        _text(canonical.summary.text),
         "",
         *_pointers(canonical.summary.claim_ids, claims, evidence),
         "",
@@ -126,7 +146,7 @@ def compile_module_wiki(
     for item in canonical.responsibilities:
         lines.extend(
             [
-                f"### {item.text}",
+                f"### {_text(item.text)}",
                 "",
                 *_pointers(item.claim_ids, claims, evidence),
                 "",
@@ -138,7 +158,7 @@ def compile_module_wiki(
             [
                 f"### {_code(item.name)}",
                 "",
-                item.description,
+                _text(item.description),
                 "",
                 *_pointers(item.claim_ids, claims, evidence),
                 "",
@@ -150,7 +170,7 @@ def compile_module_wiki(
             [
                 f"### {_code(item.target)}",
                 "",
-                item.description,
+                _text(item.description),
                 "",
                 *_pointers(item.claim_ids, claims, evidence),
                 "",
@@ -160,7 +180,7 @@ def compile_module_wiki(
     for item in canonical.relations:
         lines.extend(
             [
-                f"### {item.predicate} → {item.target}",
+                f"### {_text(item.predicate)} → {_text(item.target)}",
                 "",
                 *_pointers(item.claim_ids, claims, evidence),
                 "",
@@ -173,7 +193,7 @@ def compile_module_wiki(
             [
                 f"### {_code(claim.id)}",
                 "",
-                claim.statement,
+                _text(claim.statement),
                 "",
                 f"- Evidence: {citations}",
                 "",

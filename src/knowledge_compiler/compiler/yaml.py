@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-from pydantic import ValidationError
+from pydantic_core import PydanticSerializationError
 
 from knowledge_compiler.contracts.evidence import EvidencePack
 from knowledge_compiler.contracts.knowledge import ModuleKnowledge
@@ -18,8 +18,8 @@ def _revalidate_module(value: object) -> ModuleKnowledge:
         raise CompilerInputError("module must be a verified canonical ModuleKnowledge")
     try:
         return ModuleKnowledge.model_validate(value.model_dump(mode="json"))
-    except ValidationError as error:
-        raise CompilerInputError(f"module contract is invalid: {error}") from error
+    except (PydanticSerializationError, TypeError, ValueError) as error:
+        raise CompilerInputError("module contract dump/revalidation failed") from error
 
 
 def _revalidate_pack(value: object) -> EvidencePack:
@@ -27,8 +27,10 @@ def _revalidate_pack(value: object) -> EvidencePack:
         raise CompilerInputError("evidence pack must be an EvidencePack")
     try:
         return EvidencePack.model_validate(value.model_dump(mode="json"))
-    except ValidationError as error:
-        raise CompilerInputError(f"evidence pack contract is invalid: {error}") from error
+    except (PydanticSerializationError, TypeError, ValueError) as error:
+        raise CompilerInputError(
+            "evidence pack contract dump/revalidation failed"
+        ) from error
 
 
 def _validate_inputs(

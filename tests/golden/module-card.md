@@ -27,6 +27,6 @@ Coordinates checkout by reserving inventory and creating an order.
 
 ## Relations
 
-- depends_on → module.shop.inventory
+- depends\_on → module.shop.inventory
   - Claims: `module.shop.checkout.claim.inventory-dependency`
   - Evidence: `src/shop/checkout.py:4-11`, `src/shop/inventory.py:1-3`
