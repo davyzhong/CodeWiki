@@ -8,6 +8,7 @@ import shutil
 import stat
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from functools import wraps
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,21 @@ _TYPE_DIRECTORIES = {
     "rule": "rules",
     "tech-stack": "tech-stack",
 }
+
+
+def _with_repository_lifecycle_lock(
+    method: Callable[..., Any],
+) -> Callable[..., Any]:
+    @wraps(method)
+    def locked(publisher, *args, **kwargs):
+        from knowledge_compiler.storage.lifecycle import (
+            repository_lifecycle_lock,
+        )
+
+        with repository_lifecycle_lock(publisher.output_root):
+            return method(publisher, *args, **kwargs)
+
+    return locked
 
 
 def _object_type(model: object) -> str:
@@ -170,6 +186,7 @@ class GenerationPublisher:
         self.transactions_root = self.knowledge_root / "state/transactions"
         self._inject = fault_injector or (lambda _point: None)
 
+    @_with_repository_lifecycle_lock
     def publish(
         self,
         generation: str,
@@ -332,6 +349,7 @@ class GenerationPublisher:
             manifest_path=destinations["manifest"],
         )
 
+    @_with_repository_lifecycle_lock
     def publish_generation(
         self,
         generation: str,
@@ -686,6 +704,7 @@ class GenerationPublisher:
             manifest_path=manifest_path,
         )
 
+    @_with_repository_lifecycle_lock
     def recover(self) -> None:
         """Recover every incomplete journal; safe to repeat after interruption."""
 
@@ -708,10 +727,10 @@ class GenerationPublisher:
     def _recover_pending_lifecycle(self) -> None:
         try:
             from knowledge_compiler.storage.lifecycle import (
-                recover_pending_lifecycle,
+                _recover_pending_lifecycle_locked,
             )
 
-            recover_pending_lifecycle(self.output_root)
+            _recover_pending_lifecycle_locked(self.output_root)
         except Exception as error:
             raise PublicationError(
                 f"pending lifecycle recovery failed: {error}"

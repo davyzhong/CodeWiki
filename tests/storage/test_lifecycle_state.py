@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import multiprocessing
+import threading
 from pathlib import Path
 
 import pytest
@@ -34,6 +36,32 @@ _PENDING_TRANSACTION_FAILURE_POINTS = (
 
 class _SimulatedProcessDeath(BaseException):
     pass
+
+
+def _crash_pending_in_child(
+    root: str,
+    start_pending,
+    pending_started,
+    pending_finished,
+) -> None:
+    from knowledge_compiler.incremental.pending import PendingStore, PersistedTarget
+
+    start_pending.wait()
+    pending_started.set()
+
+    def crash(point: str) -> None:
+        if point == "pending-lifecycle.plan.replace":
+            raise _SimulatedProcessDeath(point)
+
+    try:
+        PendingStore(
+            Path(root) / ".knowledge/state/pending-targets.json",
+            fault_injector=crash,
+        ).add(PersistedTarget(target_id="module.lifecycle.alpha", reason="retry"))
+    except _SimulatedProcessDeath:
+        pass
+    finally:
+        pending_finished.set()
 
 
 def _snapshot(root: Path, *, commit: str = "commit-one") -> RepositorySnapshot:
@@ -203,6 +231,100 @@ def _assert_newer_generation_survives_pending_store_reload(
     assert not (
         root / ".knowledge/state/pending-lifecycle-transaction.json"
     ).exists()
+
+
+def _assert_generation_interval_blocks_pending_process(
+    root: Path, operation: str
+) -> None:
+    from test_generation_publication import _verified_inputs
+
+    from knowledge_compiler.storage import GenerationPublisher
+
+    _prepare_pending_lifecycle(root)
+    module, pack = _verified_inputs()
+    newer_generation = f"gen-newer-raced-{operation}"
+    newer_snapshot = _snapshot(root, commit="commit-two")
+    if operation == "recover":
+        GenerationPublisher(root).publish_generation(
+            newer_generation,
+            ((module, pack),),
+            observed_snapshot=newer_snapshot,
+        )
+
+    publisher = GenerationPublisher(root)
+    recovered = threading.Event()
+    continue_generation = threading.Event()
+    original_recovery = publisher._recover_pending_lifecycle
+
+    def pause_after_recovery() -> None:
+        original_recovery()
+        recovered.set()
+        if not continue_generation.wait(timeout=10):
+            raise AssertionError("generation test pause timed out")
+
+    publisher._recover_pending_lifecycle = pause_after_recovery
+    publisher_errors: list[BaseException] = []
+
+    def run_generation() -> None:
+        try:
+            if operation == "single":
+                publisher.publish(
+                    newer_generation,
+                    module,
+                    pack,
+                    observed_snapshot=newer_snapshot,
+                )
+            elif operation == "batch":
+                publisher.publish_generation(
+                    newer_generation,
+                    ((module, pack),),
+                    observed_snapshot=newer_snapshot,
+                )
+            else:
+                publisher.recover()
+        except BaseException as error:
+            publisher_errors.append(error)
+
+    context = multiprocessing.get_context("fork")
+    start_pending = context.Event()
+    pending_started = context.Event()
+    pending_finished = context.Event()
+    pending_process = context.Process(
+        target=_crash_pending_in_child,
+        args=(
+            str(root),
+            start_pending,
+            pending_started,
+            pending_finished,
+        ),
+    )
+    pending_process.start()
+    publisher_thread = threading.Thread(target=run_generation)
+    publisher_thread.start()
+    assert recovered.wait(timeout=10)
+    start_pending.set()
+    assert pending_started.wait(timeout=10)
+    finished_while_generation_paused = pending_finished.wait(timeout=0.25)
+    continue_generation.set()
+    publisher_thread.join(timeout=10)
+    pending_process.join(timeout=10)
+
+    assert not publisher_thread.is_alive()
+    assert not pending_process.is_alive()
+    assert pending_process.exitcode == 0
+    assert publisher_errors == []
+    assert finished_while_generation_paused is False
+
+    manifest_path = root / ".knowledge/manifest.yaml"
+    before_pending_recovery = yaml.safe_load(manifest_path.read_bytes())
+    assert before_pending_recovery["active_generation"] == newer_generation
+    assert before_pending_recovery["observed_snapshot"]["commit"] == "commit-two"
+    from knowledge_compiler.incremental.pending import PendingStore
+
+    PendingStore(root / ".knowledge/state/pending-targets.json")
+    after_pending_recovery = yaml.safe_load(manifest_path.read_bytes())
+    assert after_pending_recovery["active_generation"] == newer_generation
+    assert after_pending_recovery["observed_snapshot"]["commit"] == "commit-two"
     assert not (
         root / ".knowledge/state/pending-lifecycle-transaction.json.tmp"
     ).exists()
@@ -398,6 +520,55 @@ def test_generation_recovery_also_completes_pending_lifecycle_journal(
     assert not (
         tmp_path / ".knowledge/state/pending-lifecycle-transaction.json"
     ).exists()
+
+
+def test_single_generation_lock_blocks_cross_process_pending_mutation(
+    tmp_path: Path,
+) -> None:
+    _assert_generation_interval_blocks_pending_process(tmp_path, "single")
+
+
+def test_batch_generation_lock_blocks_cross_process_pending_mutation(
+    tmp_path: Path,
+) -> None:
+    _assert_generation_interval_blocks_pending_process(tmp_path, "batch")
+
+
+def test_generation_recovery_lock_blocks_cross_process_pending_mutation(
+    tmp_path: Path,
+) -> None:
+    _assert_generation_interval_blocks_pending_process(tmp_path, "recover")
+
+
+def test_repository_lifecycle_lock_rejects_symlink_file(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import hashlib
+    import os
+    import tempfile
+
+    from knowledge_compiler.storage.lifecycle import (
+        LifecycleWriteError,
+        repository_lifecycle_lock,
+    )
+
+    temporary_root = tmp_path / "temporary"
+    temporary_root.mkdir()
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(temporary_root))
+    lock_root = temporary_root / f"codewiki-lifecycle-{os.getuid()}"
+    lock_root.mkdir(mode=0o700)
+    repository_key = hashlib.sha256(
+        str((tmp_path / "repository").resolve()).encode("utf-8")
+    ).hexdigest()
+    decoy = tmp_path / "decoy.lock"
+    decoy.write_bytes(b"keep exact")
+    (lock_root / f"{repository_key}.lock").symlink_to(decoy)
+
+    with pytest.raises(LifecycleWriteError, match="symlink"):
+        with repository_lifecycle_lock(tmp_path / "repository"):
+            raise AssertionError("unsafe lock must never be acquired")
+
+    assert decoy.read_bytes() == b"keep exact"
 
 
 def test_pending_lifecycle_rejects_manifest_temp_symlink_before_mutation(

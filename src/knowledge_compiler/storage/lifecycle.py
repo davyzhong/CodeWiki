@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import base64
+import fcntl
+import hashlib
 import json
 import os
 import stat
-from collections.abc import Callable, Iterable
+import tempfile
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Literal
 
@@ -31,6 +35,49 @@ KnowledgeObjectType = Literal[
 
 class LifecycleWriteError(RuntimeError):
     """Raised when tracked lifecycle state cannot be written safely."""
+
+
+@contextmanager
+def repository_lifecycle_lock(
+    root: str | os.PathLike[str],
+) -> Iterator[None]:
+    """Serialize lifecycle and generation transactions across processes."""
+
+    temporary_root = Path(tempfile.gettempdir()).resolve()
+    _ensure_safe_parent(temporary_root)
+    lock_root = temporary_root / f"codewiki-lifecycle-{os.getuid()}"
+    try:
+        lock_root.mkdir(mode=0o700)
+    except FileExistsError:
+        if lock_root.is_symlink() or not lock_root.is_dir():
+            raise LifecycleWriteError(
+                f"lifecycle lock directory is unsafe: {lock_root}"
+            )
+    repository_key = hashlib.sha256(
+        str(Path(root).resolve()).encode("utf-8")
+    ).hexdigest()
+    lock_path = lock_root / f"{repository_key}.lock"
+    _reject_unsafe_file(lock_path)
+    flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(lock_path, flags, 0o600)
+    except OSError as error:
+        raise LifecycleWriteError(
+            f"lifecycle lock cannot be opened: {error}"
+        ) from error
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            raise LifecycleWriteError(
+                f"lifecycle lock is not a regular file: {lock_path}"
+            )
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+    finally:
+        os.close(descriptor)
 
 
 class ObservedSnapshotProjection(BaseModel):
@@ -324,8 +371,24 @@ def commit_pending_lifecycle(
 ) -> None:
     """Commit pending execution state and both tracked projections together."""
 
+    with repository_lifecycle_lock(root):
+        _commit_pending_lifecycle_locked(
+            root,
+            pending_targets,
+            fault_injector=fault_injector,
+        )
+
+
+def _commit_pending_lifecycle_locked(
+    root: str | os.PathLike[str],
+    pending_targets: Iterable[object],
+    *,
+    fault_injector: FaultInjector | None = None,
+) -> None:
+    """Commit pending state while the repository lifecycle lock is held."""
+
     knowledge = _knowledge_root(root)
-    recover_pending_lifecycle(root)
+    _recover_pending_lifecycle_locked(root)
     payload = tuple(_pending_payload_item(target) for target in pending_targets)
     payload = tuple(sorted(payload, key=lambda item: item["target_id"]))
     target_ids = _validated_target_ids(item["target_id"] for item in payload)
@@ -393,7 +456,7 @@ def commit_pending_lifecycle(
         _fsync_directory(journal_path.parent)
     except Exception as error:
         try:
-            recover_pending_lifecycle(root)
+            _recover_pending_lifecycle_locked(root)
         except Exception as recovery_error:
             raise LifecycleWriteError(
                 "pending lifecycle transaction and recovery failed: "
@@ -408,6 +471,13 @@ def commit_pending_lifecycle(
 
 def recover_pending_lifecycle(root: str | os.PathLike[str]) -> bool:
     """Replay an interrupted pending lifecycle transaction to all-new state."""
+
+    with repository_lifecycle_lock(root):
+        return _recover_pending_lifecycle_locked(root)
+
+
+def _recover_pending_lifecycle_locked(root: str | os.PathLike[str]) -> bool:
+    """Replay pending state while the repository lifecycle lock is held."""
 
     knowledge = _knowledge_root(root)
     journal_path = knowledge / "state/pending-lifecycle-transaction.json"
@@ -694,6 +764,7 @@ __all__ = [
     "load_pending_target_ids",
     "manifest_lifecycle_fields",
     "recover_pending_lifecycle",
+    "repository_lifecycle_lock",
     "save_latest_plan",
     "save_observed_snapshot_state",
     "serialize_tracked_yaml",
