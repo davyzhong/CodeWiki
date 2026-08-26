@@ -105,10 +105,6 @@ def plan_full_refresh(
     survey = _validate_survey(survey)
     request = PlanRequest.model_validate(request)
     _validate_correlation(request, survey)
-    if not survey.files and not survey.symbols:
-        raise InsufficientEvidence(
-            "survey provides no symbols or files to plan knowledge targets"
-        )
 
     repository_slug = _slug(survey.repository_id.split("/")[-1])
     module_groups = _module_evidence_groups(survey)
@@ -140,7 +136,7 @@ def plan_full_refresh(
 
     architecture_seeds = tuple(sorted(set(survey.files)))[:_MAX_EVIDENCE_SEEDS]
     if not architecture_seeds:
-        architecture_seeds = primary_group
+        architecture_seeds = _bounded_group(primary_group)
     tech_seeds = _tech_stack_seeds(survey)
     targets = (
         PlanTargetSpec(
@@ -226,7 +222,7 @@ def _canonical_groups(
     groups: Sequence[Sequence[str]],
 ) -> tuple[tuple[str, ...], ...]:
     unique = {
-        tuple(sorted(set(item for item in group if item)))[:_MAX_EVIDENCE_SEEDS]
+        tuple(sorted(set(item for item in group if item)))
         for group in groups
     }
     unique.discard(())
@@ -307,13 +303,14 @@ def _discovered_specs(
     for group, suffix in zip(canonical, suffixes, strict=True):
         if suffix in duplicate_suffixes:
             suffix = f"{suffix}-{_group_digest(group)}"
+        evidence_seeds = _bounded_group(group)
         specs.append(
             PlanTargetSpec(
                 target=PlanTarget(
                     id=f"{object_type}.{repository_slug}.{suffix}",
                     type=object_type,
-                    topic=" ".join(group),
-                    evidence_seeds=group,
+                    topic=" ".join(evidence_seeds),
+                    evidence_seeds=evidence_seeds,
                 ),
                 priority=priority,
                 required=True,
@@ -328,6 +325,10 @@ def _group_slug(group: tuple[str, ...], *, fallback: str) -> str:
     if "/" in anchor:
         anchor = PurePosixPath(anchor).stem
     return _slug(anchor, fallback=fallback)
+
+
+def _bounded_group(group: tuple[str, ...]) -> tuple[str, ...]:
+    return group[:_MAX_EVIDENCE_SEEDS]
 
 
 def _group_digest(group: tuple[str, ...]) -> str:
