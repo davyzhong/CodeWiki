@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,10 +24,12 @@ def save_baseline(path: str | Path, records: tuple[FileRecord, ...]) -> None:
     file = Path(path)
     file.parent.mkdir(parents=True, exist_ok=True)
     payload = [record.model_dump(mode="json") for record in records]
-    file.write_text(
+    temporary = file.with_suffix(file.suffix + ".tmp")
+    temporary.write_text(
         json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",
     )
+    os.replace(temporary, file)
 
 
 def load_baseline(path: str | Path) -> tuple[FileRecord, ...]:

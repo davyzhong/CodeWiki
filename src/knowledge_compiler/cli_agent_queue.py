@@ -328,14 +328,15 @@ def finalize(
             raise QueueError(
                 "required targets are unfinished: " + ", ".join(incomplete)
             )
-        artifacts = tuple(
+        regenerated_artifacts = tuple(
             queue.load_verified_artifact(record.target_id)
             for record in queue.record().targets
             if record.state is TargetState.VERIFIED
             and record.published_object_id is None
         )
-        if not artifacts:
+        if not regenerated_artifacts:
             raise QueueError("no verified artifacts are ready for publication")
+        preserved_artifacts = queue.load_preserved_artifacts()
         import hashlib
 
         from knowledge_compiler.storage import GenerationPublisher
@@ -343,10 +344,12 @@ def finalize(
         generation = "gen-" + hashlib.sha256(
             queue.record().run_id.encode("utf-8")
         ).hexdigest()[:32]
-        published = GenerationPublisher(repository_root.resolve()).publish_generation(
-            generation, artifacts
+        GenerationPublisher(repository_root.resolve()).publish_generation(
+            generation, regenerated_artifacts + preserved_artifacts
         )
-        published_ids = tuple(item.object_id for item in published.objects)
+        published_ids = tuple(
+            canonical.id for canonical, _ in regenerated_artifacts
+        )
         updated = queue.record()
         for object_id in published_ids:
             record = next(
@@ -356,7 +359,20 @@ def finalize(
                 record.model_copy(update={"published_object_id": object_id})
             )
         queue.replace_record(updated.model_copy(update={"active": False}))
-        report_warning = None
+        warnings: list[str] = []
+        pending_path = (
+            repository_root.resolve()
+            / ".knowledge/state/pending-targets.json"
+        )
+        if pending_path.exists():
+            try:
+                from knowledge_compiler.incremental.pending import PendingStore
+
+                pending = PendingStore(pending_path)
+                for object_id in published_ids:
+                    pending.resolve(object_id)
+            except (OSError, ValueError) as error:
+                warnings.append(f"pending target update failed: {error}")
         try:
             _write_final_report(
                 repository_root.resolve(),
@@ -367,7 +383,7 @@ def finalize(
         except OSError as error:
             # The manifest is the canonical commit marker. A derived report
             # write failure must not misreport an already committed generation.
-            report_warning = f"run report write failed: {error}"
+            warnings.append(f"run report write failed: {error}")
     except (QueueError, RunStoreError, RuntimeError, ValueError, OSError) as error:
         _fail(f"finalize failed: {error}")
         return
@@ -377,7 +393,7 @@ def finalize(
             "status": "complete",
             "generation": generation,
             "published_object_ids": list(published_ids),
-            "diagnostics": [report_warning] if report_warning else [],
+            "diagnostics": warnings,
         }
     )
 

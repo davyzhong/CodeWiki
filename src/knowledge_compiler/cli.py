@@ -356,75 +356,56 @@ def update(
 ) -> None:
     """Incremental update: detect changes, invalidate, retry, retire."""
 
+    if executor not in {"llm", "agent"}:
+        typer.secho(
+            f"update: unsupported executor {executor!r}; expected llm or agent",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+    root = repository_root.resolve()
+    config_path = root / ".knowledge/config.yaml"
     from knowledge_compiler.preflight import PreflightFailure, run_preflight
 
     try:
-        run_preflight(repository_root.resolve())
+        run_preflight(root, config_path=config_path)
     except PreflightFailure as error:
         typer.secho(f"preflight: {error}", fg=typer.colors.RED)
         raise typer.Exit(code=1) from None
 
     import json as _json
-    from knowledge_compiler.repository.changes import compute_changes
-    from knowledge_compiler.repository.inventory import (
-        FileRecord,
-        load_baseline,
-        save_baseline,
-    )
-    from knowledge_compiler.repository.local_git import (
-        LocalGitRepositoryProvider,
-    )
+    try:
+        from knowledge_compiler.incremental.updating import run_incremental_update
 
-    baseline_path = repository_root / ".knowledge/baseline/eligible-files.json"
-    provider = LocalGitRepositoryProvider()
-    current = tuple(
-        FileRecord(
-            path=r.path,
-            blob_id=r.blob_id,
-            content_hash=r.content_hash,
-            size=r.size,
-            language=r.language,
+        outcome = run_incremental_update(
+            repository_root=root,
+            executor=executor,
+            config=load_config(config_path),
         )
-        for r in provider.inventory(repository_root.resolve())
-    )
-    full_refresh = False
-    refresh_reason = None
-    if baseline_path.exists():
-        try:
-            baseline = load_baseline(baseline_path)
-        except ValueError:
-            baseline = ()
-            full_refresh = True
-            refresh_reason = "baseline_corrupt"
-    else:
-        baseline = ()
-        full_refresh = True
-        refresh_reason = "baseline_missing"
-
-    change_set = compute_changes(baseline, current)
+    except (OSError, RuntimeError, ValueError) as error:
+        typer.secho(f"update: {_short(str(error))}", fg=typer.colors.RED)
+        raise typer.Exit(code=1) from None
+    change_set = outcome.change_set
     typer.echo(
         f"update: change_set added={len(change_set.added)} "
         f"modified={len(change_set.modified)} deleted={len(change_set.deleted)} "
         f"renamed={len(change_set.renamed)}"
     )
-    baseline_path.parent.mkdir(parents=True, exist_ok=True)
-    save_baseline(baseline_path, current)
+    typer.echo(f"update: pending_targets={len(outcome.pending_target_ids)}")
 
-    pending_path = repository_root / ".knowledge/state/pending-targets.json"
-    if pending_path.exists():
-        from knowledge_compiler.incremental.pending import PendingStore
-
-        pending = PendingStore(pending_path)
-        typer.echo(f"update: pending_targets={len(pending.target_ids())}")
-
-    report_path = repository_root / ".knowledge/state/last-update.json"
+    report_path = root / ".knowledge/state/last-update.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(
         _json.dumps(
             {
-                "status": "complete",
-                "full_refresh": full_refresh,
-                "refresh_reason": refresh_reason,
+                "status": outcome.status,
+                "full_refresh": outcome.full_refresh,
+                "refresh_reason": outcome.refresh_reason,
+                "invalidation_generation": outcome.invalidation_generation,
+                "stale_object_ids": list(outcome.stale_object_ids),
+                "pending_target_ids": list(outcome.pending_target_ids),
+                "generation": outcome.generation,
+                "published_object_ids": list(outcome.published_object_ids),
+                "diagnostics": list(outcome.diagnostics),
                 "change_set": {
                     "added": list(change_set.added),
                     "modified": list(change_set.modified),
@@ -437,7 +418,10 @@ def update(
         + "\n",
         encoding="utf-8",
     )
-    typer.echo("update: complete")
+    typer.echo(f"update: {outcome.status}")
+    if outcome.status == "complete":
+        return
+    raise typer.Exit(code=2 if outcome.status == "partial" else 1)
 
 
 @app.command()

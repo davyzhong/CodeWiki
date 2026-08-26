@@ -341,6 +341,43 @@ def test_runner_uses_the_atomic_generation_publisher(
     assert outcome.published_object_ids == ("module.shop.checkout",)
 
 
+def test_selective_runner_preserves_healthy_objects_without_reporting_them_as_rebuilt(
+    tmp_path: Path,
+) -> None:
+    import sys
+    import yaml
+
+    from knowledge_compiler.orchestrator.runner import RunOrchestrator
+
+    sys.path.insert(0, str(ROOT / "tests/integration"))
+    from test_typed_publication import canonicalize
+
+    architecture = canonicalize("architecture").canonical
+    assert architecture is not None
+    base, queue, _ = make_orchestrator(tmp_path)
+    selective = RunOrchestrator(
+        queue=queue,
+        snapshot=base.snapshot,
+        evidence_provider=base.evidence_provider,
+        worker=base.worker,
+        output_root=base.output_root,
+        run_id=base.run_id,
+        preserved_items=((architecture, None),),
+    )
+
+    outcome = selective.run()
+
+    assert outcome.status == "complete"
+    assert outcome.published_object_ids == ("module.shop.checkout",)
+    manifest = yaml.safe_load(
+        (base.output_root / ".knowledge/manifest.yaml").read_bytes()
+    )
+    assert {item["id"] for item in manifest["objects"]} == {
+        "module.shop.checkout",
+        architecture.id,
+    }
+
+
 def test_runner_model_failure_fails_without_publication(tmp_path: Path) -> None:
     orchestrator, queue, tmp = make_orchestrator(tmp_path, worker=StubWorker(fail_extract=True))
     outcome = orchestrator.run()

@@ -54,6 +54,8 @@ def run_primary_build(
     run_id: str | None = None,
     budget: EvidenceBudget | None = None,
     planner: Callable[[PlanRequest, Any], Any] = plan_full_refresh,
+    target_ids: frozenset[str] | None = None,
+    preserved_items: tuple[tuple[object, object | None], ...] = (),
 ) -> PrimaryBuildOutcome:
     """Run or prepare the production build pipeline over real provider contracts."""
 
@@ -103,6 +105,7 @@ def run_primary_build(
             root=root,
             run_id=active.run_id,
             budget=selected_budget,
+            preserved_items=queue.load_preserved_artifacts(),
         )
 
     actual_run_id = run_id or _run_id(resolved)
@@ -119,6 +122,25 @@ def run_primary_build(
         ),
     )
     plan = planner(request, survey)
+    if target_ids is not None:
+        plan = plan.model_copy(
+            update={
+                "targets": tuple(
+                    spec
+                    for spec in plan.targets
+                    if spec.target.id in target_ids
+                )
+            }
+        )
+        planned_ids = {spec.target.id for spec in plan.targets}
+        missing = sorted(target_ids - planned_ids)
+        if missing:
+            raise ValueError(
+                "pending targets are absent from the refreshed plan: "
+                + ", ".join(missing)
+            )
+    if not plan.targets:
+        raise ValueError("planner produced no targets for this build")
     initial_state = "queued" if executor == "llm" else "evidence_ready"
     run = RunRecord.model_validate(
         {
@@ -155,6 +177,7 @@ def run_primary_build(
         clock=_WallClock(),
     )
     queue.save_plan(plan)
+    queue.save_preserved_artifacts(preserved_items)
 
     if executor == "agent":
         _prepare_agent_evidence(
@@ -170,6 +193,7 @@ def run_primary_build(
         root=root,
         run_id=actual_run_id,
         budget=selected_budget,
+        preserved_items=preserved_items,
     )
 
 
@@ -182,6 +206,7 @@ def _run_llm_queue(
     root: Path,
     run_id: str,
     budget: EvidenceBudget,
+    preserved_items: tuple[tuple[object, object | None], ...],
 ) -> PrimaryBuildOutcome:
     if worker is None:
         raise ValueError("llm executor requires a semantic worker")
@@ -193,6 +218,7 @@ def _run_llm_queue(
         output_root=root,
         run_id=run_id,
         budget=budget,
+        preserved_items=preserved_items,
     ).run()
     return PrimaryBuildOutcome(
         status=outcome.status,
@@ -247,6 +273,8 @@ def run_configured_build(
     repository_root: Path,
     executor: Literal["llm", "agent"],
     config: KnowledgeConfig,
+    target_ids: frozenset[str] | None = None,
+    preserved_items: tuple[tuple[object, object | None], ...] = (),
 ) -> PrimaryBuildOutcome:
     """Construct production adapters and enter the shared primary pipeline."""
 
@@ -267,6 +295,8 @@ def run_configured_build(
         executor=executor,
         evidence_provider=provider,
         worker=worker,
+        target_ids=target_ids,
+        preserved_items=preserved_items,
     )
 
 

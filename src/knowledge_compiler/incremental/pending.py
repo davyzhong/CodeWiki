@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
@@ -40,10 +41,12 @@ class PendingStore:
     def _save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         payload = [target.model_dump(mode="json") for target in self.targets]
-        self._path.write_text(
+        temporary = self._path.with_suffix(self._path.suffix + ".tmp")
+        temporary.write_text(
             json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
             encoding="utf-8",
         )
+        os.replace(temporary, self._path)
 
     @property
     def targets(self) -> tuple[PersistedTarget, ...]:

@@ -123,6 +123,83 @@ class RunStore:
         temporary.write_text(payload + "\n", encoding="utf-8")
         os.replace(temporary, run_dir / "plan.json")
 
+    def save_preserved_artifacts(
+        self,
+        run_id: str,
+        items: tuple[tuple[object, object | None], ...],
+    ) -> None:
+        from knowledge_compiler.contracts.canonical import (
+            parse_canonical_knowledge,
+        )
+        from knowledge_compiler.contracts.evidence import EvidencePack
+
+        payload: list[dict[str, object]] = []
+        for canonical, pack in items:
+            validated = parse_canonical_knowledge(
+                canonical.model_dump(mode="json")
+            )
+            validated_pack = (
+                EvidencePack.model_validate(pack.model_dump(mode="json"))
+                if pack is not None
+                else None
+            )
+            if validated.validity.status != "verified":
+                raise RunStoreError("only verified objects may be preserved")
+            if validated.type == "module" and validated_pack is None:
+                raise RunStoreError("preserved modules require an Evidence Pack")
+            if validated_pack is not None and validated_pack.target.id != validated.id:
+                raise RunStoreError("preserved artifact identities differ")
+            payload.append(
+                {
+                    "canonical": validated.model_dump(mode="json"),
+                    "evidence_pack": (
+                        validated_pack.model_dump(mode="json")
+                        if validated_pack is not None
+                        else None
+                    ),
+                }
+            )
+        run_dir = self._run_dir(run_id)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        temporary = run_dir / "preserved.json.tmp"
+        temporary.write_text(
+            json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, run_dir / "preserved.json")
+
+    def load_preserved_artifacts(
+        self, run_id: str
+    ) -> tuple[tuple[object, object | None], ...]:
+        from knowledge_compiler.contracts.canonical import (
+            parse_canonical_knowledge,
+        )
+        from knowledge_compiler.contracts.evidence import EvidencePack
+
+        path = self._run_dir(run_id) / "preserved.json"
+        if not path.exists():
+            return ()
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(payload, list):
+                raise ValueError("preserved artifacts must be a list")
+            items = tuple(
+                (
+                    parse_canonical_knowledge(item["canonical"]),
+                    (
+                        EvidencePack.model_validate(item["evidence_pack"])
+                        if item.get("evidence_pack") is not None
+                        else None
+                    ),
+                )
+                for item in payload
+            )
+        except (KeyError, OSError, ValueError) as error:
+            raise RunStoreError(
+                f"preserved artifacts unreadable: {error}"
+            ) from error
+        return items
+
     def save_evidence_pack(
         self, run_id: str, target_id: str, pack: object
     ) -> None:

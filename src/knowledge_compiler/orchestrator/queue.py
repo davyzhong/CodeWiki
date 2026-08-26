@@ -59,6 +59,16 @@ class RunQueue:
     def save_plan(self, plan: object) -> None:
         self._store.save_plan(self._run.run_id, plan)
 
+    def save_preserved_artifacts(
+        self, items: tuple[tuple[object, object | None], ...]
+    ) -> None:
+        self._store.save_preserved_artifacts(self._run.run_id, items)
+
+    def load_preserved_artifacts(
+        self,
+    ) -> tuple[tuple[object, object | None], ...]:
+        return self._store.load_preserved_artifacts(self._run.run_id)
+
     def save_evidence_pack(self, target_id: str, pack: object) -> None:
         self._store.save_evidence_pack(self._run.run_id, target_id, pack)
 

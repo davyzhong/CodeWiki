@@ -173,8 +173,11 @@ def test_agent_protocol_validates_contracts_and_publishes_generation(
         VerificationRequest,
     )
     from knowledge_compiler.planning.module import plan_one_module
+    from test_typed_publication import canonicalize
 
     snapshot, provider, worker, plan = make_world(tmp_path)
+    preserved_flow = canonicalize("flow").canonical
+    assert preserved_flow is not None
     outcome = run_primary_build(
         repository_root=snapshot.root,
         executor="agent",
@@ -182,6 +185,7 @@ def test_agent_protocol_validates_contracts_and_publishes_generation(
         snapshot=snapshot,
         run_id="agent-contract-001",
         planner=plan_one_module,
+        preserved_items=((preserved_flow, None),),
     )
     monkeypatch.chdir(snapshot.root)
     runner = CliRunner()
@@ -261,6 +265,15 @@ def test_agent_protocol_validates_contracts_and_publishes_generation(
         ],
     )
     assert accepted.exit_code == 0, accepted.output
+    from knowledge_compiler.incremental.pending import PendingStore, PersistedTarget
+
+    pending_path = snapshot.root / ".knowledge/state/pending-targets.json"
+    PendingStore(pending_path).add(
+        PersistedTarget(
+            target_id=plan.targets[0].target.id,
+            reason="evidence-changed",
+        )
+    )
 
     finalized = runner.invoke(app, ["finalize"])
 
@@ -269,6 +282,16 @@ def test_agent_protocol_validates_contracts_and_publishes_generation(
     assert payload["status"] == "complete"
     assert payload["published_object_ids"] == [plan.targets[0].target.id]
     assert (snapshot.root / ".knowledge/manifest.yaml").is_file()
+    import yaml
+
+    manifest = yaml.safe_load(
+        (snapshot.root / ".knowledge/manifest.yaml").read_bytes()
+    )
+    assert {item["id"] for item in manifest["objects"]} == {
+        plan.targets[0].target.id,
+        preserved_flow.id,
+    }
+    assert PendingStore(pending_path).target_ids() == set()
     report = json.loads(
         (snapshot.root / ".knowledge/state/runs/last-build.json").read_text(
             encoding="utf-8"
@@ -321,3 +344,131 @@ def test_changed_evidence_atomically_marks_canonical_stale_and_removes_card(
         snapshot.root / ".knowledge/state/pending-targets.json"
     )
     assert pending.target_ids() == {object_id}
+
+
+def test_failed_regeneration_after_safe_invalidation_is_partial_and_retryable(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.building import run_primary_build
+    from knowledge_compiler.cli import _default_config
+    from knowledge_compiler.incremental.updating import run_incremental_update
+    from knowledge_compiler.planning.module import plan_one_module
+    from knowledge_compiler.repository.inventory import FileRecord, load_baseline, save_baseline
+    from knowledge_compiler.repository.local_git import LocalGitRepositoryProvider
+
+    snapshot, provider, worker, plan = make_world(tmp_path)
+    run_primary_build(
+        repository_root=snapshot.root,
+        executor="llm",
+        evidence_provider=provider,
+        worker=worker,
+        snapshot=snapshot,
+        run_id="update-source-001",
+        planner=plan_one_module,
+    )
+    git_provider = LocalGitRepositoryProvider()
+    before = tuple(
+        FileRecord(
+            path=item.path,
+            blob_id=item.blob_id,
+            content_hash=item.content_hash,
+            size=item.size,
+            language=item.language,
+        )
+        for item in git_provider.inventory(snapshot.root)
+        if item.supported
+    )
+    baseline_path = snapshot.root / ".knowledge/baseline/eligible-files.json"
+    save_baseline(baseline_path, before)
+    checkout = snapshot.root / "src/shop/checkout.py"
+    checkout.write_text(
+        checkout.read_text(encoding="utf-8") + "\n# changed\n",
+        encoding="utf-8",
+    )
+
+    def failing_build(**kwargs):
+        raise RuntimeError("provider unavailable")
+
+    outcome = run_incremental_update(
+        repository_root=snapshot.root,
+        executor="llm",
+        config=_default_config("zh"),
+        build_runner=failing_build,
+    )
+
+    assert outcome.status == "partial"
+    assert outcome.stale_object_ids == (plan.targets[0].target.id,)
+    assert outcome.pending_target_ids == (plan.targets[0].target.id,)
+    assert "regeneration failed" in outcome.diagnostics[0]
+    advanced = load_baseline(baseline_path)
+    checkout_record = next(
+        item for item in advanced if item.path == "src/shop/checkout.py"
+    )
+    assert checkout_record.content_hash != next(
+        item for item in before if item.path == "src/shop/checkout.py"
+    ).content_hash
+
+
+def test_no_diff_pending_retry_selects_target_and_preserves_healthy_generation(
+    tmp_path: Path,
+) -> None:
+    from test_typed_publication import canonicalize
+
+    from knowledge_compiler.building import PrimaryBuildOutcome
+    from knowledge_compiler.cli import _default_config
+    from knowledge_compiler.incremental.pending import PendingStore, PersistedTarget
+    from knowledge_compiler.incremental.updating import run_incremental_update
+    from knowledge_compiler.repository.inventory import FileRecord, save_baseline
+    from knowledge_compiler.repository.local_git import LocalGitRepositoryProvider
+    from knowledge_compiler.storage import GenerationPublisher
+
+    snapshot, _, _, _ = make_world(tmp_path)
+    architecture = canonicalize("architecture").canonical
+    flow = canonicalize("flow").canonical
+    assert architecture is not None
+    assert flow is not None
+    GenerationPublisher(snapshot.root).publish_generation(
+        "gen-selective-base", ((architecture, None), (flow, None))
+    )
+    inventory = tuple(
+        FileRecord(
+            path=item.path,
+            blob_id=item.blob_id,
+            content_hash=item.content_hash,
+            size=item.size,
+            language=item.language,
+        )
+        for item in LocalGitRepositoryProvider().inventory(snapshot.root)
+        if item.supported
+    )
+    save_baseline(
+        snapshot.root / ".knowledge/baseline/eligible-files.json",
+        inventory,
+    )
+    PendingStore(
+        snapshot.root / ".knowledge/state/pending-targets.json"
+    ).add(PersistedTarget(target_id=architecture.id, reason="retry"))
+    captured = {}
+
+    def selective_build(**kwargs):
+        captured.update(kwargs)
+        return PrimaryBuildOutcome(
+            status="partial",
+            generation=None,
+            published_object_ids=(),
+            diagnostics=("semantic work pending",),
+            run_id="selective-001",
+        )
+
+    outcome = run_incremental_update(
+        repository_root=snapshot.root,
+        executor="agent",
+        config=_default_config("zh"),
+        build_runner=selective_build,
+    )
+
+    assert outcome.status == "partial"
+    assert captured["target_ids"] == frozenset({architecture.id})
+    assert tuple(item[0].id for item in captured["preserved_items"]) == (
+        flow.id,
+    )

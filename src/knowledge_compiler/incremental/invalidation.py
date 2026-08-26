@@ -149,6 +149,24 @@ def invalidate_changed_knowledge(
     )
 
 
+def load_generation_knowledge(
+    repository_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Load the manifest-bound canonical set and matching Evidence Packs."""
+
+    root = Path(repository_root).resolve()
+    try:
+        manifest = yaml.safe_load(
+            (root / ".knowledge/manifest.yaml").read_bytes()
+        )
+    except (OSError, ValueError, yaml.YAMLError) as error:
+        raise InvalidationError(f"manifest unreadable: {error}") from error
+    if not isinstance(manifest, dict):
+        raise InvalidationError("manifest is invalid")
+    objects = _load_manifest_objects(root, manifest)
+    return objects, _load_matching_evidence_packs(root, objects)
+
+
 _OBJECT_DIRECTORIES = {
     "architecture": "architecture",
     "module": "modules",
@@ -243,6 +261,7 @@ __all__ = [
     "InvalidationError",
     "compute_affected",
     "invalidate_changed_knowledge",
+    "load_generation_knowledge",
     "mark_stale",
     "merge_hints",
 ]

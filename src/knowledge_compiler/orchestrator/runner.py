@@ -64,6 +64,7 @@ class RunOrchestrator:
         output_root: Any,
         run_id: str,
         budget: EvidenceBudget | None = None,
+        preserved_items: tuple[tuple[object, object | None], ...] = (),
     ) -> None:
         self.queue = queue
         self.snapshot = snapshot
@@ -72,6 +73,7 @@ class RunOrchestrator:
         self.output_root = output_root
         self.run_id = run_id
         self.budget = budget or DEFAULT_BUDGET
+        self.preserved_items = preserved_items
 
     def run(self) -> RunnerOutcome:
         published: list[Any] = []
@@ -135,17 +137,16 @@ class RunOrchestrator:
             self.run_id.encode("utf-8")
         ).hexdigest()[:32]
         publisher = GenerationPublisher(self.output_root)
+        regenerated_ids = [canonical.id for canonical in published]
         try:
-            committed = publisher.publish_generation(
+            publisher.publish_generation(
                 generation,
                 tuple(
                     (canonical, packs.get(canonical.id))
                     for canonical in published
-                ),
+                )
+                + self.preserved_items,
             )
-            published_ids = [
-                item.object_id for item in committed.objects
-            ]
         except PublicationError as error:
             try:
                 publisher.recover()
@@ -158,12 +159,14 @@ class RunOrchestrator:
                 published_object_ids=(),
                 diagnostics=tuple(diagnostics + [f"publication failed: {error}"]),
             )
-        self._mark_published(sorted(set(published_ids + already_published)), generation)
+        self._mark_published(
+            sorted(set(regenerated_ids + already_published)), generation
+        )
         self._finalize()
         return RunnerOutcome(
             status="partial" if any_required_failed else "complete",
             generation=generation,
-            published_object_ids=tuple(sorted(published_ids)),
+            published_object_ids=tuple(sorted(regenerated_ids)),
             diagnostics=tuple(diagnostics),
         )
 
