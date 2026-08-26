@@ -41,6 +41,23 @@ def test_pending_is_idempotent_on_re_add(tmp_path: Path) -> None:
     assert store.targets[0].reason == "two"
 
 
+def test_pending_store_replaces_the_complete_sorted_set(tmp_path: Path) -> None:
+    store = PendingStore(tmp_path / "pending.json")
+    store.add(PersistedTarget(target_id="module.old", reason="stale"))
+
+    store.replace(
+        (
+            PersistedTarget(target_id="rule.z", reason="retry"),
+            PersistedTarget(target_id="module.a", reason="retry"),
+        )
+    )
+
+    assert tuple(target.target_id for target in store.targets) == (
+        "module.a",
+        "rule.z",
+    )
+
+
 def test_pending_store_rejects_tampered_json(tmp_path: Path) -> None:
     path = tmp_path / "pending.json"
     path.write_text("{broken", encoding="utf-8")

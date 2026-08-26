@@ -47,6 +47,7 @@ class PendingStore:
             encoding="utf-8",
         )
         os.replace(temporary, self._path)
+        self._project_lifecycle()
 
     @property
     def targets(self) -> tuple[PersistedTarget, ...]:
@@ -62,6 +63,34 @@ class PendingStore:
     def resolve(self, target_id: str) -> None:
         self._targets.pop(target_id, None)
         self._save()
+
+    def replace(self, targets: tuple[PersistedTarget, ...]) -> None:
+        validated = tuple(
+            PersistedTarget.model_validate(target.model_dump(mode="json"))
+            for target in targets
+        )
+        self._targets = {target.target_id: target for target in validated}
+        self._save()
+
+    def _project_lifecycle(self) -> None:
+        path = self._path.absolute()
+        if (
+            path.name != "pending-targets.json"
+            or path.parent.name != "state"
+            or path.parent.parent.name != ".knowledge"
+        ):
+            return
+        repository_root = path.parent.parent.parent
+        from knowledge_compiler.storage.lifecycle import (
+            update_latest_plan_pending,
+            update_manifest_lifecycle,
+        )
+
+        target_ids = tuple(sorted(self._targets))
+        update_latest_plan_pending(repository_root, target_ids)
+        update_manifest_lifecycle(
+            repository_root, pending_targets=target_ids
+        )
 
 
 __all__ = ["PendingStore", "PersistedTarget"]

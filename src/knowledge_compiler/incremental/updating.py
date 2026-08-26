@@ -19,6 +19,10 @@ from knowledge_compiler.repository.inventory import (
     save_baseline,
 )
 from knowledge_compiler.repository.local_git import LocalGitRepositoryProvider
+from knowledge_compiler.storage.lifecycle import (
+    save_observed_snapshot_state,
+    update_manifest_lifecycle,
+)
 
 
 @dataclass(frozen=True)
@@ -53,6 +57,8 @@ def run_incremental_update(
     from knowledge_compiler.human.overlays import load_active_overlays
 
     load_active_overlays(root)
+    observed_snapshot = LocalGitRepositoryProvider().resolve(root)
+    save_observed_snapshot_state(root, observed_snapshot)
     current = _inventory(root)
     baseline_path = root / ".knowledge/baseline/eligible-files.json"
     baseline, full_refresh, refresh_reason = _baseline(baseline_path)
@@ -67,6 +73,11 @@ def run_incremental_update(
         and not pending_before
         and manifest_exists
     ):
+        update_manifest_lifecycle(
+            root,
+            observed_snapshot=observed_snapshot,
+            pending_targets=(),
+        )
         return IncrementalUpdateOutcome(
             status="complete",
             change_set=change_set,
@@ -188,6 +199,11 @@ def run_incremental_update(
                 and not remaining_pending
                 else "partial"
             )
+            update_manifest_lifecycle(
+                root,
+                observed_snapshot=observed_snapshot,
+                pending_targets=remaining_pending,
+            )
             return IncrementalUpdateOutcome(
                 status=status,
                 change_set=change_set,
@@ -228,6 +244,12 @@ def run_incremental_update(
         # if semantic regeneration remains pending; the pending store carries
         # retry intent into the next no-diff update.
         save_baseline(baseline_path, current)
+
+    update_manifest_lifecycle(
+        root,
+        observed_snapshot=observed_snapshot,
+        pending_targets=remaining,
+    )
 
     return IncrementalUpdateOutcome(
         status=status,

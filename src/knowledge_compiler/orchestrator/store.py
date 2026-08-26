@@ -55,6 +55,7 @@ class RunStore:
         temporary = run_dir / "run.json.tmp"
         temporary.write_text(payload + "\n", encoding="utf-8")
         os.replace(temporary, run_dir / "run.json")
+        self._project_latest_plan(record)
 
     def load(self, run_id: str) -> RunRecord:
         file = self._run_dir(run_id) / "run.json"
@@ -122,6 +123,7 @@ class RunStore:
         temporary = run_dir / "plan.json.tmp"
         temporary.write_text(payload + "\n", encoding="utf-8")
         os.replace(temporary, run_dir / "plan.json")
+        self._project_latest_plan(self.load(run_id), validated)
 
     def save_preserved_artifacts(
         self,
@@ -326,6 +328,45 @@ class RunStore:
         for record in self._list_runs():
             if record.active:
                 return record
+        return None
+
+    def _project_latest_plan(
+        self, record: RunRecord, plan: object | None = None
+    ) -> None:
+        repository_root = self._repository_root()
+        if repository_root is None:
+            return
+        if plan is None:
+            plan_path = self._run_dir(record.run_id) / "plan.json"
+            if not plan_path.is_file():
+                return
+            try:
+                from knowledge_compiler.contracts.planning import KnowledgePlan
+
+                plan = KnowledgePlan.model_validate_json(
+                    plan_path.read_text(encoding="utf-8")
+                )
+            except (OSError, ValueError) as error:
+                raise RunStoreError(
+                    f"run plan is unreadable for lifecycle projection: {error}"
+                ) from error
+        try:
+            from knowledge_compiler.storage.lifecycle import save_latest_plan
+
+            save_latest_plan(repository_root, plan, record)
+        except (OSError, RuntimeError, ValueError) as error:
+            raise RunStoreError(
+                f"tracked lifecycle plan update failed: {error}"
+            ) from error
+
+    def _repository_root(self) -> Path | None:
+        root = self._root.absolute()
+        if (
+            root.name == "runs"
+            and root.parent.name == "state"
+            and root.parent.parent.name == ".knowledge"
+        ):
+            return root.parent.parent.parent
         return None
 
 

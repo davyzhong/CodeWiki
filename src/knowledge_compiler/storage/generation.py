@@ -6,7 +6,7 @@ import os
 import re
 import shutil
 import stat
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -21,6 +21,7 @@ from knowledge_compiler.compiler import (
 from knowledge_compiler.contracts.evidence import EvidencePack
 from knowledge_compiler.contracts.human import HumanOverlay
 from knowledge_compiler.contracts.knowledge import ModuleKnowledge
+from knowledge_compiler.contracts.repository import RepositorySnapshot
 
 
 _GENERATION = re.compile(
@@ -174,6 +175,9 @@ class GenerationPublisher:
         generation: str,
         module: ModuleKnowledge,
         evidence_pack: EvidencePack | None = None,
+        *,
+        observed_snapshot: RepositorySnapshot | None = None,
+        pending_targets: Iterable[str] | None = None,
     ) -> PublishedGeneration:
         self._validate_generation(generation)
         object_type = _object_type(module)
@@ -195,12 +199,24 @@ class GenerationPublisher:
                 compiled = _compile_outputs(module, None, overlay)
             # The complete human Wiki (aggregates, source index, HTML) is
             # compiled after this transaction; the stamp lags until then.
+            manifest_payload = {
+                "active_generation": generation,
+                "agent_views_generation": generation,
+                "wiki_generation": self._manifest_value("wiki_generation"),
+            }
+            from knowledge_compiler.storage.lifecycle import (
+                manifest_lifecycle_fields,
+            )
+
+            manifest_payload.update(
+                manifest_lifecycle_fields(
+                    self.output_root,
+                    observed_snapshot=observed_snapshot,
+                    pending_targets=pending_targets,
+                )
+            )
             manifest = yaml.safe_dump(
-                {
-                    "active_generation": generation,
-                    "agent_views_generation": generation,
-                    "wiki_generation": self._manifest_value("wiki_generation"),
-                },
+                manifest_payload,
                 sort_keys=False,
                 allow_unicode=True,
             ).encode("utf-8")
@@ -324,6 +340,8 @@ class GenerationPublisher:
         items: tuple[tuple[object, EvidencePack | None], ...],
         *,
         allow_empty: bool = False,
+        observed_snapshot: RepositorySnapshot | None = None,
+        pending_targets: Iterable[str] | None = None,
     ) -> PublishedGenerationBatch:
         """Publish a complete multi-object generation in one transaction."""
 
@@ -386,19 +404,31 @@ class GenerationPublisher:
                     )
                 )
             prepared.sort(key=lambda item: (item[1], item[0]))
+            manifest_payload = {
+                "active_generation": generation,
+                "agent_views_generation": generation,
+                # The complete human Wiki is compiled after this
+                # transaction; the stamp lags until `knowledge
+                # compile` succeeds so readers can detect it.
+                "wiki_generation": self._manifest_value("wiki_generation"),
+                "objects": [
+                    {"id": object_id, "type": object_type}
+                    for object_id, object_type, _, _ in prepared
+                ],
+            }
+            from knowledge_compiler.storage.lifecycle import (
+                manifest_lifecycle_fields,
+            )
+
+            manifest_payload.update(
+                manifest_lifecycle_fields(
+                    self.output_root,
+                    observed_snapshot=observed_snapshot,
+                    pending_targets=pending_targets,
+                )
+            )
             manifest = yaml.safe_dump(
-                {
-                    "active_generation": generation,
-                    "agent_views_generation": generation,
-                    # The complete human Wiki is compiled after this
-                    # transaction; the stamp lags until `knowledge
-                    # compile` succeeds so readers can detect it.
-                    "wiki_generation": self._manifest_value("wiki_generation"),
-                    "objects": [
-                        {"id": object_id, "type": object_type}
-                        for object_id, object_type, _, _ in prepared
-                    ],
-                },
+                manifest_payload,
                 sort_keys=False,
                 allow_unicode=True,
             ).encode("utf-8")

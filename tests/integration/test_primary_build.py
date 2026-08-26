@@ -52,6 +52,68 @@ def test_primary_llm_build_runs_real_provider_contract_through_orchestrator(
     assert (snapshot.root / ".knowledge/manifest.yaml").is_file()
 
 
+def test_primary_build_tracks_latest_plan_snapshot_and_pending_state(
+    tmp_path: Path,
+) -> None:
+    import yaml
+
+    from knowledge_compiler.building import run_primary_build
+    from knowledge_compiler.incremental.pending import PendingStore, PersistedTarget
+    from knowledge_compiler.planning.module import plan_one_module
+
+    snapshot, provider, worker, expected_plan = make_world(tmp_path)
+    outcome = run_primary_build(
+        repository_root=snapshot.root,
+        executor="llm",
+        evidence_provider=provider,
+        worker=worker,
+        snapshot=snapshot,
+        run_id="primary-lifecycle-001",
+        planner=plan_one_module,
+    )
+
+    tracked_plan_path = snapshot.root / ".knowledge/plan.yaml"
+    tracked_plan = yaml.safe_load(tracked_plan_path.read_bytes())
+    expected_ids = [spec.target.id for spec in expected_plan.targets]
+    assert outcome.status == "complete"
+    assert [target["target_id"] for target in tracked_plan["targets"]] == expected_ids
+    assert {target["state"] for target in tracked_plan["targets"]} == {"verified"}
+    assert [target["published_object_id"] for target in tracked_plan["targets"]] == (
+        expected_ids
+    )
+    assert (
+        snapshot.root
+        / ".knowledge/state/runs/primary-lifecycle-001/plan.json"
+    ).is_file()
+
+    manifest_path = snapshot.root / ".knowledge/manifest.yaml"
+    manifest = yaml.safe_load(manifest_path.read_bytes())
+    assert manifest["observed_snapshot"] == {
+        "repository_id": snapshot.repository_id,
+        "snapshot_id": snapshot.snapshot_id,
+        "commit": snapshot.commit,
+        "dirty": snapshot.dirty,
+        "working_tree_hash": snapshot.working_tree_hash,
+    }
+    assert manifest["pending_targets"] == []
+
+    pending = PendingStore(snapshot.root / ".knowledge/state/pending-targets.json")
+    pending.add(PersistedTarget(target_id=expected_ids[0], reason="retry"))
+    pending_manifest = yaml.safe_load(manifest_path.read_bytes())
+    assert pending_manifest["observed_snapshot"] == manifest["observed_snapshot"]
+    assert pending_manifest["pending_targets"] == expected_ids
+    assert (
+        yaml.safe_load(tracked_plan_path.read_bytes())["targets"][0]["pending"]
+        is True
+    )
+    pending.resolve(expected_ids[0])
+    assert yaml.safe_load(manifest_path.read_bytes())["pending_targets"] == []
+    assert (
+        yaml.safe_load(tracked_plan_path.read_bytes())["targets"][0]["pending"]
+        is False
+    )
+
+
 def test_primary_build_compiles_the_human_wiki_after_publication(
     tmp_path: Path,
 ) -> None:
@@ -191,6 +253,8 @@ def test_primary_build_records_conflict_when_override_evidence_changes(
 def test_primary_agent_build_prepares_real_queue_without_model_or_publication(
     tmp_path: Path,
 ) -> None:
+    import yaml
+
     from knowledge_compiler.building import run_primary_build
 
     snapshot, provider, _, plan = make_world(tmp_path)
@@ -244,6 +308,15 @@ def test_primary_agent_build_prepares_real_queue_without_model_or_publication(
     )
     assert len(persisted_plan["targets"]) == 5
     assert persisted_plan["run_id"] == "primary-agent-001"
+    tracked_plan = yaml.safe_load(
+        (snapshot.root / ".knowledge/plan.yaml").read_bytes()
+    )
+    assert {target["target_id"] for target in tracked_plan["targets"]} == {
+        target["target_id"] for target in payload["targets"]
+    }
+    assert {target["state"] for target in tracked_plan["targets"]} == {
+        "evidence_ready"
+    }
 
 
 def test_primary_agent_build_persists_every_survey_discovered_target(
@@ -562,6 +635,17 @@ def test_changed_evidence_atomically_marks_canonical_stale_and_removes_card(
         snapshot.root / ".knowledge/state/pending-targets.json"
     )
     assert pending.target_ids() == {object_id}
+    manifest = yaml.safe_load(
+        (snapshot.root / ".knowledge/manifest.yaml").read_bytes()
+    )
+    assert manifest["observed_snapshot"] == {
+        "repository_id": snapshot.repository_id,
+        "snapshot_id": snapshot.snapshot_id,
+        "commit": snapshot.commit,
+        "dirty": snapshot.dirty,
+        "working_tree_hash": snapshot.working_tree_hash,
+    }
+    assert manifest["pending_targets"] == [object_id]
 
 
 def test_failed_regeneration_after_safe_invalidation_is_partial_and_retryable(
@@ -630,6 +714,8 @@ def test_failed_regeneration_after_safe_invalidation_is_partial_and_retryable(
 def test_no_diff_pending_retry_selects_target_and_preserves_healthy_generation(
     tmp_path: Path,
 ) -> None:
+    import yaml
+
     from test_typed_publication import canonicalize
 
     from knowledge_compiler.building import PrimaryBuildOutcome
@@ -690,6 +776,18 @@ def test_no_diff_pending_retry_selects_target_and_preserves_healthy_generation(
     assert tuple(item[0].id for item in captured["preserved_items"]) == (
         flow.id,
     )
+    observed = LocalGitRepositoryProvider().resolve(snapshot.root)
+    manifest = yaml.safe_load(
+        (snapshot.root / ".knowledge/manifest.yaml").read_bytes()
+    )
+    assert manifest["observed_snapshot"] == {
+        "repository_id": observed.repository_id,
+        "snapshot_id": observed.snapshot_id,
+        "commit": observed.commit,
+        "dirty": observed.dirty,
+        "working_tree_hash": observed.working_tree_hash,
+    }
+    assert manifest["pending_targets"] == [architecture.id]
 
 
 @pytest.mark.parametrize(

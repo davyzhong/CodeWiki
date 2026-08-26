@@ -21,6 +21,7 @@ from knowledge_compiler.orchestrator.runner import RunOrchestrator
 from knowledge_compiler.orchestrator.store import RunStore, RunStoreError
 from knowledge_compiler.planning.module import plan_full_refresh
 from knowledge_compiler.repository.local_git import LocalGitRepositoryProvider
+from knowledge_compiler.storage.lifecycle import save_observed_snapshot_state
 
 
 DEFAULT_BUDGET = EvidenceBudget(max_items=8, max_characters=4000, max_tokens=512)
@@ -80,6 +81,7 @@ def run_primary_build(
             raise RunStoreError(
                 "active run repository, snapshot, or executor does not match"
             )
+        save_observed_snapshot_state(root, resolved)
         queue = RunQueue(
             store_root=store_root,
             run=active,
@@ -111,6 +113,7 @@ def run_primary_build(
             preserved_items=queue.load_preserved_artifacts(),
         )
 
+    save_observed_snapshot_state(root, resolved)
     actual_run_id = run_id or _run_id(resolved)
 
     evidence_provider.ensure_index(resolved)
