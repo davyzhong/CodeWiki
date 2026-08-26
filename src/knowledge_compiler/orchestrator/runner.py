@@ -218,11 +218,18 @@ class RunOrchestrator:
             WikiCompilationError,
             compile_repository_wiki,
         )
+        from knowledge_compiler.retrieval.context import (
+            ContextRetrievalError,
+            build_knowledge_index,
+        )
 
         try:
             compile_repository_wiki(Path(self.output_root))
-        except (WikiCompilationError, OSError) as error:
-            return f"wiki compilation failed: {error}"
+            build_knowledge_index(
+                Path(self.output_root), snapshot=self.snapshot
+            )
+        except (WikiCompilationError, ContextRetrievalError, OSError) as error:
+            return f"view compilation failed: {error}"
         return None
 
     # -- internals -----------------------------------------------------------

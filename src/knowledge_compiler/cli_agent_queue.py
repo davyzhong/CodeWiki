@@ -398,11 +398,20 @@ def finalize(
                 WikiCompilationError,
                 compile_repository_wiki,
             )
+            from knowledge_compiler.retrieval.context import (
+                ContextRetrievalError,
+                build_knowledge_index,
+            )
 
             try:
                 compile_repository_wiki(repository_root.resolve())
-            except (WikiCompilationError, OSError) as error:
-                wiki_failure = f"wiki compilation failed: {error}"
+                build_knowledge_index(repository_root.resolve())
+            except (
+                WikiCompilationError,
+                ContextRetrievalError,
+                OSError,
+            ) as error:
+                wiki_failure = f"view compilation failed: {error}"
         updated = queue.record()
         for object_id in published_ids:
             record = next(

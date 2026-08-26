@@ -70,11 +70,32 @@ def test_serve_fails_closed_without_compiled_html(tmp_path: Path) -> None:
 
 
 def _published_store(tmp_path: Path) -> Path:
+    import subprocess
     import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from tests_storage_helper import build_published_generation
 
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "shop.py").write_text(
+        "def checkout():\n    return 'ok'\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "init", "-q", "-b", "main", str(tmp_path)], check=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "config", "user.email", "t@e.com"],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "config", "user.name", "T"], check=True
+    )
+    subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], check=True)
+    subprocess.run(
+        [
+            "git", "-C", str(tmp_path), "commit", "--allow-empty",
+            "-qm", "fixture",
+        ],
+        check=True,
+    )
     build_published_generation(tmp_path)
     return tmp_path
 

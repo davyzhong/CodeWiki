@@ -85,8 +85,16 @@
   compile views after the canonical commit and report `partial` on view
   failure, and `open` warns on the lagging stamp
   (632 passed, 1 opt-in live test skipped at this checkpoint).
-- [ ] Build a generation-stamped verified-only SQLite FTS5 index.
-- [ ] Implement budgeted one-hop ContextRetriever with snapshot/generation fail-closed checks.
+- [x] Build a generation-stamped verified-only SQLite FTS5 index and the
+  budgeted one-hop ContextRetriever: `knowledge compile` and successful
+  builds rebuild `.knowledge/cache/knowledge-index.sqlite3` from verified
+  canonical objects only, retrieval fails closed with
+  `knowledge_update_required` unless manifest stamps, index stamps, and
+  the repository snapshot (commit + cleanliness) all agree, ranking is
+  type-aware, one-hop relations join with attribution, human overlays
+  surface as `source: human`, budgets are honored, and `--include-stale`
+  stays a visibly marked diagnostic mode
+  (639 passed, 1 opt-in live test skipped at this checkpoint).
 - [ ] Make `compile`, `context`, `open`, `serve`, and `status` perform
   their final specified behavior.
 

@@ -107,7 +107,7 @@ def test_primary_build_reports_partial_when_wiki_compilation_fails(
 
     assert outcome.status == "partial"
     assert outcome.generation is not None
-    assert "wiki compilation failed" in " ".join(outcome.diagnostics)
+    assert "view compilation failed" in " ".join(outcome.diagnostics)
     manifest = yaml.safe_load(
         (snapshot.root / ".knowledge/manifest.yaml").read_bytes()
     )

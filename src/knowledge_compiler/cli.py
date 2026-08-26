@@ -200,10 +200,15 @@ def compile_knowledge_views(
         WikiCompilationError,
         compile_repository_wiki,
     )
+    from knowledge_compiler.retrieval.context import (
+        ContextRetrievalError,
+        build_knowledge_index,
+    )
 
     try:
         result = compile_repository_wiki(root)
-    except WikiCompilationError as error:
+        index = build_knowledge_index(root)
+    except (WikiCompilationError, ContextRetrievalError) as error:
         typer.secho(f"compile: {error}", fg=typer.colors.RED)
         raise typer.Exit(code=1) from None
     import json as _json
@@ -218,6 +223,7 @@ def compile_knowledge_views(
                 ),
                 "stale_object_ids": list(result.stale_object_ids),
                 "orphaned_overlay_ids": list(result.orphaned_overlay_ids),
+                "index_verified_object_ids": list(index.verified_object_ids),
             },
             ensure_ascii=False,
             sort_keys=True,
@@ -235,15 +241,43 @@ def context_for_task(
 ) -> None:
     """Compile budgeted task context from verified knowledge."""
 
-    manifest_path = repository_root / ".knowledge/manifest.yaml"
+    root = repository_root.resolve()
+    manifest_path = root / ".knowledge/manifest.yaml"
     if not manifest_path.is_file():
         typer.secho("knowledge_update_required", fg=typer.colors.RED)
         raise typer.Exit(code=1)
-    typer.secho(
-        "context: verified retrieval index is not available",
-        fg=typer.colors.RED,
+    if format not in {"markdown", "json"}:
+        typer.secho(
+            f"context: unsupported format {format!r}", fg=typer.colors.RED
+        )
+        raise typer.Exit(code=1)
+    from knowledge_compiler.retrieval.context import (
+        ContextRetrievalError,
+        retrieve_task_context,
     )
-    raise typer.Exit(code=1)
+
+    try:
+        markdown = retrieve_task_context(
+            root,
+            task,
+            budget=budget,
+            include_stale=include_stale,
+        )
+    except ContextRetrievalError as error:
+        typer.secho(str(error), fg=typer.colors.RED)
+        raise typer.Exit(code=1) from None
+    if format == "json":
+        import json as _json
+
+        typer.echo(
+            _json.dumps(
+                {"task": task, "markdown": markdown},
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
+        return
+    typer.echo(markdown)
 
 
 @app.command(name="open")
