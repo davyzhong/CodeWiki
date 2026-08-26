@@ -168,6 +168,46 @@ def _pending_lifecycle_bytes(root: Path) -> tuple[bytes | None, bytes, bytes]:
     )
 
 
+def _interrupt_pending_lifecycle(root: Path, failure_point: str) -> None:
+    from knowledge_compiler.incremental.pending import PendingStore, PersistedTarget
+
+    _prepare_pending_lifecycle(root)
+
+    def crash(point: str) -> None:
+        if point == failure_point:
+            raise _SimulatedProcessDeath(point)
+
+    store = PendingStore(
+        root / ".knowledge/state/pending-targets.json",
+        fault_injector=crash,
+    )
+    with pytest.raises(_SimulatedProcessDeath, match=failure_point):
+        store.add(
+            PersistedTarget(target_id="module.lifecycle.alpha", reason="retry")
+        )
+
+
+def _assert_newer_generation_survives_pending_store_reload(
+    root: Path, generation: str
+) -> None:
+    from knowledge_compiler.incremental.pending import PendingStore
+
+    manifest_path = root / ".knowledge/manifest.yaml"
+    committed = manifest_path.read_bytes()
+    manifest = yaml.safe_load(committed)
+    assert manifest["active_generation"] == generation
+    assert manifest["observed_snapshot"]["commit"] == "commit-two"
+
+    PendingStore(root / ".knowledge/state/pending-targets.json")
+    assert manifest_path.read_bytes() == committed
+    assert not (
+        root / ".knowledge/state/pending-lifecycle-transaction.json"
+    ).exists()
+    assert not (
+        root / ".knowledge/state/pending-lifecycle-transaction.json.tmp"
+    ).exists()
+
+
 def test_run_store_projects_strict_secret_free_latest_plan(tmp_path: Path) -> None:
     from knowledge_compiler.orchestrator.store import RunStore
 
@@ -289,6 +329,74 @@ def test_pending_lifecycle_restart_recovers_all_old_or_all_new_bytes(
     ).exists()
     assert not (
         root / ".knowledge/state/pending-lifecycle-transaction.json.tmp"
+    ).exists()
+
+
+@pytest.mark.parametrize("failure_point", _PENDING_TRANSACTION_FAILURE_POINTS)
+def test_single_generation_recovers_pending_journal_before_newer_manifest(
+    tmp_path: Path, failure_point: str
+) -> None:
+    from test_generation_publication import _verified_inputs
+
+    from knowledge_compiler.storage import GenerationPublisher
+
+    _interrupt_pending_lifecycle(tmp_path, failure_point)
+    module, pack = _verified_inputs()
+    generation = "gen-newer-single"
+
+    GenerationPublisher(tmp_path).publish(
+        generation,
+        module,
+        pack,
+        observed_snapshot=_snapshot(tmp_path, commit="commit-two"),
+    )
+
+    _assert_newer_generation_survives_pending_store_reload(
+        tmp_path, generation
+    )
+
+
+@pytest.mark.parametrize("failure_point", _PENDING_TRANSACTION_FAILURE_POINTS)
+def test_batch_generation_recovers_pending_journal_before_newer_manifest(
+    tmp_path: Path, failure_point: str
+) -> None:
+    from test_generation_publication import _verified_inputs
+
+    from knowledge_compiler.storage import GenerationPublisher
+
+    _interrupt_pending_lifecycle(tmp_path, failure_point)
+    module, pack = _verified_inputs()
+    generation = "gen-newer-batch"
+
+    GenerationPublisher(tmp_path).publish_generation(
+        generation,
+        ((module, pack),),
+        observed_snapshot=_snapshot(tmp_path, commit="commit-two"),
+    )
+
+    _assert_newer_generation_survives_pending_store_reload(
+        tmp_path, generation
+    )
+
+
+def test_generation_recovery_also_completes_pending_lifecycle_journal(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.storage import GenerationPublisher
+
+    _interrupt_pending_lifecycle(
+        tmp_path, "pending-lifecycle.plan.replace"
+    )
+
+    GenerationPublisher(tmp_path).recover()
+
+    manifest = yaml.safe_load(
+        (tmp_path / ".knowledge/manifest.yaml").read_bytes()
+    )
+    assert manifest["active_generation"] == "gen-pending-transaction"
+    assert manifest["pending_targets"] == ["module.lifecycle.alpha"]
+    assert not (
+        tmp_path / ".knowledge/state/pending-lifecycle-transaction.json"
     ).exists()
 
 

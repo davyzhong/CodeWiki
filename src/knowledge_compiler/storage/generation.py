@@ -183,6 +183,7 @@ class GenerationPublisher:
         object_type = _object_type(module)
         if object_type == "module" and evidence_pack is None:
             raise PublicationError("module publication requires an evidence pack")
+        self._recover_pending_lifecycle()
         try:
             from knowledge_compiler.human.overlays import load_active_overlays
 
@@ -345,6 +346,7 @@ class GenerationPublisher:
         self._validate_generation(generation)
         if not items and not allow_empty:
             raise PublicationError("generation must contain at least one object")
+        self._recover_pending_lifecycle()
 
         prepared: list[
             tuple[str, str, dict[str, bytes | None], dict[str, Path]]
@@ -688,6 +690,7 @@ class GenerationPublisher:
         """Recover every incomplete journal; safe to repeat after interruption."""
 
         try:
+            self._recover_pending_lifecycle()
             self._assert_safe_roots(create=False)
             if not self.transactions_root.exists():
                 return
@@ -701,6 +704,18 @@ class GenerationPublisher:
             if isinstance(error, PublicationError):
                 raise
             raise PublicationError(f"recovery failed at {error}") from error
+
+    def _recover_pending_lifecycle(self) -> None:
+        try:
+            from knowledge_compiler.storage.lifecycle import (
+                recover_pending_lifecycle,
+            )
+
+            recover_pending_lifecycle(self.output_root)
+        except Exception as error:
+            raise PublicationError(
+                f"pending lifecycle recovery failed: {error}"
+            ) from error
 
     def _recover_transaction(self, transaction: Path) -> None:
         journal_path = transaction / "journal.json"
