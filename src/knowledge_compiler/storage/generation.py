@@ -26,11 +26,6 @@ from knowledge_compiler.contracts.knowledge import ModuleKnowledge
 _GENERATION = re.compile(
     r"[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9_-])?\Z"
 )
-_OUTPUTS = (
-    ("canonical", "objects/modules", ".yaml"),
-    ("card", "views/cards", ".md"),
-    ("wiki", "views/wiki", ".md"),
-)
 
 _TYPE_DIRECTORIES = {
     "module": "modules",
@@ -198,11 +193,13 @@ class GenerationPublisher:
                 }
             else:
                 compiled = _compile_outputs(module, None, overlay)
+            # The complete human Wiki (aggregates, source index, HTML) is
+            # compiled after this transaction; the stamp lags until then.
             manifest = yaml.safe_dump(
                 {
                     "active_generation": generation,
                     "agent_views_generation": generation,
-                    "wiki_generation": generation,
+                    "wiki_generation": self._manifest_value("wiki_generation"),
                 },
                 sort_keys=False,
                 allow_unicode=True,
@@ -338,7 +335,6 @@ class GenerationPublisher:
             tuple[str, str, dict[str, bytes | None], dict[str, Path]]
         ] = []
         seen_ids: set[str] = set()
-        contains_stale = False
         overlays: dict[str, HumanOverlay] = {}
         try:
             from knowledge_compiler.human.overlays import load_active_overlays
@@ -353,7 +349,6 @@ class GenerationPublisher:
                     )
                 seen_ids.add(object_id)
                 if model.validity.status == "stale":
-                    contains_stale = True
                     compiled = _compile_stale_outputs(model)
                 elif object_type == "module":
                     if evidence_pack is None:
@@ -395,11 +390,10 @@ class GenerationPublisher:
                 {
                     "active_generation": generation,
                     "agent_views_generation": generation,
-                    "wiki_generation": (
-                        self._manifest_value("wiki_generation")
-                        if contains_stale
-                        else generation
-                    ),
+                    # The complete human Wiki is compiled after this
+                    # transaction; the stamp lags until `knowledge
+                    # compile` succeeds so readers can detect it.
+                    "wiki_generation": self._manifest_value("wiki_generation"),
                     "objects": [
                         {"id": object_id, "type": object_type}
                         for object_id, object_type, _, _ in prepared
@@ -968,15 +962,19 @@ class GenerationPublisher:
         self, module_id: str, object_type: str = "module"
     ) -> dict[str, Path]:
         type_directory = _TYPE_DIRECTORIES.get(object_type, "modules")
-        result = {
-            name: self.knowledge_root / directory / f"{module_id}{suffix}"
-            for name, directory, suffix in _OUTPUTS
+        return {
+            "card": self.knowledge_root
+            / "views/cards"
+            / f"{module_id}.md",
+            "wiki": self.knowledge_root
+            / "views/wiki"
+            / type_directory
+            / f"{module_id}.md",
+            "canonical": (
+                self.knowledge_root / "objects" / type_directory / f"{module_id}.yaml"
+            ),
+            "manifest": self.knowledge_root / "manifest.yaml",
         }
-        result["canonical"] = (
-            self.knowledge_root / "objects" / type_directory / f"{module_id}.yaml"
-        )
-        result["manifest"] = self.knowledge_root / "manifest.yaml"
-        return result
 
     def _safe_object_id(self, module: ModuleKnowledge) -> str:
         try:

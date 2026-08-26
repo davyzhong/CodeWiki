@@ -83,7 +83,9 @@ def test_publishes_all_outputs_and_replaces_manifest_last(tmp_path: Path) -> Non
     assert manifest == {
         "active_generation": "generation-001",
         "agent_views_generation": "generation-001",
-        "wiki_generation": "generation-001",
+        # The complete Wiki is compiled after publication; the stamp
+        # lags until `knowledge compile` succeeds.
+        "wiki_generation": None,
     }
     replace_points = [point for point in points if point.endswith(".replace")]
     assert replace_points[-1] == "publish.manifest.replace"
@@ -252,7 +254,7 @@ def test_post_commit_crash_keeps_new_generation_and_cleans_journal(
     assert manifest == {
         "active_generation": "generation-002",
         "agent_views_generation": "generation-002",
-        "wiki_generation": "generation-002",
+        "wiki_generation": None,
     }
     canonical = (tmp_path / ".knowledge/objects/modules/module.shop.checkout.yaml").read_text()
     assert "Replacement summary for generation two." in canonical
@@ -340,7 +342,7 @@ def test_reuse_guard_wraps_unreadable_destination_as_typed_error(
     publisher.publish("generation-001", module, pack)
     outside = tmp_path / "outside.txt"
     outside.write_text("decoy", encoding="utf-8")
-    wiki = tmp_path / ".knowledge/views/wiki/module.shop.checkout.md"
+    wiki = tmp_path / ".knowledge/views/wiki/modules/module.shop.checkout.md"
     wiki.unlink()
     wiki.symlink_to(outside)
 

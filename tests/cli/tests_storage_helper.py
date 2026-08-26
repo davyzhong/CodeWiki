@@ -66,4 +66,15 @@ def build_published_generation(output_root: Path) -> None:
     )
 
 
-__all__ = ["build_published_generation"]
+def build_compiled_generation(output_root: Path) -> None:
+    """Publish one module generation and compile the complete Wiki."""
+
+    build_published_generation(output_root)
+    # Publication leaves wiki_generation behind on purpose; the complete
+    # Wiki is only current after deterministic compilation.
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    compile_repository_wiki(output_root)
+
+
+__all__ = ["build_compiled_generation", "build_published_generation"]

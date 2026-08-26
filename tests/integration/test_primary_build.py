@@ -52,6 +52,70 @@ def test_primary_llm_build_runs_real_provider_contract_through_orchestrator(
     assert (snapshot.root / ".knowledge/manifest.yaml").is_file()
 
 
+def test_primary_build_compiles_the_human_wiki_after_publication(
+    tmp_path: Path,
+) -> None:
+    import yaml
+
+    from knowledge_compiler.building import run_primary_build
+    from knowledge_compiler.planning.module import plan_one_module
+
+    snapshot, provider, worker, plan = make_world(tmp_path)
+    outcome = run_primary_build(
+        repository_root=snapshot.root,
+        executor="llm",
+        evidence_provider=provider,
+        worker=worker,
+        snapshot=snapshot,
+        run_id="primary-wiki-001",
+        planner=plan_one_module,
+    )
+
+    assert outcome.status == "complete"
+    manifest = yaml.safe_load(
+        (snapshot.root / ".knowledge/manifest.yaml").read_bytes()
+    )
+    assert manifest["wiki_generation"] == manifest["active_generation"]
+    assert (snapshot.root / ".knowledge/views/wiki/index.md").is_file()
+    assert (snapshot.root / ".knowledge/views/wiki/sources.md").is_file()
+    assert (snapshot.root / ".knowledge/exports/repo-wiki.html").is_file()
+
+
+def test_primary_build_reports_partial_when_wiki_compilation_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import yaml
+
+    from knowledge_compiler.building import run_primary_build
+    from knowledge_compiler.compiler import wiki as wiki_module
+    from knowledge_compiler.planning.module import plan_one_module
+
+    def fail(_root: Path) -> None:
+        raise wiki_module.WikiCompilationError("injected compiler failure")
+
+    monkeypatch.setattr(wiki_module, "compile_repository_wiki", fail)
+    snapshot, provider, worker, plan = make_world(tmp_path)
+    outcome = run_primary_build(
+        repository_root=snapshot.root,
+        executor="llm",
+        evidence_provider=provider,
+        worker=worker,
+        snapshot=snapshot,
+        run_id="primary-wiki-fail-001",
+        planner=plan_one_module,
+    )
+
+    assert outcome.status == "partial"
+    assert outcome.generation is not None
+    assert "wiki compilation failed" in " ".join(outcome.diagnostics)
+    manifest = yaml.safe_load(
+        (snapshot.root / ".knowledge/manifest.yaml").read_bytes()
+    )
+    assert manifest["active_generation"] == outcome.generation
+    assert manifest["wiki_generation"] is None
+    assert (snapshot.root / ".knowledge/objects").is_dir()
+
+
 def test_primary_build_records_conflict_when_override_evidence_changes(
     tmp_path: Path,
 ) -> None:
@@ -361,6 +425,9 @@ def test_agent_protocol_validates_contracts_and_publishes_generation(
     manifest = yaml.safe_load(
         (snapshot.root / ".knowledge/manifest.yaml").read_bytes()
     )
+    assert manifest["wiki_generation"] == manifest["active_generation"]
+    assert (snapshot.root / ".knowledge/views/wiki/index.md").is_file()
+    assert (snapshot.root / ".knowledge/exports/repo-wiki.html").is_file()
     assert {item["id"] for item in manifest["objects"]} == {
         plan.targets[0].target.id,
         preserved_flow.id,

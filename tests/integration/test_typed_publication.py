@@ -103,7 +103,7 @@ def test_typed_object_publishes_into_its_type_directory(
     assert manifest == {
         "active_generation": published.generation,
         "agent_views_generation": published.generation,
-        "wiki_generation": published.generation,
+        "wiki_generation": None,
     }
     reloaded = yaml.safe_load(published.canonical_path.read_bytes())
     assert reloaded["id"] == canonical.id
@@ -235,7 +235,7 @@ def test_two_types_publish_atomically_in_one_generation(
     manifest = yaml.safe_load(published.manifest_path.read_bytes())
     assert manifest["active_generation"] == "gen-multi-001"
     assert manifest["agent_views_generation"] == "gen-multi-001"
-    assert manifest["wiki_generation"] == "gen-multi-001"
+    assert manifest["wiki_generation"] is None
     assert manifest["objects"] == [
         {"id": architecture.id, "type": "architecture"},
         {"id": flow.id, "type": "flow"},
@@ -463,7 +463,7 @@ def test_stale_object_commits_with_card_removed_and_wiki_lag_recorded(
     )
     assert manifest["active_generation"] == "gen-invalidation"
     assert manifest["agent_views_generation"] == "gen-invalidation"
-    assert manifest["wiki_generation"] == "gen-before-invalidation"
+    assert manifest["wiki_generation"] is None
 
 
 def test_stale_invalidation_failure_recovers_verified_card_and_canonical(

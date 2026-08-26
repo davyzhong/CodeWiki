@@ -75,10 +75,20 @@
 
 ## Gate 7 — Views, retrieval, and CLI
 
-- [ ] Compile complete deterministic Markdown Wiki, Cards, source index, Mermaid, and standalone HTML.
+- [x] Compile complete deterministic Markdown Wiki, Cards, source index,
+  Mermaid, and standalone HTML: per-object pages moved to type directories
+  with stale expiry banners and orphaned-archive warnings, aggregate
+  architecture/rules/tech-stack pages embed Mermaid plus rendered SVG,
+  sources index cites evidence per object, the standalone HTML carries
+  navigation/search/freshness metadata, publication leaves
+  `wiki_generation` behind until `knowledge compile` succeeds, builds
+  compile views after the canonical commit and report `partial` on view
+  failure, and `open` warns on the lagging stamp
+  (632 passed, 1 opt-in live test skipped at this checkpoint).
 - [ ] Build a generation-stamped verified-only SQLite FTS5 index.
 - [ ] Implement budgeted one-hop ContextRetriever with snapshot/generation fail-closed checks.
-- [ ] Make `compile`, `context`, `open`, `serve`, and `status` perform their final specified behavior.
+- [ ] Make `compile`, `context`, `open`, `serve`, and `status` perform
+  their final specified behavior.
 
 ## Gate 8 — MCP and security
 

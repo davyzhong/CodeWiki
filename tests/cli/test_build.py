@@ -57,9 +57,9 @@ def test_validate_clean_exit_zero(tmp_path: Path, monkeypatch) -> None:
 def test_validate_detects_generation_consistency(tmp_path: Path, monkeypatch) -> None:
     import shutil as shutil_module
 
-    from tests_storage_helper import build_published_generation
+    from tests_storage_helper import build_compiled_generation
 
     monkeypatch.chdir(tmp_path)
-    build_published_generation(tmp_path)
+    build_compiled_generation(tmp_path)
     result = Runner.invoke(app, ["validate"])
     assert result.exit_code == 0, result.output

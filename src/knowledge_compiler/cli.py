@@ -188,18 +188,41 @@ def compile_knowledge_views(
 ) -> None:
     """Retry deterministic view compilation without changing canonical IR."""
 
-    manifest_path = repository_root / ".knowledge/manifest.yaml"
+    root = repository_root.resolve()
+    manifest_path = root / ".knowledge/manifest.yaml"
     if not manifest_path.is_file():
         typer.secho(
             "compile: no committed generation found",
             fg=typer.colors.RED,
         )
         raise typer.Exit(code=1)
-    typer.secho(
-        "compile: deterministic Wiki/HTML compiler is not available",
-        fg=typer.colors.RED,
+    from knowledge_compiler.compiler.wiki import (
+        WikiCompilationError,
+        compile_repository_wiki,
     )
-    raise typer.Exit(code=1)
+
+    try:
+        result = compile_repository_wiki(root)
+    except WikiCompilationError as error:
+        typer.secho(f"compile: {error}", fg=typer.colors.RED)
+        raise typer.Exit(code=1) from None
+    import json as _json
+
+    typer.echo(
+        _json.dumps(
+            {
+                "generation": result.generation,
+                "pages": list(result.pages),
+                "html": str(
+                    result.html_path.relative_to(root)
+                ),
+                "stale_object_ids": list(result.stale_object_ids),
+                "orphaned_overlay_ids": list(result.orphaned_overlay_ids),
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
 
 
 @app.command(name="context")
@@ -229,7 +252,24 @@ def open_knowledge_wiki(
 ) -> None:
     """Open the human Wiki, warning when it lags the active generation."""
 
-    html_path = repository_root / ".knowledge/exports/repo-wiki.html"
+    root = repository_root.resolve()
+    html_path = root / ".knowledge/exports/repo-wiki.html"
+    manifest_path = root / ".knowledge/manifest.yaml"
+    if manifest_path.is_file():
+        import yaml as _yaml
+
+        try:
+            manifest = _yaml.safe_load(manifest_path.read_bytes())
+        except (OSError, ValueError):
+            manifest = None
+        if isinstance(manifest, dict) and manifest.get("wiki_generation") != (
+            manifest.get("active_generation")
+        ):
+            typer.secho(
+                "open: the Wiki lags the active generation; "
+                "run knowledge compile for current views",
+                fg=typer.colors.YELLOW,
+            )
     if not html_path.is_file():
         typer.secho(
             "open: compiled HTML Wiki not found; run knowledge compile",
@@ -458,7 +498,7 @@ def validate() -> None:
     expected_files = [
         knowledge / "objects/modules/module.shop.checkout.yaml",
         knowledge / "views/cards/module.shop.checkout.md",
-        knowledge / "views/wiki/module.shop.checkout.md",
+        knowledge / "views/wiki/modules/module.shop.checkout.md",
     ]
     missing = [str(path) for path in expected_files if not path.is_file()]
     if missing:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 from typing import Any
 
 from knowledge_compiler.contracts.repository import (
@@ -197,13 +198,32 @@ class RunOrchestrator:
         self._mark_published(
             sorted(set(regenerated_ids + already_published)), generation
         )
+        # Human Wiki/HTML compilation runs after the canonical commit; a
+        # failure leaves wiki_generation behind without rolling back IR.
+        wiki_failure = self._compile_views()
         self._finalize()
+        final_diagnostics = diagnostics + (
+            [wiki_failure] if wiki_failure else []
+        )
+        status = "partial" if (any_required_failed or wiki_failure) else "complete"
         return RunnerOutcome(
-            status="partial" if any_required_failed else "complete",
+            status=status,
             generation=generation,
             published_object_ids=tuple(sorted(regenerated_ids)),
-            diagnostics=tuple(diagnostics),
+            diagnostics=tuple(final_diagnostics),
         )
+
+    def _compile_views(self) -> str | None:
+        from knowledge_compiler.compiler.wiki import (
+            WikiCompilationError,
+            compile_repository_wiki,
+        )
+
+        try:
+            compile_repository_wiki(Path(self.output_root))
+        except (WikiCompilationError, OSError) as error:
+            return f"wiki compilation failed: {error}"
+        return None
 
     # -- internals -----------------------------------------------------------
 

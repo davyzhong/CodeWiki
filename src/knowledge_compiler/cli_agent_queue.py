@@ -390,6 +390,19 @@ def finalize(
         published_ids = tuple(
             canonical.id for canonical, _ in regenerated_artifacts
         )
+        # Human Wiki/HTML compilation runs after the canonical commit; a
+        # failure leaves wiki_generation behind without rolling back IR.
+        wiki_failure: str | None = None
+        if generation is not None:
+            from knowledge_compiler.compiler.wiki import (
+                WikiCompilationError,
+                compile_repository_wiki,
+            )
+
+            try:
+                compile_repository_wiki(repository_root.resolve())
+            except (WikiCompilationError, OSError) as error:
+                wiki_failure = f"wiki compilation failed: {error}"
         updated = queue.record()
         for object_id in published_ids:
             record = next(
@@ -419,12 +432,17 @@ def finalize(
                 run_id=queue.record().run_id,
                 generation=generation,
                 published_object_ids=published_ids,
-                status="partial" if split.conflicts else "complete",
+                status=(
+                    "partial"
+                    if split.conflicts or wiki_failure
+                    else "complete"
+                ),
                 diagnostics=tuple(
                     f"{object_id}: human override conflict in "
                     + ", ".join(fields)
                     for object_id, fields in split.conflicts.items()
-                ),
+                )
+                + ((wiki_failure,) if wiki_failure else ()),
             )
         except OSError as error:
             # The manifest is the canonical commit marker. A derived report
@@ -436,7 +454,9 @@ def finalize(
     _echo(
         {
             "finalized": True,
-            "status": "partial" if split.conflicts else "complete",
+            "status": (
+                "partial" if split.conflicts or wiki_failure else "complete"
+            ),
             "generation": generation,
             "published_object_ids": list(published_ids),
             "diagnostics": [
@@ -446,10 +466,11 @@ def finalize(
                     + ", ".join(fields)
                     for object_id, fields in split.conflicts.items()
                 ),
+                *( [wiki_failure] if wiki_failure else [] ),
             ],
         }
     )
-    if split.conflicts:
+    if split.conflicts or wiki_failure:
         raise typer.Exit(code=2)
 
 

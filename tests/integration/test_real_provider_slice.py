@@ -189,7 +189,7 @@ def test_real_provider_fixture_path_publishes_one_generation(tmp_path: Path) -> 
     assert manifest == {
         "active_generation": outcome.generation,
         "agent_views_generation": outcome.generation,
-        "wiki_generation": outcome.generation,
+        "wiki_generation": None,
     }
     canonical = yaml.safe_load(outcome.canonical_path.read_bytes())
     assert canonical["id"] == outcome.object_id

@@ -74,7 +74,7 @@ def test_success_publishes_one_generation_matching_golden(tmp_path: Path) -> Non
     knowledge = tmp_path / ".knowledge"
     assert outcome.canonical_path == knowledge / "objects/modules/module.shop.checkout.yaml"
     assert outcome.card_path == knowledge / "views/cards/module.shop.checkout.md"
-    assert outcome.wiki_path == knowledge / "views/wiki/module.shop.checkout.md"
+    assert outcome.wiki_path == knowledge / "views/wiki/modules/module.shop.checkout.md"
     assert outcome.manifest_path == knowledge / "manifest.yaml"
     assert stable_root(outcome.canonical_path.read_bytes()) == (GOLDEN / "module.yaml").read_bytes()
     assert outcome.card_path.read_bytes() == (GOLDEN / "module-card.md").read_bytes()
@@ -82,12 +82,12 @@ def test_success_publishes_one_generation_matching_golden(tmp_path: Path) -> Non
     assert yaml.safe_load(outcome.manifest_path.read_bytes()) == {
         "active_generation": outcome.generation,
         "agent_views_generation": outcome.generation,
-        "wiki_generation": outcome.generation,
+        "wiki_generation": None,
     }
     assert set(visible(tmp_path)) == {
         "objects/modules/module.shop.checkout.yaml",
         "views/cards/module.shop.checkout.md",
-        "views/wiki/module.shop.checkout.md",
+        "views/wiki/modules/module.shop.checkout.md",
         "manifest.yaml",
     }
 
@@ -428,7 +428,7 @@ def test_post_commit_cleanup_failure_reports_committed_success(
     assert yaml.safe_load(outcome.manifest_path.read_bytes()) == {
         "active_generation": outcome.generation,
         "agent_views_generation": outcome.generation,
-        "wiki_generation": outcome.generation,
+        "wiki_generation": None,
     }
     assert outcome.canonical_path.exists()
     assert not (tmp_path / ".knowledge/state/transactions").exists() or not any(
@@ -480,7 +480,7 @@ def test_committed_probe_requires_full_byte_identical_tree(
     if damage == "delete-card":
         (knowledge / "views/cards/module.shop.checkout.md").unlink()
     elif damage == "tamper-wiki":
-        (knowledge / "views/wiki/module.shop.checkout.md").write_text(
+        (knowledge / "views/wiki/modules/module.shop.checkout.md").write_text(
             "TAMPERED CONTENT\n", encoding="utf-8"
         )
     else:

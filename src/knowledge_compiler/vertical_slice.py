@@ -205,11 +205,17 @@ def _is_committed(
             "canonical": compile_module_yaml(module, pack),
             "card": compile_module_card(module, pack),
             "wiki": compile_module_wiki(module, pack),
+            # The wiki stamp is owned by `knowledge compile`; the slice
+            # replay accepts whatever stamp the publisher preserved.
             "manifest": yaml.safe_dump(
                 {
                     "active_generation": generation,
                     "agent_views_generation": generation,
-                    "wiki_generation": generation,
+                    "wiki_generation": (
+                        value.get("wiki_generation")
+                        if isinstance(value, dict)
+                        else None
+                    ),
                 },
                 sort_keys=False,
                 allow_unicode=True,
@@ -221,7 +227,7 @@ def _is_committed(
     destinations = {
         "canonical": knowledge / f"objects/modules/{object_id}.yaml",
         "card": knowledge / f"views/cards/{object_id}.md",
-        "wiki": knowledge / f"views/wiki/{object_id}.md",
+        "wiki": knowledge / f"views/wiki/modules/{object_id}.md",
         "manifest": manifest_path,
     }
     for name, destination in destinations.items():
@@ -355,7 +361,7 @@ def run_fake_module_slice(
                 object_id=object_id,
                 canonical_path=knowledge / f"objects/modules/{object_id}.yaml",
                 card_path=knowledge / f"views/cards/{object_id}.md",
-                wiki_path=knowledge / f"views/wiki/{object_id}.md",
+                wiki_path=knowledge / f"views/wiki/modules/{object_id}.md",
                 manifest_path=knowledge / "manifest.yaml",
             )
         return _failure("publication", str(error))
