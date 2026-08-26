@@ -83,6 +83,61 @@ def test_index_contains_only_verified_objects_and_matches_stamps(
     assert (repo / ".knowledge/cache/knowledge-index.sqlite3").is_file()
 
 
+def test_dirty_snapshot_with_exact_identity_retrieves_until_a_byte_moves(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.repository.local_git import (
+        LocalGitRepositoryProvider,
+    )
+    from knowledge_compiler.storage.lifecycle import (
+        update_manifest_lifecycle,
+    )
+
+    repo = make_repo(tmp_path)
+    publish_verified_world(repo)
+
+    checkout = repo / "src/shop/checkout.py"
+    checkout.write_text(
+        checkout.read_text(encoding="utf-8") + "\n# local analysis note\n",
+        encoding="utf-8",
+    )
+    provider = LocalGitRepositoryProvider()
+    dirty = provider.resolve(repo)
+    assert dirty.dirty and dirty.working_tree_hash is not None
+    update_manifest_lifecycle(repo, observed_snapshot=dirty)
+
+    build_knowledge_index(repo)
+    markdown = retrieve_task_context(repo, "checkout payment")
+    assert "checkout" in markdown.lower()
+
+    checkout.write_text(
+        checkout.read_text(encoding="utf-8") + "\n# one more byte\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ContextRetrievalError, match=UNAVAILABLE):
+        retrieve_task_context(repo, "checkout payment")
+
+
+def test_dirty_identity_with_null_working_tree_hash_is_rejected(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.repository.local_git import (
+        LocalGitRepositoryProvider,
+    )
+
+    repo = make_repo(tmp_path)
+    publish_verified_world(repo)
+    (repo / "src/shop/inventory.py").write_text(
+        "# dirty\n", encoding="utf-8"
+    )
+    resolved = LocalGitRepositoryProvider().resolve(repo)
+    assert resolved.dirty
+    forged = resolved.model_copy(update={"working_tree_hash": None})
+
+    with pytest.raises(ContextRetrievalError, match=UNAVAILABLE):
+        build_knowledge_index(repo, snapshot=forged)
+
+
 def test_context_requires_index_and_fails_closed_when_lagging(
     tmp_path: Path,
 ) -> None:
@@ -105,7 +160,9 @@ def test_context_requires_index_and_fails_closed_when_lagging(
         retrieve_task_context(repo, "checkout payment")
 
 
-def test_context_fails_closed_on_uncommitted_changes(tmp_path: Path) -> None:
+def test_dirty_working_tree_moves_past_the_index_and_fails_closed(
+    tmp_path: Path,
+) -> None:
     repo = make_repo(tmp_path)
     publish_verified_world(repo)
     build_knowledge_index(repo)
@@ -113,7 +170,7 @@ def test_context_fails_closed_on_uncommitted_changes(tmp_path: Path) -> None:
     (repo / "src/shop/checkout.py").write_text(
         "# dirty working tree\n", encoding="utf-8"
     )
-    with pytest.raises(ContextRetrievalError, match="uncommitted"):
+    with pytest.raises(ContextRetrievalError, match=UNAVAILABLE):
         retrieve_task_context(repo, "checkout payment")
 
 

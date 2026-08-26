@@ -34,8 +34,10 @@ def build_knowledge_index(
 
     The index is a deterministic projection of canonical state: every
     verified object becomes one searchable row plus its explicit
-    relations; stale and non-canonical results never enter. The manifest
-    generation stamps are recorded so retrieval can fail closed later.
+    relations; stale and non-canonical results never enter. The index
+    records the exact resolved repository identity — clean or dirty,
+    including the working-tree hash for dirty trees — so retrieval can
+    fail closed unless every byte still matches.
     """
 
     root = Path(repository_root).resolve()
@@ -62,15 +64,24 @@ def build_knowledge_index(
             f"{UNAVAILABLE}: generation stamps disagree with the manifest"
         )
     snapshot = _resolve_snapshot(root, snapshot)
-    if snapshot.dirty:
+    if snapshot.dirty and snapshot.working_tree_hash is None:
         raise ContextRetrievalError(
-            f"{UNAVAILABLE}: repository has uncommitted changes"
+            f"{UNAVAILABLE}: dirty snapshot lacks a working-tree hash"
+        )
+    repository_id = getattr(snapshot, "repository_id", None)
+    if not isinstance(repository_id, str):
+        raise ContextRetrievalError(
+            f"{UNAVAILABLE}: snapshot identity is incomplete"
         )
 
     meta_rows = [
         ("active_generation", active),
         ("agent_views_generation", agent_views),
+        ("repository_id", repository_id),
+        ("snapshot_id", snapshot.snapshot_id),
         ("snapshot_commit", snapshot.commit),
+        ("dirty", "true" if snapshot.dirty else "false"),
+        ("working_tree_hash", snapshot.working_tree_hash or ""),
     ]
     object_rows: list[tuple[str, str, str, str]] = []
     relation_rows: list[tuple[str, str, str]] = []
@@ -233,6 +244,39 @@ def require_current_view(
     _require_current_view(Path(repository_root).resolve(), snapshot)
 
 
+def _snapshot_identity(snapshot: object) -> tuple[object, ...]:
+    """The exact five-field snapshot identity that gates every read."""
+
+    working_tree_hash = getattr(snapshot, "working_tree_hash", None)
+    return (
+        getattr(snapshot, "repository_id", None),
+        getattr(snapshot, "snapshot_id", None),
+        getattr(snapshot, "commit", None),
+        bool(getattr(snapshot, "dirty", False)),
+        working_tree_hash if working_tree_hash else None,
+    )
+
+
+def _meta_identity(meta: dict[str, str]) -> tuple[object, ...]:
+    dirty = meta.get("dirty")
+    if dirty not in ("true", "false"):
+        raise ContextRetrievalError(
+            f"{UNAVAILABLE}: retrieval index identity is invalid"
+        )
+    working_tree_hash = meta.get("working_tree_hash") or None
+    if dirty == "true" and working_tree_hash is None:
+        raise ContextRetrievalError(
+            f"{UNAVAILABLE}: retrieval index identity is invalid"
+        )
+    return (
+        meta.get("repository_id"),
+        meta.get("snapshot_id"),
+        meta.get("snapshot_commit"),
+        dirty == "true",
+        working_tree_hash,
+    )
+
+
 def _require_current_view(root: Path, snapshot: object | None) -> None:
     try:
         manifest = yaml.safe_load(
@@ -266,21 +310,35 @@ def _require_current_view(root: Path, snapshot: object | None) -> None:
         ) from error
     if meta.get("active_generation") != active or meta.get(
         "agent_views_generation"
-    ) != active:
+    ) != agent_views:
         raise ContextRetrievalError(
             f"{UNAVAILABLE}: retrieval index lags the active generation; "
             "run knowledge compile"
         )
     current = _resolve_snapshot(root, snapshot)
-    if current.dirty:
-        raise ContextRetrievalError(
-            f"{UNAVAILABLE}: repository has uncommitted changes"
-        )
-    if meta.get("snapshot_commit") != current.commit:
+    index_identity = _meta_identity(meta)
+    if index_identity != _snapshot_identity(current):
         raise ContextRetrievalError(
             f"{UNAVAILABLE}: repository snapshot moved past the index; "
             "run knowledge update"
         )
+    observed = manifest.get("observed_snapshot")
+    if isinstance(observed, dict):
+        from knowledge_compiler.storage.lifecycle import (
+            ObservedSnapshotProjection,
+        )
+
+        try:
+            projected = ObservedSnapshotProjection.model_validate(observed)
+        except (ValueError, TypeError) as error:
+            raise ContextRetrievalError(
+                f"{UNAVAILABLE}: manifest snapshot projection is invalid"
+            ) from error
+        if _snapshot_identity(projected) != index_identity:
+            raise ContextRetrievalError(
+                f"{UNAVAILABLE}: manifest observed snapshot disagrees "
+                "with the repository; run knowledge update"
+            )
 
 
 def _load_objects_for_retrieval(

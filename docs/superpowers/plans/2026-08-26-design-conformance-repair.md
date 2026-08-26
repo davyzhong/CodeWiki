@@ -73,11 +73,11 @@
 - Consumes: manifest `observed_snapshot` containing repository ID, snapshot ID, commit, dirty flag, and working-tree hash.
 - Produces: index meta with the same identity; `require_current_view` accepts clean or dirty repositories only when all fields match byte-for-byte.
 
-- [ ] Add a failing test that builds/indexes a dirty snapshot, retrieves successfully while unchanged, then changes one eligible byte and expects `knowledge_update_required`.
-- [ ] Confirm current code fails immediately on every dirty snapshot.
-- [ ] Replace blanket dirty rejection with exact observed/index/current snapshot comparison; require non-null matching working-tree hashes when dirty.
-- [ ] Rewrite the final lifecycle fixture to resolve the new committed snapshot rather than injecting the old fixture snapshot after a commit.
-- [ ] Run retrieval, CLI, MCP, and final-gate suites; commit `fix: gate retrieval on exact snapshot identity` and push.
+- [x] Add a failing test that builds/indexes a dirty snapshot, retrieves successfully while unchanged, then changes one eligible byte and expects `knowledge_update_required`.
+- [x] Confirm current code fails immediately on every dirty snapshot.
+- [x] Replace blanket dirty rejection with exact observed/index/current snapshot comparison; require non-null matching working-tree hashes when dirty.
+- [x] Rewrite the final lifecycle fixture to resolve the new committed snapshot rather than injecting the old fixture snapshot after a commit.
+- [x] Run retrieval, CLI, MCP, and final-gate suites; commit `fix: gate retrieval on exact snapshot identity` and push.
 
 ### Task 4: Real CodeWiki incremental hints and complete retirement proof
 
