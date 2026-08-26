@@ -31,11 +31,11 @@
 - Consumes: `RepositorySurvey.files`, `symbols`, `languages`, `graph_communities`, and `configuration_facts`.
 - Produces: `plan_full_refresh(request, survey) -> KnowledgePlan` with one architecture target, one tech-stack target, and bounded stable module/flow/rule targets derived from distinct survey evidence groups.
 
-- [ ] Add a failing test with two graph communities and type-specific facts asserting more than five stable targets, distinct module IDs/seeds, and deterministic ordering.
-- [ ] Run `.venv/bin/pytest -q tests/planning/test_module_planning.py` and confirm the existing fixed-five planner fails the new assertions.
-- [ ] Implement deterministic target discovery with safe slugs, deduplication, a documented maximum target count, and fallbacks for sparse surveys.
-- [ ] Add an integration test proving the orchestrator persists and schedules every discovered target without fixture-specific IDs.
-- [ ] Run planning, contract, and primary-build suites; commit `feat: discover repository knowledge targets` and push.
+- [x] Add a failing test with two graph communities and type-specific facts asserting more than five stable targets, distinct module IDs/seeds, and deterministic ordering.
+- [x] Run `.venv/bin/pytest -q tests/planning/test_module_planning.py` and confirm the existing fixed-five planner fails the new assertions.
+- [x] Implement deterministic target discovery with safe slugs, deduplication, a documented maximum target count, and fallbacks for sparse surveys.
+- [x] Add an integration test proving the orchestrator persists and schedules every discovered target without fixture-specific IDs.
+- [x] Run planning, contract, and primary-build suites; commit `feat: discover repository knowledge targets` and push.
 
 ### Task 2: Tracked latest plan and manifest lifecycle state
 
@@ -53,12 +53,12 @@
 - Produces: atomic `save_latest_plan(root, plan, run)`, manifest `observed_snapshot`, and manifest `pending_targets` projections.
 - Preserves: existing run-local `plan.json` and pending store as recoverable execution details; tracked files become durable cross-machine truth.
 
-- [ ] Add failing tests asserting `.knowledge/plan.yaml` exists after planning and records target state/result/published ID, and that manifest publication preserves exact observed snapshot plus pending target IDs.
-- [ ] Confirm tests fail because only `state/runs/*/plan.json` and `state/pending-targets.json` exist.
-- [ ] Implement strict lifecycle DTOs and atomic YAML writes; extend generation journals so manifest state participates in rollback/recovery.
-- [ ] Project run transitions and pending mutations into tracked state without storing source bodies or secrets.
-- [ ] Add crash tests at plan/manifest replacement boundaries and run storage/orchestrator/incremental suites.
-- [ ] Commit `feat: persist tracked lifecycle state` and push.
+- [x] Add failing tests asserting `.knowledge/plan.yaml` exists after planning and records target state/result/published ID, and that manifest publication preserves exact observed snapshot plus pending target IDs.
+- [x] Confirm tests fail because only `state/runs/*/plan.json` and `state/pending-targets.json` exist.
+- [x] Implement strict lifecycle DTOs and atomic YAML writes; extend generation journals so manifest state participates in rollback/recovery.
+- [x] Project run transitions and pending mutations into tracked state without storing source bodies or secrets.
+- [x] Add crash tests at plan/manifest replacement boundaries and run storage/orchestrator/incremental suites.
+- [x] Commit `feat: persist tracked lifecycle state` and push (follow-up hardening in `fix: make lifecycle mutations transactional`).
 
 ### Task 3: Exact clean and dirty snapshot retrieval gates
 
