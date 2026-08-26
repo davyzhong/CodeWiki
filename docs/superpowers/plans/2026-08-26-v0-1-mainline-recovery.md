@@ -95,8 +95,14 @@
   surface as `source: human`, budgets are honored, and `--include-stale`
   stays a visibly marked diagnostic mode
   (639 passed, 1 opt-in live test skipped at this checkpoint).
-- [ ] Make `compile`, `context`, `open`, `serve`, and `status` perform
-  their final specified behavior.
+- [x] Make `compile`, `context`, `open`, `serve`, and `status` perform
+  their final specified behavior: compile publishes deterministic views
+  plus the verified index, context serves budgeted retrieval in markdown
+  or JSON, open warns on a lagging Wiki before opening, serve exposes
+  the compiled HTML through a loopback-only read-only single-document
+  server, and status reports canonical objects, view generations, and
+  the latest run's target results separately
+  (643 passed, 1 opt-in live test skipped at this checkpoint).
 
 ## Gate 8 — MCP and security
 

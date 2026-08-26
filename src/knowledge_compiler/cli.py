@@ -143,6 +143,33 @@ def status(
         "snapshots": {},
         "view_generations": {},
     }
+    runs_root = knowledge / "state/runs"
+    if runs_root.is_dir():
+        from knowledge_compiler.orchestrator.contracts import RunRecord
+        from knowledge_compiler.orchestrator.store import RunStore
+
+        records: list[RunRecord] = RunStore(runs_root)._list_runs()
+        record = next(
+            (item for item in records if item.active),
+            records[-1] if records else None,
+        )
+        if record is not None:
+            report["run_id"] = record.run_id
+            report["run_active"] = record.active
+            for target in sorted(
+                record.targets, key=lambda item: item.target_id
+            ):
+                report["target_results"].append(
+                    {
+                        "target_id": target.target_id,
+                        "state": target.state.value,
+                        "result": (
+                            target.result.value if target.result else None
+                        ),
+                        "published_object_id": target.published_object_id,
+                        "required": target.required,
+                    }
+                )
     manifest_path = knowledge / "manifest.yaml"
     if manifest_path.is_file():
         import yaml as _yaml
@@ -325,18 +352,31 @@ def serve(
 ) -> None:
     """Serve a bounded local-only read-only knowledge server."""
 
-    html_path = repository_root / ".knowledge/exports/repo-wiki.html"
+    root = repository_root.resolve()
+    html_path = root / ".knowledge/exports/repo-wiki.html"
     if not html_path.is_file():
         typer.secho(
             "serve: compiled HTML Wiki not found; run knowledge compile",
             fg=typer.colors.RED,
         )
         raise typer.Exit(code=1)
-    typer.secho(
-        "serve: local HTML server is not available",
-        fg=typer.colors.RED,
+    from knowledge_compiler.serving import ServeError, create_wiki_server
+
+    try:
+        server = create_wiki_server(root, port=port)
+    except (ServeError, OSError) as error:
+        typer.secho(f"serve: {error}", fg=typer.colors.RED)
+        raise typer.Exit(code=1) from None
+    typer.echo(
+        f"serve: read-only Wiki on http://{server.server_address[0]}:"
+        f"{server.server_address[1]}/repo-wiki.html (Ctrl+C to stop)"
     )
-    raise typer.Exit(code=1)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        typer.echo("serve: stopped")
+    finally:
+        server.server_close()
 
 
 @app.command()

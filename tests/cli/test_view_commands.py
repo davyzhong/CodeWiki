@@ -69,6 +69,82 @@ def test_serve_fails_closed_without_compiled_html(tmp_path: Path) -> None:
     assert "HTML Wiki" in result.output
 
 
+def test_status_reports_target_results_from_the_latest_run(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.orchestrator.contracts import (
+        RunRecord,
+        TargetRecord,
+        TargetState,
+        TerminalResult,
+    )
+    from knowledge_compiler.orchestrator.store import RunStore
+
+    runs = tmp_path / ".knowledge/state/runs"
+    RunStore(runs).save(
+        RunRecord.model_validate(
+            {
+                "run_id": "status-run-001",
+                "repository_id": "fixture/probe-shop",
+                "snapshot_id": "sha256:" + "2" * 64,
+                "executor": "llm",
+                "active": False,
+                "targets": [
+                    {
+                        "target_id": "module.shop.checkout",
+                        "object_type": "module",
+                        "attempt": 1,
+                        "repair_attempts": 0,
+                        "priority": 5,
+                        "request_digest": "sha256:" + "1" * 64,
+                        "state": "done",
+                        "result": "retired",
+                    },
+                    {
+                        "target_id": "flow.order.create",
+                        "object_type": "flow",
+                        "attempt": 1,
+                        "repair_attempts": 0,
+                        "priority": 5,
+                        "request_digest": "sha256:" + "2" * 64,
+                        "state": "done",
+                        "result": "conflicted",
+                    },
+                ],
+            }
+        )
+    )
+
+    result = Runner.invoke(
+        app,
+        ["status", "--repository-root", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    import json
+
+    payload = json.loads(result.output)
+    assert payload["run_id"] == "status-run-001"
+    assert payload["run_active"] is False
+    assert payload["target_results"] == [
+        {
+            "target_id": "flow.order.create",
+            "state": "done",
+            "result": "conflicted",
+            "published_object_id": None,
+            "required": True,
+        },
+        {
+            "target_id": "module.shop.checkout",
+            "state": "done",
+            "result": "retired",
+            "published_object_id": None,
+            "required": True,
+        },
+    ]
+    del TargetState, TerminalResult
+
+
 def _published_store(tmp_path: Path) -> Path:
     import subprocess
     import sys
