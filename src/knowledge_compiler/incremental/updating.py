@@ -50,6 +50,9 @@ def run_incremental_update(
     """Detect before provider sync, invalidate safely, then regenerate."""
 
     root = Path(repository_root).resolve()
+    from knowledge_compiler.human.overlays import load_active_overlays
+
+    load_active_overlays(root)
     current = _inventory(root)
     baseline_path = root / ".knowledge/baseline/eligible-files.json"
     baseline, full_refresh, refresh_reason = _baseline(baseline_path)

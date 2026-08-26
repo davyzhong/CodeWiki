@@ -6,6 +6,7 @@ from collections.abc import Iterable
 
 from knowledge_compiler.compiler.yaml import _validate_inputs
 from knowledge_compiler.contracts.evidence import EvidenceItem, EvidencePack
+from knowledge_compiler.contracts.human import HumanOverlay
 from knowledge_compiler.contracts.knowledge import ModuleKnowledge
 
 
@@ -89,7 +90,9 @@ def _context(module: ModuleKnowledge, pack: EvidencePack):
 
 
 def compile_module_card(
-    module: ModuleKnowledge, evidence_pack: EvidencePack
+    module: ModuleKnowledge,
+    evidence_pack: EvidencePack,
+    overlay: HumanOverlay | None = None,
 ) -> bytes:
     """Compile a compact, Claim-backed Markdown module card."""
 
@@ -99,33 +102,74 @@ def compile_module_card(
         "",
         f"{_code(canonical.id)} · verified at {_code(canonical.validity.verified_commit)}",
         "",
-        _text(canonical.summary.text),
-        "",
-        *_pointers(canonical.summary.claim_ids, claims, evidence),
-        "",
-        "## Responsibilities",
-        "",
     ]
+    from knowledge_compiler.compiler.human import (
+        render_overlay_field,
+        render_overlay_notes,
+    )
+
+    lines.extend(render_overlay_field(
+        [
+            _text(canonical.summary.text),
+            "",
+            *_pointers(canonical.summary.claim_ids, claims, evidence),
+        ],
+        overlay=overlay,
+        field="summary",
+        escape=_text,
+    ))
+    responsibilities: list[str] = []
     for item in canonical.responsibilities:
-        lines.append(f"- {_text(item.text)}")
-        lines.extend(_pointers(item.claim_ids, claims, evidence, "  "))
-    lines.extend(["", "## Public interfaces", ""])
+        responsibilities.append(f"- {_text(item.text)}")
+        responsibilities.extend(_pointers(item.claim_ids, claims, evidence, "  "))
+    lines.extend(["", "## Responsibilities", ""])
+    lines.extend(render_overlay_field(
+        responsibilities,
+        overlay=overlay,
+        field="responsibilities",
+        escape=_text,
+    ))
+    interfaces: list[str] = []
     for item in canonical.public_interfaces:
-        lines.append(f"- {_code(item.name)} — {_text(item.description)}")
-        lines.extend(_pointers(item.claim_ids, claims, evidence, "  "))
-    lines.extend(["", "## Dependencies", ""])
+        interfaces.append(f"- {_code(item.name)} — {_text(item.description)}")
+        interfaces.extend(_pointers(item.claim_ids, claims, evidence, "  "))
+    lines.extend(["", "## Public interfaces", ""])
+    lines.extend(render_overlay_field(
+        interfaces,
+        overlay=overlay,
+        field="public_interfaces",
+        escape=_text,
+    ))
+    dependencies: list[str] = []
     for item in canonical.dependencies:
-        lines.append(f"- {_code(item.target)} — {_text(item.description)}")
-        lines.extend(_pointers(item.claim_ids, claims, evidence, "  "))
-    lines.extend(["", "## Relations", ""])
+        dependencies.append(f"- {_code(item.target)} — {_text(item.description)}")
+        dependencies.extend(_pointers(item.claim_ids, claims, evidence, "  "))
+    lines.extend(["", "## Dependencies", ""])
+    lines.extend(render_overlay_field(
+        dependencies,
+        overlay=overlay,
+        field="dependencies",
+        escape=_text,
+    ))
+    relations: list[str] = []
     for item in canonical.relations:
-        lines.append(f"- {_text(item.predicate)} → {_text(item.target)}")
-        lines.extend(_pointers(item.claim_ids, claims, evidence, "  "))
+        relations.append(f"- {_text(item.predicate)} → {_text(item.target)}")
+        relations.extend(_pointers(item.claim_ids, claims, evidence, "  "))
+    lines.extend(["", "## Relations", ""])
+    lines.extend(render_overlay_field(
+        relations,
+        overlay=overlay,
+        field="relations",
+        escape=_text,
+    ))
+    lines.extend(render_overlay_notes(overlay, escape=_text))
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
 def compile_module_wiki(
-    module: ModuleKnowledge, evidence_pack: EvidencePack
+    module: ModuleKnowledge,
+    evidence_pack: EvidencePack,
+    overlay: HumanOverlay | None = None,
 ) -> bytes:
     """Compile a detailed, Claim-backed Markdown module wiki page."""
 
@@ -146,15 +190,25 @@ def compile_module_wiki(
         "",
         "## Summary",
         "",
-        _text(canonical.summary.text),
-        "",
-        *_pointers(canonical.summary.claim_ids, claims, evidence),
-        "",
-        "## Responsibilities",
-        "",
     ]
+    from knowledge_compiler.compiler.human import (
+        render_overlay_field,
+        render_overlay_notes,
+    )
+
+    lines.extend(render_overlay_field(
+        [
+            _text(canonical.summary.text),
+            "",
+            *_pointers(canonical.summary.claim_ids, claims, evidence),
+        ],
+        overlay=overlay,
+        field="summary",
+        escape=_text,
+    ))
+    responsibilities: list[str] = []
     for item in canonical.responsibilities:
-        lines.extend(
+        responsibilities.extend(
             [
                 f"### {_text(item.text)}",
                 "",
@@ -162,9 +216,16 @@ def compile_module_wiki(
                 "",
             ]
         )
-    lines.extend(["## Public interfaces", ""])
+    lines.extend(["", "## Responsibilities", ""])
+    lines.extend(render_overlay_field(
+        responsibilities,
+        overlay=overlay,
+        field="responsibilities",
+        escape=_text,
+    ))
+    interfaces: list[str] = []
     for item in canonical.public_interfaces:
-        lines.extend(
+        interfaces.extend(
             [
                 f"### {_code(item.name)}",
                 "",
@@ -174,9 +235,16 @@ def compile_module_wiki(
                 "",
             ]
         )
-    lines.extend(["## Dependencies", ""])
+    lines.extend(["## Public interfaces", ""])
+    lines.extend(render_overlay_field(
+        interfaces,
+        overlay=overlay,
+        field="public_interfaces",
+        escape=_text,
+    ))
+    dependencies: list[str] = []
     for item in canonical.dependencies:
-        lines.extend(
+        dependencies.extend(
             [
                 f"### {_code(item.target)}",
                 "",
@@ -186,9 +254,16 @@ def compile_module_wiki(
                 "",
             ]
         )
-    lines.extend(["## Relations", ""])
+    lines.extend(["## Dependencies", ""])
+    lines.extend(render_overlay_field(
+        dependencies,
+        overlay=overlay,
+        field="dependencies",
+        escape=_text,
+    ))
+    relations: list[str] = []
     for item in canonical.relations:
-        lines.extend(
+        relations.extend(
             [
                 f"### {_text(item.predicate)} → {_text(item.target)}",
                 "",
@@ -196,6 +271,13 @@ def compile_module_wiki(
                 "",
             ]
         )
+    lines.extend(["## Relations", ""])
+    lines.extend(render_overlay_field(
+        relations,
+        overlay=overlay,
+        field="relations",
+        escape=_text,
+    ))
     lines.extend(["## Verified claims", ""])
     for claim in canonical.claims:
         _, citations = _claim_evidence((claim.id,), claims, evidence)
@@ -209,6 +291,7 @@ def compile_module_wiki(
                 "",
             ]
         )
+    lines.extend(render_overlay_notes(overlay, escape=_text))
     return "\n".join(lines).encode("utf-8")
 
 

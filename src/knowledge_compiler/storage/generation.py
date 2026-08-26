@@ -19,6 +19,7 @@ from knowledge_compiler.compiler import (
     compile_module_yaml,
 )
 from knowledge_compiler.contracts.evidence import EvidencePack
+from knowledge_compiler.contracts.human import HumanOverlay
 from knowledge_compiler.contracts.knowledge import ModuleKnowledge
 
 
@@ -59,7 +60,11 @@ def _object_type(model: object) -> str:
     return "module"
 
 
-def _compile_outputs(model: object, evidence_pack: object) -> dict[str, bytes]:
+def _compile_outputs(
+    model: object,
+    evidence_pack: object,
+    overlay: HumanOverlay | None = None,
+) -> dict[str, bytes]:
     """Precompile canonical, card, and wiki bytes for any typed object."""
     from knowledge_compiler.compiler.typed_views import compile_typed_wiki
     from knowledge_compiler.compiler.yaml import (
@@ -93,8 +98,8 @@ def _compile_outputs(model: object, evidence_pack: object) -> dict[str, bytes]:
     card = card_compilers.get(object_type)
     return {
         "canonical": canonical,
-        "card": card(model) if card else compile_typed_wiki(model),
-        "wiki": compile_typed_wiki(model),
+        "card": card(model, overlay) if card else compile_typed_wiki(model, overlay),
+        "wiki": compile_typed_wiki(model, overlay),
     }
 
 
@@ -180,16 +185,19 @@ class GenerationPublisher:
         if object_type == "module" and evidence_pack is None:
             raise PublicationError("module publication requires an evidence pack")
         try:
+            from knowledge_compiler.human.overlays import load_active_overlays
+
+            overlay = load_active_overlays(self.output_root).get(module.id)
             # Compilation and contract revalidation must complete before the first
             # output-directory mutation.
             if object_type == "module":
                 compiled = {
                     "canonical": compile_module_yaml(module, evidence_pack),
-                    "card": compile_module_card(module, evidence_pack),
-                    "wiki": compile_module_wiki(module, evidence_pack),
+                    "card": compile_module_card(module, evidence_pack, overlay),
+                    "wiki": compile_module_wiki(module, evidence_pack, overlay),
                 }
             else:
-                compiled = _compile_outputs(module, None)
+                compiled = _compile_outputs(module, None, overlay)
             manifest = yaml.safe_dump(
                 {
                     "active_generation": generation,
@@ -331,7 +339,11 @@ class GenerationPublisher:
         ] = []
         seen_ids: set[str] = set()
         contains_stale = False
+        overlays: dict[str, HumanOverlay] = {}
         try:
+            from knowledge_compiler.human.overlays import load_active_overlays
+
+            overlays = load_active_overlays(self.output_root)
             for model, evidence_pack in items:
                 object_id = self._safe_object_id(model)
                 object_type = _object_type(model)
@@ -350,11 +362,17 @@ class GenerationPublisher:
                         )
                     compiled = {
                         "canonical": compile_module_yaml(model, evidence_pack),
-                        "card": compile_module_card(model, evidence_pack),
-                        "wiki": compile_module_wiki(model, evidence_pack),
+                        "card": compile_module_card(
+                            model, evidence_pack, overlays.get(object_id)
+                        ),
+                        "wiki": compile_module_wiki(
+                            model, evidence_pack, overlays.get(object_id)
+                        ),
                     }
                 else:
-                    compiled = _compile_outputs(model, None)
+                    compiled = _compile_outputs(
+                        model, None, overlays.get(object_id)
+                    )
                 destinations = self._destinations(object_id, object_type)
                 if compiled["wiki"] is None:
                     if not self._lexists(destinations["wiki"]):
@@ -422,6 +440,24 @@ class GenerationPublisher:
         removed_identities = tuple(
             sorted(set(self._manifest_objects()) - current_identities)
         )
+        # Retiring an object relocates its overlay byte-identically to the
+        # archive (design §6.5). The relocation joins the same transaction as
+        # the canonical deletion so an interrupted retirement restores the
+        # overlay instead of losing it.
+        overlay_archives: list[tuple[str, str, bytes]] = []
+        for object_id, object_type in removed_identities:
+            if object_id not in overlays:
+                continue
+            source, archive = self._overlay_paths(object_id, object_type)
+            if self._lexists(archive):
+                raise PublicationError(
+                    "archived overlay already exists; move it aside "
+                    "manually: "
+                    + str(archive.relative_to(self.knowledge_root))
+                )
+            overlay_archives.append(
+                (object_id, object_type, self._read_regular(source))
+            )
         for index, (object_id, object_type) in enumerate(removed_identities):
             destinations = self._destinations(object_id, object_type)
             for kind in ("canonical", "card", "wiki"):
@@ -436,6 +472,30 @@ class GenerationPublisher:
                         "destination": destinations[kind],
                     }
                 )
+        for index, (object_id, object_type, data) in enumerate(overlay_archives):
+            source, archive = self._overlay_paths(object_id, object_type)
+            payload_entries.append(
+                {
+                    "name": f"overlay-archive-{index:04d}",
+                    "kind": "overlay-archive",
+                    "object_id": object_id,
+                    "object_type": object_type,
+                    "action": "replace",
+                    "data": data,
+                    "destination": archive,
+                }
+            )
+            payload_entries.append(
+                {
+                    "name": f"overlay-source-{index:04d}",
+                    "kind": "overlay-source",
+                    "object_id": object_id,
+                    "object_type": object_type,
+                    "action": "delete",
+                    "data": None,
+                    "destination": source,
+                }
+            )
         manifest_path = self.knowledge_root / "manifest.yaml"
         payload_entries.append(
             {
@@ -780,8 +840,20 @@ class GenerationPublisher:
             }
         )
         expected_actions[(None, None, "manifest")] = {"replace"}
-        if len(entries) != len(expected_actions):
-            raise PublicationError("batch journal entry count is invalid")
+        # Each removed object contributes an optional overlay relocation
+        # pair: one staged archive copy plus one source deletion. Their
+        # presence depends on whether an active overlay existed, which
+        # recovery cannot recompute from a half-applied tree, so both
+        # members must always appear together.
+        overlay_actions: dict[tuple[str | None, str | None, str], set[str]] = {}
+        for object_id, object_type in removed_destinations:
+            overlay_actions[(object_id, object_type, "overlay-archive")] = {
+                "replace"
+            }
+            overlay_actions[(object_id, object_type, "overlay-source")] = {
+                "delete"
+            }
+        allowed_actions = {**expected_actions, **overlay_actions}
 
         normalized: list[tuple[dict[str, Any], Path]] = []
         seen_names: set[str] = set()
@@ -799,16 +871,22 @@ class GenerationPublisher:
             object_id = entry.get("object_id")
             object_type = entry.get("object_type")
             key = (object_id, object_type, kind)
-            if key not in expected_actions or key in seen_keys:
+            if key not in allowed_actions or key in seen_keys:
                 raise PublicationError("batch journal entry identity is invalid")
             action = entry.get("action")
-            if action not in expected_actions[key]:
+            if action not in allowed_actions[key]:
                 raise PublicationError("batch journal entry action is invalid")
             seen_keys.add(key)
             if kind == "manifest":
                 if name != "manifest":
                     raise PublicationError("batch manifest entry is invalid")
                 destination = self.knowledge_root / "manifest.yaml"
+            elif kind in ("overlay-archive", "overlay-source"):
+                source, archive = self._overlay_paths(
+                    self._validate_object_id(object_id),
+                    object_type if isinstance(object_type, str) else "module",
+                )
+                destination = archive if kind == "overlay-archive" else source
             else:
                 identity = (object_id, object_type)
                 destination_map = (
@@ -831,8 +909,17 @@ class GenerationPublisher:
             if entry.get("backup") != f"backup/{name}":
                 raise PublicationError("batch journal backup escaped root")
             normalized.append((entry, destination))
-        if seen_keys != set(expected_actions):
+        if seen_keys - set(overlay_actions) != set(expected_actions):
             raise PublicationError("batch journal entries are incomplete")
+        for object_id, object_type in removed_destinations:
+            has_archive = (
+                object_id, object_type, "overlay-archive"
+            ) in seen_keys
+            has_source = (object_id, object_type, "overlay-source") in seen_keys
+            if has_archive != has_source:
+                raise PublicationError(
+                    "batch journal overlay relocation is incomplete"
+                )
 
         if self._manifest_generation() == generation:
             self._remove_transaction(transaction)
@@ -865,6 +952,17 @@ class GenerationPublisher:
                 f"recovery.{kind}.directory.fsync",
             )
         self._remove_transaction(transaction)
+
+    def _overlay_paths(
+        self, object_id: str, object_type: str
+    ) -> tuple[Path, Path]:
+        directory = _TYPE_DIRECTORIES.get(object_type, "modules")
+        source = self.knowledge_root / "human" / directory / f"{object_id}.yaml"
+        archive = (
+            self.knowledge_root / "human" / "archive" / directory
+            / f"{object_id}.yaml"
+        )
+        return source, archive
 
     def _destinations(
         self, module_id: str, object_type: str = "module"

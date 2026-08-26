@@ -242,6 +242,54 @@ def test_two_types_publish_atomically_in_one_generation(
     ]
 
 
+def test_human_override_applies_only_to_markdown_boundaries(
+    tmp_path: Path,
+) -> None:
+    architecture = canonicalize("architecture").canonical
+    assert architecture is not None
+    overlay = (
+        tmp_path
+        / ".knowledge/human/architecture"
+        / f"{architecture.id}.yaml"
+    )
+    overlay.parent.mkdir(parents=True)
+    overlay.write_text(
+        "schema_version: '0.1'\n"
+        f"object_id: {architecture.id}\n"
+        "updated_at: '2026-08-25T12:00:00+08:00'\n"
+        "sections:\n"
+        "  - field: summary\n"
+        "    mode: override\n"
+        "    text: Human operational summary.\n"
+        "    basis: incident review\n"
+        "notes:\n"
+        f"  - id: {architecture.id}.note.ops\n"
+        "    text: Human operational note.\n"
+        "    basis: operator experience\n",
+        encoding="utf-8",
+    )
+
+    published = GenerationPublisher(tmp_path).publish_generation(
+        "gen-human-overlay", ((architecture, None),)
+    )
+
+    canonical = yaml.safe_load(
+        published.objects[0].canonical_path.read_bytes()
+    )
+    assert canonical["summary"]["text"] == architecture.summary.text
+    assert "Human operational summary" not in str(canonical)
+    for path in (
+        published.objects[0].card_path,
+        published.objects[0].wiki_path,
+    ):
+        rendered = path.read_text(encoding="utf-8")
+        assert "Human operational summary." in rendered
+        assert "source: human" in rendered
+        assert "Machine-verified original" in rendered
+        assert architecture.summary.text in rendered
+        assert "Human operational note." in rendered
+
+
 def test_multi_object_failure_recovers_the_previous_generation(
     tmp_path: Path,
 ) -> None:

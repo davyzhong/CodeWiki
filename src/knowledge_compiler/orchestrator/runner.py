@@ -116,6 +116,33 @@ class RunOrchestrator:
                 if current.required and current.state is TargetState.DONE:
                     any_required_failed = True
 
+        from knowledge_compiler.human.conflicts import split_overlay_conflicts
+
+        split = split_overlay_conflicts(
+            self.output_root,
+            tuple((canonical, packs.get(canonical.id)) for canonical in published),
+        )
+        published = [item[0] for item in split.accepted]
+        packs = {item[0].id: item[1] for item in split.accepted}
+        for object_id, fields in split.conflicts.items():
+            record = self.queue.target(object_id)
+            self.queue.replace_record(
+                self.queue.record().with_target(
+                    record.finish(
+                        TerminalResult.CONFLICTED,
+                        diagnostics=(
+                            "human override evidence changed: "
+                            + ", ".join(fields),
+                        ),
+                    )
+                )
+            )
+            any_required_failed = any_required_failed or record.required
+            diagnostics.append(
+                f"{object_id}: human override conflict in "
+                + ", ".join(fields)
+            )
+
         if already_published and not published:
             self._finalize()
             return RunnerOutcome(
@@ -127,7 +154,7 @@ class RunOrchestrator:
         if not published:
             self._finalize()
             return RunnerOutcome(
-                status="failed",
+                status="partial" if split.conflicts else "failed",
                 generation=None,
                 published_object_ids=(),
                 diagnostics=tuple(diagnostics),
@@ -138,6 +165,10 @@ class RunOrchestrator:
         ).hexdigest()[:32]
         publisher = GenerationPublisher(self.output_root)
         regenerated_ids = [canonical.id for canonical in published]
+        preserved_by_id = {
+            canonical.id: (canonical, pack)
+            for canonical, pack in self.preserved_items + split.preserved
+        }
         try:
             publisher.publish_generation(
                 generation,
@@ -145,7 +176,11 @@ class RunOrchestrator:
                     (canonical, packs.get(canonical.id))
                     for canonical in published
                 )
-                + self.preserved_items,
+                + tuple(
+                    preserved_by_id[object_id]
+                    for object_id in sorted(preserved_by_id)
+                    if object_id not in regenerated_ids
+                ),
             )
         except PublicationError as error:
             try:

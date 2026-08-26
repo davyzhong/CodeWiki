@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 from knowledge_compiler.compiler.markdown import _code, _text
+from knowledge_compiler.compiler.human import (
+    render_overlay_field,
+    render_overlay_notes,
+)
 from knowledge_compiler.compiler.yaml import CompilerInputError
+from knowledge_compiler.contracts.human import HumanOverlay
 
 
-def compile_typed_wiki(model: object) -> bytes:
+def compile_typed_wiki(
+    model: object, overlay: HumanOverlay | None = None
+) -> bytes:
     """Render a minimal deterministic wiki page for any typed object.
 
     The complete human Wiki lands in M7; this page guarantees every
@@ -28,10 +35,19 @@ def compile_typed_wiki(model: object) -> bytes:
             else ""
         ),
         "",
-        _text(str(summary.text)),
-        "",
-        f"- Claims: {_code(', '.join(summary.claim_ids))}",
     ]
+    lines.extend(
+        render_overlay_field(
+            [
+                _text(str(summary.text)),
+                "",
+                f"- Claims: {_code(', '.join(summary.claim_ids))}",
+            ],
+            overlay=overlay,
+            field="summary",
+            escape=_text,
+        )
+    )
     claims = getattr(model, "claims", ())
     if claims:
         lines.extend(["", "## Verified claims", ""])
@@ -44,6 +60,7 @@ def compile_typed_wiki(model: object) -> bytes:
                     "",
                 ]
             )
+    lines.extend(render_overlay_notes(overlay, escape=_text))
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 

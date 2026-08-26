@@ -52,6 +52,78 @@ def test_primary_llm_build_runs_real_provider_contract_through_orchestrator(
     assert (snapshot.root / ".knowledge/manifest.yaml").is_file()
 
 
+def test_primary_build_records_conflict_when_override_evidence_changes(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.building import run_primary_build
+    from knowledge_compiler.orchestrator.store import RunStore
+    from knowledge_compiler.planning.module import plan_one_module
+
+    snapshot, provider, worker, plan = make_world(tmp_path)
+    object_id = plan.targets[0].target.id
+    first = run_primary_build(
+        repository_root=snapshot.root,
+        executor="llm",
+        evidence_provider=provider,
+        worker=worker,
+        snapshot=snapshot,
+        run_id="overlay-conflict-001",
+        planner=plan_one_module,
+    )
+    assert first.status == "complete"
+    canonical_path = (
+        snapshot.root / f".knowledge/objects/modules/{object_id}.yaml"
+    )
+    canonical_before = canonical_path.read_bytes()
+    overlay = (
+        snapshot.root
+        / ".knowledge/human/modules"
+        / f"{object_id}.yaml"
+    )
+    overlay.parent.mkdir(parents=True)
+    overlay.write_text(
+        "schema_version: '0.1'\n"
+        f"object_id: {object_id}\n"
+        "updated_at: '2026-08-25T12:00:00+08:00'\n"
+        "sections:\n"
+        "  - field: summary\n"
+        "    mode: override\n"
+        "    text: Human checkout summary.\n"
+        "    basis: incident review\n"
+        "notes: []\n",
+        encoding="utf-8",
+    )
+    overlay_before = overlay.read_bytes()
+    checkout = snapshot.root / "src/shop/checkout.py"
+    checkout.write_text(
+        checkout.read_text(encoding="utf-8").replace(
+            "inventory reservation failed", "stock reservation failed"
+        ),
+        encoding="utf-8",
+    )
+
+    outcome = run_primary_build(
+        repository_root=snapshot.root,
+        executor="llm",
+        evidence_provider=provider,
+        worker=worker,
+        snapshot=snapshot,
+        run_id="overlay-conflict-002",
+        planner=plan_one_module,
+    )
+
+    assert outcome.status == "partial"
+    assert outcome.generation is None
+    assert outcome.published_object_ids == ()
+    assert "human override conflict" in " ".join(outcome.diagnostics)
+    assert canonical_path.read_bytes() == canonical_before
+    assert overlay.read_bytes() == overlay_before
+    run = RunStore(
+        snapshot.root / ".knowledge/state/runs"
+    ).load("overlay-conflict-002")
+    assert run.targets[0].result.value == "conflicted"
+
+
 def test_primary_agent_build_prepares_real_queue_without_model_or_publication(
     tmp_path: Path,
 ) -> None:
@@ -527,6 +599,24 @@ def test_deleted_target_retirement_obeys_deterministic_proof_boundary(
     )
     (snapshot.root / "src/shop/checkout.py").unlink()
     (snapshot.root / "src/shop/inventory.py").unlink()
+    object_id = plan.targets[0].target.id
+    overlay_path = (
+        snapshot.root / ".knowledge/human/modules" / f"{object_id}.yaml"
+    )
+    overlay_path.parent.mkdir(parents=True, exist_ok=True)
+    overlay_path.write_text(
+        "schema_version: '0.1'\n"
+        f"object_id: {object_id}\n"
+        "updated_at: '2026-08-25T12:00:00+08:00'\n"
+        "sections:\n"
+        "  - field: summary\n"
+        "    mode: supplement\n"
+        "    text: Human checkout summary.\n"
+        "    basis: incident review\n"
+        "notes: []\n",
+        encoding="utf-8",
+    )
+    overlay_bytes = overlay_path.read_bytes()
 
     def planner_omitted(**kwargs):
         raise ValueError("pending target is absent from refreshed plan")
@@ -548,7 +638,6 @@ def test_deleted_target_retirement_obeys_deterministic_proof_boundary(
         retirement_prover=prove,
     )
 
-    object_id = plan.targets[0].target.id
     assert outcome.status == expected_status
     object_path = (
         snapshot.root / f".knowledge/objects/modules/{object_id}.yaml"
@@ -556,11 +645,18 @@ def test_deleted_target_retirement_obeys_deterministic_proof_boundary(
     manifest = yaml.safe_load(
         (snapshot.root / ".knowledge/manifest.yaml").read_bytes()
     )
+    archive_path = (
+        snapshot.root
+        / ".knowledge/human/archive/modules"
+        / f"{object_id}.yaml"
+    )
     if search_complete:
         assert outcome.retired_object_ids == (object_id,)
         assert outcome.pending_target_ids == ()
         assert not object_path.exists()
         assert manifest["objects"] == [{"id": flow.id, "type": "flow"}]
+        assert not overlay_path.exists()
+        assert archive_path.read_bytes() == overlay_bytes
     else:
         assert outcome.retired_object_ids == ()
         assert outcome.pending_target_ids == (object_id,)
@@ -569,3 +665,5 @@ def test_deleted_target_retirement_obeys_deterministic_proof_boundary(
             flow.id,
             object_id,
         }
+        assert overlay_path.read_bytes() == overlay_bytes
+        assert not archive_path.exists()

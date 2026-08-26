@@ -60,6 +60,9 @@ def run_primary_build(
     """Run or prepare the production build pipeline over real provider contracts."""
 
     root = Path(repository_root).resolve()
+    from knowledge_compiler.human.overlays import load_active_overlays
+
+    load_active_overlays(root)
     resolved = snapshot or LocalGitRepositoryProvider().resolve(root)
     selected_budget = budget or DEFAULT_BUDGET
     store_root = root / ".knowledge/state/runs"

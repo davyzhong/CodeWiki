@@ -177,7 +177,11 @@ def compile_rule_yaml(rule: object) -> bytes:
     return _compile_typed_yaml(RuleKnowledge, rule, "RuleKnowledge")
 
 
-def compile_rule_card(rule: object) -> bytes:
+def compile_rule_card(rule: object, overlay: object | None = None) -> bytes:
+    from knowledge_compiler.compiler.human import (
+        render_overlay_field,
+        render_overlay_notes,
+    )
     from knowledge_compiler.compiler.markdown import _code, _text
     from knowledge_compiler.contracts.knowledge import RuleKnowledge
 
@@ -187,36 +191,66 @@ def compile_rule_card(rule: object) -> bytes:
         "",
         f"{_code(canonical.id)} · {canonical.severity}",
         "",
-        _text(canonical.summary.text),
-        "",
-        f"- Claims: {_code(', '.join(canonical.summary.claim_ids))}",
-        "",
-        "## Statement",
-        "",
-        _text(canonical.statement.text),
-        "",
-        f"- Claims: {_code(', '.join(canonical.statement.claim_ids))}",
-        "",
-        "## Applicability",
-        "",
     ]
-    for path in canonical.applicability.paths:
-        lines.append(f"- {_code(path)}")
+    lines.extend(render_overlay_field(
+        [
+            _text(canonical.summary.text),
+            "",
+            f"- Claims: {_code(', '.join(canonical.summary.claim_ids))}",
+        ],
+        overlay=overlay,
+        field="summary",
+        escape=_text,
+    ))
+    lines.extend(["", "## Statement", ""])
+    lines.extend(render_overlay_field(
+        [
+            _text(canonical.statement.text),
+            "",
+            f"- Claims: {_code(', '.join(canonical.statement.claim_ids))}",
+        ],
+        overlay=overlay,
+        field="statement",
+        escape=_text,
+    ))
+    applicability = [f"- {_code(path)}" for path in canonical.applicability.paths]
+    lines.extend(["", "## Applicability", ""])
+    lines.extend(render_overlay_field(
+        applicability,
+        overlay=overlay,
+        field="applicability",
+        escape=_text,
+    ))
     if canonical.constraints:
-        lines.extend(["", "## Constraints", ""])
+        constraints = []
         for constraint in canonical.constraints:
-            lines.append(f"- {_text(constraint.description)}")
-            lines.append(
+            constraints.append(f"- {_text(constraint.description)}")
+            constraints.append(
                 f"  - Claims: {_code(', '.join(constraint.claim_ids))}"
             )
+        lines.extend(["", "## Constraints", ""])
+        lines.extend(render_overlay_field(
+            constraints,
+            overlay=overlay,
+            field="constraints",
+            escape=_text,
+        ))
     if canonical.exceptions:
-        lines.extend(["", "## Exceptions", ""])
+        exceptions = []
         for exception in canonical.exceptions:
-            lines.append(f"- {_text(exception.description)}")
+            exceptions.append(f"- {_text(exception.description)}")
+        lines.extend(["", "## Exceptions", ""])
+        lines.extend(render_overlay_field(
+            exceptions,
+            overlay=overlay,
+            field="exceptions",
+            escape=_text,
+        ))
     if canonical.related_objects:
         lines.extend(["", "## Related", ""])
         for target in canonical.related_objects:
             lines.append(f"- {_code(target)}")
+    lines.extend(render_overlay_notes(overlay, escape=_text))
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
@@ -226,7 +260,11 @@ def compile_tech_stack_yaml(stack: object) -> bytes:
     return _compile_typed_yaml(TechStackKnowledge, stack, "TechStackKnowledge")
 
 
-def compile_tech_stack_card(stack: object) -> bytes:
+def compile_tech_stack_card(stack: object, overlay: object | None = None) -> bytes:
+    from knowledge_compiler.compiler.human import (
+        render_overlay_field,
+        render_overlay_notes,
+    )
     from knowledge_compiler.compiler.markdown import _code, _text
     from knowledge_compiler.contracts.knowledge import TechStackKnowledge
 
@@ -237,23 +275,41 @@ def compile_tech_stack_card(stack: object) -> bytes:
         f"{_code(canonical.id)} · verified at "
         f"{_code(canonical.validity.verified_commit)}",
         "",
-        _text(canonical.summary.text),
-        "",
-        "## Technologies",
-        "",
     ]
+    lines.extend(render_overlay_field(
+        [_text(canonical.summary.text)],
+        overlay=overlay,
+        field="summary",
+        escape=_text,
+    ))
+    technologies = []
     for entry in canonical.entries:
-        lines.append(
+        technologies.append(
             f"- {_code(entry.name)} — {_text(entry.category)} · version "
             f"{_code(entry.version)} · {_text(entry.scope)}"
         )
+    lines.extend(["", "## Technologies", ""])
+    lines.extend(render_overlay_field(
+        technologies,
+        overlay=overlay,
+        field="entries",
+        escape=_text,
+    ))
     if canonical.configurations:
-        lines.extend(["", "## Configuration evidence", ""])
+        configurations = []
         for configuration in canonical.configurations:
-            lines.append(
+            configurations.append(
                 f"- {_code(configuration.path)} — "
                 f"{_text(configuration.description)}"
             )
+        lines.extend(["", "## Configuration evidence", ""])
+        lines.extend(render_overlay_field(
+            configurations,
+            overlay=overlay,
+            field="configurations",
+            escape=_text,
+        ))
+    lines.extend(render_overlay_notes(overlay, escape=_text))
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 

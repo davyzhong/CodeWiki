@@ -8,7 +8,11 @@ from typing import Annotated
 
 import typer
 
-from knowledge_compiler.orchestrator.contracts import RunRecord, TargetState
+from knowledge_compiler.orchestrator.contracts import (
+    RunRecord,
+    TargetState,
+    TerminalResult,
+)
 from knowledge_compiler.orchestrator.queue import QueueError, RunQueue
 from knowledge_compiler.orchestrator.store import RunStore, RunStoreError
 
@@ -337,16 +341,52 @@ def finalize(
         if not regenerated_artifacts:
             raise QueueError("no verified artifacts are ready for publication")
         preserved_artifacts = queue.load_preserved_artifacts()
+        from knowledge_compiler.human.conflicts import split_overlay_conflicts
+
+        split = split_overlay_conflicts(
+            repository_root.resolve(), regenerated_artifacts
+        )
+        regenerated_artifacts = split.accepted
+        updated = queue.record()
+        for object_id, fields in split.conflicts.items():
+            record = next(
+                item for item in updated.targets if item.target_id == object_id
+            )
+            updated = updated.with_target(
+                record.finish(
+                    TerminalResult.CONFLICTED,
+                    diagnostics=(
+                        "human override evidence changed: "
+                        + ", ".join(fields),
+                    ),
+                )
+            )
+        queue.replace_record(updated)
         import hashlib
 
         from knowledge_compiler.storage import GenerationPublisher
 
-        generation = "gen-" + hashlib.sha256(
-            queue.record().run_id.encode("utf-8")
-        ).hexdigest()[:32]
-        GenerationPublisher(repository_root.resolve()).publish_generation(
-            generation, regenerated_artifacts + preserved_artifacts
-        )
+        generation = None
+        if regenerated_artifacts:
+            generation = "gen-" + hashlib.sha256(
+                queue.record().run_id.encode("utf-8")
+            ).hexdigest()[:32]
+            preserved_by_id = {
+                canonical.id: (canonical, pack)
+                for canonical, pack in preserved_artifacts + split.preserved
+            }
+            regenerated_ids = {
+                canonical.id for canonical, _ in regenerated_artifacts
+            }
+            GenerationPublisher(repository_root.resolve()).publish_generation(
+                generation,
+                regenerated_artifacts
+                + tuple(
+                    preserved_by_id[object_id]
+                    for object_id in sorted(preserved_by_id)
+                    if object_id not in regenerated_ids
+                ),
+            )
         published_ids = tuple(
             canonical.id for canonical, _ in regenerated_artifacts
         )
@@ -379,6 +419,12 @@ def finalize(
                 run_id=queue.record().run_id,
                 generation=generation,
                 published_object_ids=published_ids,
+                status="partial" if split.conflicts else "complete",
+                diagnostics=tuple(
+                    f"{object_id}: human override conflict in "
+                    + ", ".join(fields)
+                    for object_id, fields in split.conflicts.items()
+                ),
             )
         except OSError as error:
             # The manifest is the canonical commit marker. A derived report
@@ -390,12 +436,21 @@ def finalize(
     _echo(
         {
             "finalized": True,
-            "status": "complete",
+            "status": "partial" if split.conflicts else "complete",
             "generation": generation,
             "published_object_ids": list(published_ids),
-            "diagnostics": warnings,
+            "diagnostics": [
+                *warnings,
+                *(
+                    f"{object_id}: human override conflict in "
+                    + ", ".join(fields)
+                    for object_id, fields in split.conflicts.items()
+                ),
+            ],
         }
     )
+    if split.conflicts:
+        raise typer.Exit(code=2)
 
 
 def _next_target(queue: RunQueue, state: TargetState) -> str:
@@ -466,16 +521,18 @@ def _write_final_report(
     repository_root: Path,
     *,
     run_id: str,
-    generation: str,
+    generation: str | None,
     published_object_ids: tuple[str, ...],
+    status: str = "complete",
+    diagnostics: tuple[str, ...] = (),
 ) -> None:
     path = repository_root / ".knowledge/state/runs/last-build.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "status": "complete",
+        "status": status,
         "generation": generation,
         "published_object_ids": list(published_object_ids),
-        "diagnostics": [],
+        "diagnostics": list(diagnostics),
         "run_id": run_id,
         "executor": "agent",
     }
