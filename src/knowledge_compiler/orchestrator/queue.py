@@ -56,6 +56,9 @@ class RunQueue:
             self._run.run_id, target_id, request, result
         )
 
+    def save_plan(self, plan: object) -> None:
+        self._store.save_plan(self._run.run_id, plan)
+
     def save_evidence_pack(self, target_id: str, pack: object) -> None:
         self._store.save_evidence_pack(self._run.run_id, target_id, pack)
 

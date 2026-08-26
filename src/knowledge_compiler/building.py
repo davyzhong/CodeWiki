@@ -154,6 +154,7 @@ def run_primary_build(
         run=run,
         clock=_WallClock(),
     )
+    queue.save_plan(plan)
 
     if executor == "agent":
         _prepare_agent_evidence(

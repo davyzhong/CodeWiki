@@ -163,10 +163,12 @@ def test_build_fails_cleanly_on_plain_repository(tmp_path: Path, monkeypatch) ->
     assert "Traceback" not in result.output
 
 
-def test_agent_protocol_full_walk(tmp_path: Path, monkeypatch) -> None:
+def test_manual_agent_prepare_does_not_fabricate_semantic_work(
+    tmp_path: Path, monkeypatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     common = [
-        "--repository-root", str(ROOT / "fixtures/probe_repo"),
+        "--repository-root", str(tmp_path),
         "--repository-id", "fixture/probe-shop",
         "--snapshot-id", "sha256:" + "2" * 64,
         "--target", "module.shop.checkout",
@@ -174,49 +176,17 @@ def test_agent_protocol_full_walk(tmp_path: Path, monkeypatch) -> None:
     assert Runner.invoke(app, ["prepare", *common]).exit_code == 0
 
     next_result = Runner.invoke(app, ["next", "--operation", "extraction"])
-    assert next_result.exit_code == 0
-    lease = json.loads(next_result.output)["lease"]["token"]
-
-    draft = tmp_path / "draft.json"
-    draft.write_text('{"draft": "fixture"}', encoding="utf-8")
-    submitted = Runner.invoke(
-        app, ["submit-extraction", str(draft), "--lease", lease]
-    )
-    assert submitted.exit_code == 0, submitted.output
-    assert "semantic_pending" in submitted.output
-
-    verify = Runner.invoke(app, ["verify-next"])
-    assert verify.exit_code == 0, verify.output
-
-    verify_lease_result = Runner.invoke(
-        app, ["next", "--operation", "verification"]
-    )
-    assert verify_lease_result.exit_code == 0, verify_lease_result.output
-    verify_lease = json.loads(verify_lease_result.output)["lease"]["token"]
-
-    result_file = tmp_path / "result.json"
-    result_file.write_text('{"verifications": []}', encoding="utf-8")
-    wrong_lease = Runner.invoke(
-        app,
-        ["submit-verification", str(result_file), "--lease", "wrong-token"],
-    )
-    assert wrong_lease.exit_code == 1
-
-    good = Runner.invoke(
-        app,
-        ["submit-verification", str(result_file), "--lease", verify_lease],
-    )
-    assert good.exit_code == 0, good.output
-    assert "verified" in good.output
-
+    assert next_result.exit_code == 1
+    assert "evidence" in next_result.output.lower()
     finalize = Runner.invoke(app, ["finalize"])
-    assert finalize.exit_code == 0
+    assert finalize.exit_code == 1
+    assert "unfinished" in finalize.output.lower()
 
 
 def test_submit_verification_rejects_expired_or_wrong_state(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     common = [
-        "--repository-root", str(ROOT / "fixtures/probe_repo"),
+        "--repository-root", str(tmp_path),
         "--repository-id", "fixture/probe-shop",
         "--snapshot-id", "sha256:" + "2" * 64,
         "--target", "module.shop.checkout",

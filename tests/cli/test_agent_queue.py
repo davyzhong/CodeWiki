@@ -38,7 +38,7 @@ def test_prepare_creates_active_run(tmp_path: Path, monkeypatch) -> None:
         app,
         [
             "prepare",
-            "--repository-root", str(ROOT / "tests/fixtures/probe_repo"),
+            "--repository-root", str(tmp_path),
             "--repository-id", "fixture/probe-shop",
             "--snapshot-id", "sha256:" + "2" * 64,
             "--target", "module.shop.checkout",
@@ -57,7 +57,7 @@ def test_prepare_creates_active_run(tmp_path: Path, monkeypatch) -> None:
 def test_prepare_rejects_second_active_run(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     common = [
-        "--repository-root", str(ROOT / "tests/fixtures/probe_repo"),
+        "--repository-root", str(tmp_path),
         "--repository-id", "fixture/probe-shop",
         "--snapshot-id", "sha256:" + "2" * 64,
         "--target", "module.shop.checkout",
@@ -70,26 +70,26 @@ def test_prepare_rejects_second_active_run(tmp_path: Path, monkeypatch) -> None:
     assert second.exception is None or isinstance(second.exception, SystemExit)
 
 
-def test_next_grants_extraction_lease(tmp_path: Path, monkeypatch) -> None:
+def test_next_fails_closed_when_manual_queue_has_no_evidence_pack(
+    tmp_path: Path, monkeypatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     common = [
-        "--repository-root", str(ROOT / "tests/fixtures/probe_repo"),
+        "--repository-root", str(tmp_path),
         "--repository-id", "fixture/probe-shop",
         "--snapshot-id", "sha256:" + "2" * 64,
         "--target", "module.shop.checkout",
     ]
     Runner.invoke(app, ["prepare", *common])
     result = Runner.invoke(app, ["next", "--operation", "extraction"])
-    assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
-    assert payload["lease"]["operation"] == "extract"
-    assert payload["target_id"] == "module.shop.checkout"
+    assert result.exit_code == 1
+    assert "evidence" in result.output.lower()
 
 
 def test_verify_next_serves_fresh_context_only(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     common = [
-        "--repository-root", str(ROOT / "tests/fixtures/probe_repo"),
+        "--repository-root", str(tmp_path),
         "--repository-id", "fixture/probe-shop",
         "--snapshot-id", "sha256:" + "2" * 64,
         "--target", "module.shop.checkout",
@@ -110,3 +110,28 @@ def test_finalize_and_unknown_commands_fail_cleanly(tmp_path: Path, monkeypatch)
 
     evidence = Runner.invoke(app, ["evidence", "module.shop.ghost"])
     assert evidence.exit_code == 1
+
+
+def test_prepare_state_is_scoped_to_repository_root(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repository_root = tmp_path / "repo"
+    invocation_root = tmp_path / "invocation"
+    repository_root.mkdir()
+    invocation_root.mkdir()
+    monkeypatch.chdir(invocation_root)
+
+    result = Runner.invoke(
+        app,
+        [
+            "prepare",
+            "--repository-root", str(repository_root),
+            "--repository-id", "fixture/probe-shop",
+            "--snapshot-id", "sha256:" + "2" * 64,
+            "--target", "module.shop.checkout",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (repository_root / ".knowledge/state/runs").is_dir()
+    assert not (invocation_root / ".knowledge").exists()

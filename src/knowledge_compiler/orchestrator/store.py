@@ -106,6 +106,23 @@ class RunStore:
         temporary.write_text(payload + "\n", encoding="utf-8")
         os.replace(temporary, target_dir / "extraction.json")
 
+    def save_plan(self, run_id: str, plan: object) -> None:
+        from knowledge_compiler.contracts.planning import KnowledgePlan
+
+        validated = KnowledgePlan.model_validate(plan.model_dump(mode="json"))
+        if validated.run_id != run_id:
+            raise RunStoreError("plan identity does not match its run")
+        run_dir = self._run_dir(run_id)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(
+            validated.model_dump(mode="json"),
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        temporary = run_dir / "plan.json.tmp"
+        temporary.write_text(payload + "\n", encoding="utf-8")
+        os.replace(temporary, run_dir / "plan.json")
+
     def save_evidence_pack(
         self, run_id: str, target_id: str, pack: object
     ) -> None:
