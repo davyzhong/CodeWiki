@@ -23,6 +23,7 @@ dev = [
 
 [project.scripts]
 knowledge = "knowledge_compiler.cli:app"
+knowledge-mcp = "knowledge_compiler.mcp_server:main"
 knowledge-codewiki-spike = "knowledge_compiler.spikes.main:app"
 knowledge-realslice = "knowledge_compiler.cli:app"
 knowledge-fake-module-slice = "knowledge_compiler.vertical_slice:app"

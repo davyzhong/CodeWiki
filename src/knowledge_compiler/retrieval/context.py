@@ -225,6 +225,14 @@ def _resolve_snapshot(root: Path, snapshot: object | None) -> object:
         ) from error
 
 
+def require_current_view(
+    repository_root: Path, snapshot: object | None = None
+) -> None:
+    """Public gate for every default agent read (CLI and MCP)."""
+
+    _require_current_view(Path(repository_root).resolve(), snapshot)
+
+
 def _require_current_view(root: Path, snapshot: object | None) -> None:
     try:
         manifest = yaml.safe_load(
@@ -410,5 +418,6 @@ __all__ = [
     "IndexBuildResult",
     "UNAVAILABLE",
     "build_knowledge_index",
+    "require_current_view",
     "retrieve_task_context",
 ]

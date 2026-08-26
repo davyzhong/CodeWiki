@@ -106,9 +106,21 @@
 
 ## Gate 8 — MCP and security
 
-- [ ] Implement exactly the seven read-only tools named in the V0.1 design.
-- [ ] Apply path, symlink, size, generation, credential, and injection boundaries to every tool.
-- [ ] Prove MCP never builds, updates, writes canonical state, or executes repository code.
+- [x] Implement exactly the seven read-only tools named in the V0.1
+  design over a dependency-free stdio JSON-RPC server
+  (`knowledge-mcp` console entry): repo overview, search, get object,
+  get related, get evidence, context for task, and status.
+- [x] Apply path, symlink, size, generation, credential, and injection
+  boundaries to every tool: default reads fail closed on snapshot or
+  generation mismatch, evidence answers only known Evidence IDs recorded
+  in committed packs, arguments are bounds-checked, human and repository
+  text is escaped as data, and include_stale stays a visibly marked
+  diagnostic mode.
+- [x] Prove MCP never builds, updates, writes canonical state, or
+  executes repository code: a full seven-tool battery leaves the
+  repository tree byte-identical, and the server module contains no
+  build, publication, or subprocess path
+  (651 passed, 1 opt-in live test skipped at this checkpoint).
 
 ## Final technical gate
 
