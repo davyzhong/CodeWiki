@@ -73,18 +73,24 @@ def compute_changes(
     # Rename detection: a deleted file with the exact content hash of an
     # added file is a proven rename (same bytes), recorded as such.
     renamed: list[tuple[str, str]] = []
-    added_hashes: dict[str, str] = {}
+    added_identities: dict[tuple[str, str], str] = {}
     for path in added:
         record = current_by_path[path]
-        added_hashes[record.content_hash] = path
+        if record.blob_id is not None:
+            added_identities[(record.blob_id, record.content_hash)] = path
     remaining_deleted: list[str] = []
     for path in deleted:
         prior = baseline_by_path[path]
-        match = added_hashes.get(prior.content_hash)
+        identity = (
+            (prior.blob_id, prior.content_hash)
+            if prior.blob_id is not None
+            else None
+        )
+        match = added_identities.get(identity) if identity is not None else None
         if match is not None:
             renamed.append((path, match))
             added.remove(match)
-            del added_hashes[prior.content_hash]
+            del added_identities[identity]
         else:
             remaining_deleted.append(path)
 

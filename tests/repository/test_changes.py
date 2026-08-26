@@ -102,12 +102,40 @@ def test_deleted_file_detected(tmp_path: Path) -> None:
 def test_rename_becomes_delete_plus_add(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
     baseline = baseline_from(root)
-    (root / "helper.py").rename(root / "renamed.py")
+    git(root, "mv", "helper.py", "renamed.py")
     changes = compute_changes(baseline, baseline_from(root))
     # Same blob id and content hash prove identity -> recorded as rename.
     assert ("helper.py", "renamed.py") in changes.renamed
     assert "helper.py" not in changes.deleted
     assert "renamed.py" not in changes.added
+
+
+def test_same_hash_without_matching_blob_identity_is_not_a_proven_rename() -> None:
+    content_hash = "sha256:" + "a" * 64
+    baseline = (
+        FileRecord(
+            path="old.py",
+            blob_id="git-blob-old",
+            content_hash=content_hash,
+            size=10,
+            language="python",
+        ),
+    )
+    current = (
+        FileRecord(
+            path="new.py",
+            blob_id=None,
+            content_hash=content_hash,
+            size=10,
+            language="python",
+        ),
+    )
+
+    changes = compute_changes(baseline, current)
+
+    assert changes.renamed == ()
+    assert changes.deleted == ("old.py",)
+    assert changes.added == ("new.py",)
 
 
 def test_branch_switch_detected(tmp_path: Path) -> None:

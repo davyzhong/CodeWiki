@@ -315,3 +315,91 @@ def test_next_generation_removes_objects_absent_from_the_new_set(
     assert not flow_paths.canonical_path.exists()
     assert not flow_paths.card_path.exists()
     assert not flow_paths.wiki_path.exists()
+
+
+def test_stale_object_commits_with_card_removed_and_wiki_lag_recorded(
+    tmp_path: Path,
+) -> None:
+    architecture = canonicalize("architecture").canonical
+    flow = canonicalize("flow").canonical
+    assert architecture is not None
+    assert flow is not None
+    publisher = GenerationPublisher(tmp_path)
+    first = publisher.publish_generation(
+        "gen-before-invalidation",
+        ((architecture, None), (flow, None)),
+    )
+    architecture_paths = next(
+        item for item in first.objects if item.object_id == architecture.id
+    )
+    wiki_before = architecture_paths.wiki_path.read_bytes()
+    stale = architecture.model_copy(
+        update={
+            "validity": architecture.validity.model_copy(
+                update={
+                    "status": "stale",
+                    "stale_reason": "source-modified: src/core.py",
+                }
+            )
+        }
+    )
+
+    publisher.publish_generation(
+        "gen-invalidation",
+        ((stale, None), (flow, None)),
+    )
+
+    assert yaml.safe_load(architecture_paths.canonical_path.read_bytes())[
+        "validity"
+    ]["status"] == "stale"
+    assert not architecture_paths.card_path.exists()
+    assert architecture_paths.wiki_path.read_bytes() == wiki_before
+    manifest = yaml.safe_load(
+        (tmp_path / ".knowledge/manifest.yaml").read_bytes()
+    )
+    assert manifest["active_generation"] == "gen-invalidation"
+    assert manifest["agent_views_generation"] == "gen-invalidation"
+    assert manifest["wiki_generation"] == "gen-before-invalidation"
+
+
+def test_stale_invalidation_failure_recovers_verified_card_and_canonical(
+    tmp_path: Path,
+) -> None:
+    architecture = canonicalize("architecture").canonical
+    assert architecture is not None
+    publisher = GenerationPublisher(tmp_path)
+    publisher.publish_generation(
+        "gen-before-invalidation", ((architecture, None),)
+    )
+    knowledge = tmp_path / ".knowledge"
+
+    def visible_bytes() -> dict[str, bytes]:
+        return {
+            str(path.relative_to(knowledge)): path.read_bytes()
+            for path in sorted(knowledge.rglob("*"))
+            if path.is_file() and "state/transactions" not in str(path)
+        }
+
+    before = visible_bytes()
+    stale = architecture.model_copy(
+        update={
+            "validity": architecture.validity.model_copy(
+                update={
+                    "status": "stale",
+                    "stale_reason": "source-modified: src/core.py",
+                }
+            )
+        }
+    )
+
+    def fail(point: str) -> None:
+        if point == "publish.card.delete":
+            raise OSError("injected invalidation interruption")
+
+    with pytest.raises(PublicationError):
+        GenerationPublisher(tmp_path, fault_injector=fail).publish_generation(
+            "gen-invalidation", ((stale, None),)
+        )
+
+    GenerationPublisher(tmp_path).recover()
+    assert visible_bytes() == before

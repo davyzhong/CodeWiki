@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -29,10 +30,34 @@ def test_update_first_run_creates_baseline(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     result = Runner.invoke(app, ["update", "--repository-root", str(repo)])
     assert result.exit_code == 0, result.output
+    assert "added=1" in result.output
     baseline = repo / ".knowledge/baseline/eligible-files.json"
     assert baseline.is_file()
     report = repo / ".knowledge/state/last-update.json"
     assert report.is_file()
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["full_refresh"] is True
+    assert payload["refresh_reason"] == "baseline_missing"
+
+
+def test_update_corrupt_baseline_triggers_full_refresh(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = git_repo(tmp_path)
+    baseline = repo / ".knowledge/baseline/eligible-files.json"
+    baseline.parent.mkdir(parents=True)
+    baseline.write_text("{broken", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    result = Runner.invoke(app, ["update", "--repository-root", str(repo)])
+
+    assert result.exit_code == 0, result.output
+    assert "added=1" in result.output
+    payload = json.loads(
+        (repo / ".knowledge/state/last-update.json").read_text(encoding="utf-8")
+    )
+    assert payload["full_refresh"] is True
+    assert payload["refresh_reason"] == "baseline_corrupt"
 
 
 def test_update_detects_modification(tmp_path: Path, monkeypatch) -> None:

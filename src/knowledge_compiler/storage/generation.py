@@ -98,6 +98,27 @@ def _compile_outputs(model: object, evidence_pack: object) -> dict[str, bytes]:
     }
 
 
+def _compile_stale_outputs(model: object) -> dict[str, bytes | None]:
+    """Compile a stale canonical while excluding it from safe Agent views."""
+
+    validated = model.__class__.model_validate(model.model_dump(mode="json"))
+    if validated.validity.status != "stale":
+        raise ValueError("stale compilation requires stale validity")
+    canonical = yaml.safe_dump(
+        validated.model_dump(mode="json"),
+        sort_keys=False,
+        allow_unicode=True,
+        default_flow_style=False,
+        width=1000,
+    ).encode("utf-8")
+    return {
+        "canonical": canonical,
+        "card": None,
+        # Human Wiki compilation is a later, independently stamped view.
+        "wiki": None,
+    }
+
+
 class PublicationError(RuntimeError):
     """Raised when a generation cannot be safely published or recovered."""
 
@@ -304,9 +325,10 @@ class GenerationPublisher:
             raise PublicationError("generation must contain at least one object")
 
         prepared: list[
-            tuple[str, str, dict[str, bytes], dict[str, Path]]
+            tuple[str, str, dict[str, bytes | None], dict[str, Path]]
         ] = []
         seen_ids: set[str] = set()
+        contains_stale = False
         try:
             for model, evidence_pack in items:
                 object_id = self._safe_object_id(model)
@@ -316,7 +338,10 @@ class GenerationPublisher:
                         f"duplicate object id in generation: {object_id}"
                     )
                 seen_ids.add(object_id)
-                if object_type == "module":
+                if model.validity.status == "stale":
+                    contains_stale = True
+                    compiled = _compile_stale_outputs(model)
+                elif object_type == "module":
                     if evidence_pack is None:
                         raise PublicationError(
                             "module publication requires an evidence pack"
@@ -328,12 +353,21 @@ class GenerationPublisher:
                     }
                 else:
                     compiled = _compile_outputs(model, None)
+                destinations = self._destinations(object_id, object_type)
+                if compiled["wiki"] is None:
+                    if not self._lexists(destinations["wiki"]):
+                        raise PublicationError(
+                            f"stale Wiki source is unavailable: {object_id}"
+                        )
+                    compiled["wiki"] = self._read_regular(
+                        destinations["wiki"]
+                    )
                 prepared.append(
                     (
                         object_id,
                         object_type,
                         compiled,
-                        self._destinations(object_id, object_type),
+                        destinations,
                     )
                 )
             prepared.sort(key=lambda item: (item[1], item[0]))
@@ -341,7 +375,11 @@ class GenerationPublisher:
                 {
                     "active_generation": generation,
                     "agent_views_generation": generation,
-                    "wiki_generation": generation,
+                    "wiki_generation": (
+                        self._manifest_value("wiki_generation")
+                        if contains_stale
+                        else generation
+                    ),
                     "objects": [
                         {"id": object_id, "type": object_type}
                         for object_id, object_type, _, _ in prepared
@@ -368,7 +406,9 @@ class GenerationPublisher:
                         "kind": kind,
                         "object_id": object_id,
                         "object_type": object_type,
-                        "action": "replace",
+                        "action": (
+                            "delete" if compiled[kind] is None else "replace"
+                        ),
                         "data": compiled[kind],
                         "destination": destinations[kind],
                     }
@@ -543,7 +583,9 @@ class GenerationPublisher:
     @staticmethod
     def _batch_result(
         generation: str,
-        prepared: list[tuple[str, str, dict[str, bytes], dict[str, Path]]],
+        prepared: list[
+            tuple[str, str, dict[str, bytes | None], dict[str, Path]]
+        ],
         manifest_path: Path,
     ) -> PublishedGenerationBatch:
         return PublishedGenerationBatch(
@@ -711,18 +753,22 @@ class GenerationPublisher:
             )
 
         expected_actions = {
-            (object_id, object_type, kind): "replace"
+            (object_id, object_type, kind): {"replace"}
             for object_id, object_type in destinations_by_object
             for kind in ("canonical", "card", "wiki")
         }
+        for object_id, object_type in destinations_by_object:
+            expected_actions[(object_id, object_type, "card")] = {
+                "replace", "delete"
+            }
         expected_actions.update(
             {
-                (object_id, object_type, kind): "delete"
+                (object_id, object_type, kind): {"delete"}
                 for object_id, object_type in removed_destinations
                 for kind in ("canonical", "card", "wiki")
             }
         )
-        expected_actions[(None, None, "manifest")] = "replace"
+        expected_actions[(None, None, "manifest")] = {"replace"}
         if len(entries) != len(expected_actions):
             raise PublicationError("batch journal entry count is invalid")
 
@@ -745,7 +791,7 @@ class GenerationPublisher:
             if key not in expected_actions or key in seen_keys:
                 raise PublicationError("batch journal entry identity is invalid")
             action = entry.get("action")
-            if action != expected_actions[key]:
+            if action not in expected_actions[key]:
                 raise PublicationError("batch journal entry action is invalid")
             seen_keys.add(key)
             if kind == "manifest":
@@ -756,7 +802,7 @@ class GenerationPublisher:
                 identity = (object_id, object_type)
                 destination_map = (
                     destinations_by_object
-                    if action == "replace"
+                    if (object_id, object_type) in destinations_by_object
                     else removed_destinations
                 )
                 destination = destination_map[identity][kind]
@@ -939,6 +985,10 @@ class GenerationPublisher:
             os.close(fd)
 
     def _manifest_generation(self) -> str | None:
+        value = self._manifest_value("active_generation")
+        return value if isinstance(value, str) else None
+
+    def _manifest_value(self, field: str) -> object | None:
         path = self.knowledge_root / "manifest.yaml"
         if not self._lexists(path):
             return None
@@ -950,7 +1000,7 @@ class GenerationPublisher:
             if error.errno == errno.ENOENT:
                 return None
             raise PublicationError(f"manifest is unreadable: {error}") from error
-        return value.get("active_generation") if isinstance(value, dict) else None
+        return value.get(field) if isinstance(value, dict) else None
 
     def _manifest_objects(self) -> tuple[tuple[str, str], ...]:
         path = self.knowledge_root / "manifest.yaml"

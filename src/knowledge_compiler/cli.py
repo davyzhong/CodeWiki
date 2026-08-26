@@ -387,13 +387,19 @@ def update(
         )
         for r in provider.inventory(repository_root.resolve())
     )
+    full_refresh = False
+    refresh_reason = None
     if baseline_path.exists():
         try:
             baseline = load_baseline(baseline_path)
         except ValueError:
-            baseline = current
+            baseline = ()
+            full_refresh = True
+            refresh_reason = "baseline_corrupt"
     else:
-        baseline = current
+        baseline = ()
+        full_refresh = True
+        refresh_reason = "baseline_missing"
 
     change_set = compute_changes(baseline, current)
     typer.echo(
@@ -417,6 +423,8 @@ def update(
         _json.dumps(
             {
                 "status": "complete",
+                "full_refresh": full_refresh,
+                "refresh_reason": refresh_reason,
                 "change_set": {
                     "added": list(change_set.added),
                     "modified": list(change_set.modified),

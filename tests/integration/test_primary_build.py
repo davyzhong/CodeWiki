@@ -276,3 +276,48 @@ def test_agent_protocol_validates_contracts_and_publishes_generation(
     )
     assert report["status"] == "complete"
     assert report["executor"] == "agent"
+
+
+def test_changed_evidence_atomically_marks_canonical_stale_and_removes_card(
+    tmp_path: Path,
+) -> None:
+    import yaml
+
+    from knowledge_compiler.building import run_primary_build
+    from knowledge_compiler.incremental.invalidation import (
+        invalidate_changed_knowledge,
+    )
+    from knowledge_compiler.incremental.pending import PendingStore
+    from knowledge_compiler.planning.module import plan_one_module
+    from knowledge_compiler.repository.changes import ChangeSet
+
+    snapshot, provider, worker, plan = make_world(tmp_path)
+    built = run_primary_build(
+        repository_root=snapshot.root,
+        executor="llm",
+        evidence_provider=provider,
+        worker=worker,
+        snapshot=snapshot,
+        run_id="invalidation-source-001",
+        planner=plan_one_module,
+    )
+    object_id = plan.targets[0].target.id
+    card = snapshot.root / f".knowledge/views/cards/{object_id}.md"
+    assert card.is_file()
+
+    invalidated = invalidate_changed_knowledge(
+        repository_root=snapshot.root,
+        change_set=ChangeSet(modified=("src/shop/checkout.py",)),
+    )
+
+    assert invalidated.stale == (object_id,)
+    assert invalidated.generation != built.generation
+    canonical = yaml.safe_load(
+        (snapshot.root / f".knowledge/objects/modules/{object_id}.yaml").read_bytes()
+    )
+    assert canonical["validity"]["status"] == "stale"
+    assert not card.exists()
+    pending = PendingStore(
+        snapshot.root / ".knowledge/state/pending-targets.json"
+    )
+    assert pending.target_ids() == {object_id}
