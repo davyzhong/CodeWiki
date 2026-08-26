@@ -2,7 +2,7 @@
 
 CodeWiki（项目设计名：Knowledge Compiler）是一个面向 Coding Agent 的本地仓库知识编译器。
 
-V0.1 当前处于主链路恢复阶段。M0—M4 的合同、五种知识类型和编排基础已经实现；M5 增量生命周期、M6 human overlay 运行时语义以及 M7 Wiki/HTML/FTS/MCP 仍需完成端到端接线。2026-08-26 已修复旧 CLI 占位成功、单对象 generation、Module-only extraction union 和不可恢复的 semantic context；五种知识类型现可通过同一 Orchestrator 原子发布。当前基线为 569 个测试全绿，准确入口见恢复计划和完整 handoff To-do。
+V0.1 当前处于主链路恢复阶段。M0—M4 的合同、五种知识类型和真实主构建已经实现；M5 增量生命周期、M6 human overlay 运行时语义以及 M7 Wiki/HTML/FTS/MCP 仍需完成端到端接线。2026-08-26 已修复旧 CLI 占位成功、单对象 generation、Module-only extraction union 和不可恢复的 semantic context；`knowledge build --executor llm|agent` 现通过 LocalGit、公开 CodeWiki、五类 Planner、统一验证器和持久 Orchestrator 执行，Fake Provider 仅保留在测试/演示入口。当前离线基线为 583 项测试通过，另有 1 项显式 opt-in live 覆盖默认跳过；准确入口见恢复计划和完整 handoff To-do。
 
 ## 当前文档
 

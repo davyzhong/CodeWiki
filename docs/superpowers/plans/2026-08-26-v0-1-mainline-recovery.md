@@ -38,10 +38,14 @@
 
 ## Gate 4 — Real primary build
 
-- [ ] Wire LocalGit, public CodeWiki, Planner, LiteLLM/Agent worker, Validator, and RunOrchestrator into `knowledge build`.
-- [ ] Honor `--executor llm|agent` and repository configuration.
-- [ ] Keep FakeEvidenceProvider limited to tests and explicit fixture demonstrations.
-- [ ] Add offline contract/integration coverage and opt-in live coverage.
+- [x] Wire LocalGit, public CodeWiki, five-type Planner, LiteLLM/Agent worker, Validator, and RunOrchestrator into `knowledge build`.
+- [x] Honor `--executor llm|agent`, repository configuration, user-level model resolution, and exit 0/1/2 semantics.
+- [x] Keep FakeEvidenceProvider limited to tests and explicit fixture demonstrations.
+- [x] Persist plan, Evidence Packs, extraction context, verified canonical artifacts, and resume the active run across process/publication interruption.
+- [x] Replace placeholder Agent submissions with contract-valid extraction/verification requests, multi-target scheduling, atomic final publication, and a complete run report.
+- [x] Add offline contract/integration coverage and an explicit opt-in live CodeWiki/LiteLLM test.
+- [x] Run focused CLI/integration/orchestrator suites and the full suite (583 passed, 1 opt-in live test skipped).
+- [x] Commit and push `d9cfca7` and `c2011cb`.
 
 ## Gate 5 — Incremental lifecycle
 
