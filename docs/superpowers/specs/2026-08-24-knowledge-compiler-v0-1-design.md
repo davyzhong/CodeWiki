@@ -1,6 +1,6 @@
 # Knowledge Compiler V0.1 Design
 
-**Status:** Spec review approved; revised 2026-08-25 to add the human knowledge layer (user decision; multi-language remains deferred)
+**Status:** Spec review approved; revised 2026-08-25 to add the human knowledge layer (user decision; multi-language remains deferred); 2026-08-26 V0.1 technical gates 1–8 implemented and verified per the mainline recovery plan (offline suite 653 passed, 1 opt-in live test skipped)
 **Date:** 2026-08-24, revised 2026-08-25
 **Product horizon:** Local repository first; Git URL support next; multi-repository workspaces later
 

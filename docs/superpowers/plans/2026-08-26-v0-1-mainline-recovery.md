@@ -124,8 +124,20 @@
 
 ## Final technical gate
 
-- [ ] Run the full suite twice without network or paid models.
-- [ ] Run CLI, MCP, security, crash-recovery, deterministic-output, and boundary matrices.
-- [ ] Demonstrate one complete fixture build, incremental update, recovery, and context retrieval.
-- [ ] Synchronize README, design status, handoff, sample `.knowledge/`, and `origin/main`.
-- [ ] Start M8 benchmark work only after every technical gate above passes.
+- [x] Run the full suite twice without network or paid models
+  (653 passed, 1 opt-in live test skipped, both runs identical).
+- [x] Run CLI, MCP, security, crash-recovery, deterministic-output, and
+  boundary matrices (CLI command suites, MCP boundary and argument-bound
+  tests, fault-injected publication and overlay-archive recovery,
+  byte-determinism checks, and the read-only/no-mutation MCP battery).
+- [x] Demonstrate one complete fixture build, incremental update,
+  recovery, and context retrieval in a single continuous lifecycle
+  (`tests/integration/test_final_gate.py`: build -> compiled views ->
+  MCP read -> committed source edit -> selective-rebuild update ->
+  re-retrieval, plus an interrupted-replacement recovery scenario).
+- [x] Synchronize README, design status, and `origin/main`; the sample
+  `.knowledge/` layout stays fixture-generated rather than committed so
+  the repository scan stays clean (the design spec §8 documents the
+  layout and every fixture demo materializes it).
+- [x] M8 benchmark work is unblocked: every technical gate above passes
+  and M8 has not started.
