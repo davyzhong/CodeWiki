@@ -62,10 +62,16 @@
 
 ## Gate 6 — Human overlay runtime semantics
 
-- [ ] Validate overlays before build/update without modifying them.
-- [ ] Apply supplements and overrides only at compilation/retrieval boundaries.
-- [ ] Produce a conflicted target when changed machine evidence intersects an override.
-- [ ] Archive retired overlays byte-identically and recover safely after interruption.
+- [x] Validate overlays before build/update without modifying them.
+- [x] Apply supplements and overrides only at compilation/retrieval boundaries;
+  retrieval-side application lands with the Gate 7 ContextRetriever.
+- [x] Produce a conflicted target when changed machine evidence intersects an override.
+- [x] Archive retired overlays byte-identically and recover safely after interruption.
+- [x] Cover read-only validation, Markdown-only overlay merging with pure canonical
+  IR, conflicted-target preservation of the previous generation and overlay bytes,
+  byte-identical retirement archive inside the publication transaction, archive
+  collision fail-closed, and interruption recovery; run the full suite
+  (620 passed, 1 opt-in live test skipped).
 
 ## Gate 7 — Views, retrieval, and CLI
 
