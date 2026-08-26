@@ -246,6 +246,83 @@ def test_primary_agent_build_prepares_real_queue_without_model_or_publication(
     assert persisted_plan["run_id"] == "primary-agent-001"
 
 
+def test_primary_agent_build_persists_every_survey_discovered_target(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.building import run_primary_build
+    from knowledge_compiler.contracts.evidence import RepositorySurvey
+    from knowledge_compiler.contracts.planning import PlanRequest
+    from knowledge_compiler.planning.module import plan_full_refresh
+
+    snapshot, provider, _, _ = make_world(tmp_path)
+    base_survey = provider.inspect(snapshot)
+    survey = RepositorySurvey.model_validate(
+        {
+            **base_survey.model_dump(),
+            "graph_communities": (
+                ("CheckoutService", "Inventory.reserve"),
+                ("checkout_order",),
+            ),
+            "configuration_facts": {
+                "flow.checkout": "checkout_order",
+                "flow.service": "CheckoutService.checkout",
+                "rule.inventory": "Inventory.reserve",
+                "rule.checkout": "CheckoutService.checkout",
+            },
+        }
+    )
+
+    class SurveyProvider:
+        def ensure_index(self, repo):
+            return provider.ensure_index(repo)
+
+        def inspect(self, repo):
+            assert repo == snapshot
+            return survey
+
+        def build_pack(self, repo, target, budget):
+            return provider.build_pack(repo, target, budget)
+
+    run_id = "primary-discovered-001"
+    expected = plan_full_refresh(
+        PlanRequest(
+            run_id=run_id,
+            repository_id=snapshot.repository_id,
+            snapshot_id=snapshot.snapshot_id,
+            attempt=1,
+            idempotency_key=f"{run_id}:plan:1:{snapshot.snapshot_id}",
+        ),
+        survey,
+    )
+    outcome = run_primary_build(
+        repository_root=snapshot.root,
+        executor="agent",
+        evidence_provider=SurveyProvider(),
+        snapshot=snapshot,
+        run_id=run_id,
+    )
+
+    run_dir = snapshot.root / f".knowledge/state/runs/{run_id}"
+    persisted_plan = json.loads(
+        run_dir.joinpath("plan.json").read_text(encoding="utf-8")
+    )
+    persisted_run = json.loads(
+        run_dir.joinpath("run.json").read_text(encoding="utf-8")
+    )
+    expected_ids = [spec.target.id for spec in expected.targets]
+
+    assert len(expected_ids) > 5
+    assert outcome.status == "partial"
+    assert [spec["target"]["id"] for spec in persisted_plan["targets"]] == expected_ids
+    assert [target["target_id"] for target in persisted_run["targets"]] == expected_ids
+    assert {target["state"] for target in persisted_run["targets"]} == {
+        "evidence_ready"
+    }
+    assert len(list(run_dir.joinpath("targets").glob("*/evidence.json"))) == len(
+        expected_ids
+    )
+
+
 def test_primary_agent_build_resumes_the_active_run_instead_of_forking(
     tmp_path: Path,
 ) -> None:
