@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from test_real_provider_slice import make_world
 
 
@@ -472,3 +474,98 @@ def test_no_diff_pending_retry_selects_target_and_preserves_healthy_generation(
     assert tuple(item[0].id for item in captured["preserved_items"]) == (
         flow.id,
     )
+
+
+@pytest.mark.parametrize(
+    ("search_complete", "expected_status"),
+    ((True, "complete"), (False, "partial")),
+)
+def test_deleted_target_retirement_obeys_deterministic_proof_boundary(
+    tmp_path: Path,
+    search_complete: bool,
+    expected_status: str,
+) -> None:
+    import yaml
+
+    from test_typed_publication import canonicalize
+
+    from knowledge_compiler.building import run_primary_build
+    from knowledge_compiler.cli import _default_config
+    from knowledge_compiler.incremental.retirement import RetirementCheck
+    from knowledge_compiler.incremental.updating import run_incremental_update
+    from knowledge_compiler.planning.module import plan_one_module
+    from knowledge_compiler.repository.inventory import FileRecord, save_baseline
+    from knowledge_compiler.repository.local_git import LocalGitRepositoryProvider
+
+    snapshot, provider, worker, plan = make_world(tmp_path)
+    flow = canonicalize("flow").canonical
+    assert flow is not None
+    run_primary_build(
+        repository_root=snapshot.root,
+        executor="llm",
+        evidence_provider=provider,
+        worker=worker,
+        snapshot=snapshot,
+        run_id="retirement-source-001",
+        planner=plan_one_module,
+        preserved_items=((flow, None),),
+    )
+    inventory = tuple(
+        FileRecord(
+            path=item.path,
+            blob_id=item.blob_id,
+            content_hash=item.content_hash,
+            size=item.size,
+            language=item.language,
+        )
+        for item in LocalGitRepositoryProvider().inventory(snapshot.root)
+        if item.supported
+    )
+    save_baseline(
+        snapshot.root / ".knowledge/baseline/eligible-files.json",
+        inventory,
+    )
+    (snapshot.root / "src/shop/checkout.py").unlink()
+    (snapshot.root / "src/shop/inventory.py").unlink()
+
+    def planner_omitted(**kwargs):
+        raise ValueError("pending target is absent from refreshed plan")
+
+    def prove(candidate):
+        return RetirementCheck(
+            candidate=candidate,
+            source_absent=True,
+            search_complete=search_complete,
+            search_found_current=False,
+            inbound_relations_verified=True,
+        )
+
+    outcome = run_incremental_update(
+        repository_root=snapshot.root,
+        executor="llm",
+        config=_default_config("zh"),
+        build_runner=planner_omitted,
+        retirement_prover=prove,
+    )
+
+    object_id = plan.targets[0].target.id
+    assert outcome.status == expected_status
+    object_path = (
+        snapshot.root / f".knowledge/objects/modules/{object_id}.yaml"
+    )
+    manifest = yaml.safe_load(
+        (snapshot.root / ".knowledge/manifest.yaml").read_bytes()
+    )
+    if search_complete:
+        assert outcome.retired_object_ids == (object_id,)
+        assert outcome.pending_target_ids == ()
+        assert not object_path.exists()
+        assert manifest["objects"] == [{"id": flow.id, "type": "flow"}]
+    else:
+        assert outcome.retired_object_ids == ()
+        assert outcome.pending_target_ids == (object_id,)
+        assert yaml.safe_load(object_path.read_bytes())["validity"]["status"] == "stale"
+        assert {item["id"] for item in manifest["objects"]} == {
+            flow.id,
+            object_id,
+        }

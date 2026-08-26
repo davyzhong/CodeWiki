@@ -29,6 +29,7 @@ class IncrementalUpdateOutcome:
     refresh_reason: str | None
     invalidation_generation: str | None
     stale_object_ids: tuple[str, ...]
+    retired_object_ids: tuple[str, ...]
     pending_target_ids: tuple[str, ...]
     generation: str | None
     published_object_ids: tuple[str, ...]
@@ -44,6 +45,7 @@ def run_incremental_update(
     executor: Literal["llm", "agent"],
     config: KnowledgeConfig,
     build_runner: BuildRunner | None = None,
+    retirement_prover: Callable[[Any], Any] | None = None,
 ) -> IncrementalUpdateOutcome:
     """Detect before provider sync, invalidate safely, then regenerate."""
 
@@ -69,6 +71,7 @@ def run_incremental_update(
             refresh_reason=None,
             invalidation_generation=None,
             stale_object_ids=(),
+            retired_object_ids=(),
             pending_target_ids=(),
             generation=None,
             published_object_ids=(),
@@ -96,7 +99,8 @@ def run_incremental_update(
             root / ".knowledge/state/pending-targets.json"
         )
 
-    if build_runner is None:
+    configured_build = build_runner is None
+    if configured_build:
         from knowledge_compiler.building import run_configured_build
 
         build_runner = run_configured_build
@@ -133,17 +137,66 @@ def run_incremental_update(
     except (OSError, RuntimeError, ValueError) as error:
         if stale_ids:
             save_baseline(baseline_path, current)
+            retired_ids: tuple[str, ...] = ()
+            retirement_generation = None
+            retirement_diagnostic = None
+            if retirement_prover is None and configured_build:
+                from knowledge_compiler.incremental.retirement import (
+                    CodeWikiRetirementProver,
+                )
+
+                try:
+                    retirement_prover = CodeWikiRetirementProver(root)
+                except (OSError, RuntimeError, ValueError) as retirement_error:
+                    retirement_diagnostic = (
+                        f"retirement proof failed: {retirement_error}"
+                    )
+            if retirement_prover is not None:
+                try:
+                    from knowledge_compiler.incremental.retirement import (
+                        retire_proven_knowledge,
+                    )
+
+                    retirement = retire_proven_knowledge(
+                        repository_root=root,
+                        candidate_ids=set(stale_ids),
+                        prover=retirement_prover,
+                    )
+                    retired_ids = retirement.retired
+                    retirement_generation = retirement.generation
+                    pending = PendingStore(
+                        root / ".knowledge/state/pending-targets.json"
+                    )
+                except (OSError, RuntimeError, ValueError) as retirement_error:
+                    retirement_diagnostic = (
+                        f"retirement proof failed: {retirement_error}"
+                    )
+            remaining_stale = tuple(
+                sorted(set(stale_ids) - set(retired_ids))
+            )
+            remaining_pending = tuple(sorted(pending.target_ids()))
+            diagnostics = [f"regeneration failed: {error}"]
+            if retirement_diagnostic:
+                diagnostics.append(retirement_diagnostic)
+            status = (
+                "complete"
+                if retired_ids
+                and not remaining_stale
+                and not remaining_pending
+                else "partial"
+            )
             return IncrementalUpdateOutcome(
-                status="partial",
+                status=status,
                 change_set=change_set,
                 full_refresh=full_refresh,
                 refresh_reason=refresh_reason,
                 invalidation_generation=invalidation_generation,
-                stale_object_ids=stale_ids,
-                pending_target_ids=tuple(sorted(pending.target_ids())),
-                generation=None,
+                stale_object_ids=remaining_stale,
+                retired_object_ids=retired_ids,
+                pending_target_ids=remaining_pending,
+                generation=retirement_generation,
                 published_object_ids=(),
-                diagnostics=(f"regeneration failed: {error}",),
+                diagnostics=tuple(diagnostics),
             )
         return _failed(
             change_set,
@@ -180,6 +233,7 @@ def run_incremental_update(
         refresh_reason=refresh_reason,
         invalidation_generation=invalidation_generation,
         stale_object_ids=stale_ids,
+        retired_object_ids=(),
         pending_target_ids=remaining,
         generation=built.generation,
         published_object_ids=published_ids,
@@ -226,6 +280,7 @@ def _failed(
         refresh_reason=refresh_reason,
         invalidation_generation=None,
         stale_object_ids=(),
+        retired_object_ids=(),
         pending_target_ids=tuple(sorted(pending.target_ids())),
         generation=None,
         published_object_ids=(),

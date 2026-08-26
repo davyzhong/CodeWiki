@@ -402,6 +402,7 @@ def update(
                 "refresh_reason": outcome.refresh_reason,
                 "invalidation_generation": outcome.invalidation_generation,
                 "stale_object_ids": list(outcome.stale_object_ids),
+                "retired_object_ids": list(outcome.retired_object_ids),
                 "pending_target_ids": list(outcome.pending_target_ids),
                 "generation": outcome.generation,
                 "published_object_ids": list(outcome.published_object_ids),

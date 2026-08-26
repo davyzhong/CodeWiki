@@ -317,6 +317,62 @@ def test_next_generation_removes_objects_absent_from_the_new_set(
     assert not flow_paths.wiki_path.exists()
 
 
+def test_explicit_empty_generation_retires_the_final_object(
+    tmp_path: Path,
+) -> None:
+    architecture = canonicalize("architecture").canonical
+    assert architecture is not None
+    publisher = GenerationPublisher(tmp_path)
+    first = publisher.publish_generation(
+        "gen-before-empty", ((architecture, None),)
+    )
+    paths = first.objects[0]
+
+    published = publisher.publish_generation(
+        "gen-empty", (), allow_empty=True
+    )
+
+    assert published.objects == ()
+    assert not paths.canonical_path.exists()
+    assert not paths.card_path.exists()
+    assert not paths.wiki_path.exists()
+    manifest = yaml.safe_load(published.manifest_path.read_bytes())
+    assert manifest["active_generation"] == "gen-empty"
+    assert manifest["objects"] == []
+
+
+def test_interrupted_empty_generation_recovers_the_final_object(
+    tmp_path: Path,
+) -> None:
+    architecture = canonicalize("architecture").canonical
+    assert architecture is not None
+    publisher = GenerationPublisher(tmp_path)
+    published = publisher.publish_generation(
+        "gen-before-empty", ((architecture, None),)
+    )
+    before = {
+        "canonical": published.objects[0].canonical_path.read_bytes(),
+        "card": published.objects[0].card_path.read_bytes(),
+        "wiki": published.objects[0].wiki_path.read_bytes(),
+        "manifest": published.manifest_path.read_bytes(),
+    }
+
+    def fail(point: str) -> None:
+        if point == "publish.card.delete":
+            raise OSError("injected empty-generation interruption")
+
+    with pytest.raises(PublicationError):
+        GenerationPublisher(tmp_path, fault_injector=fail).publish_generation(
+            "gen-empty", (), allow_empty=True
+        )
+
+    GenerationPublisher(tmp_path).recover()
+    assert published.objects[0].canonical_path.read_bytes() == before["canonical"]
+    assert published.objects[0].card_path.read_bytes() == before["card"]
+    assert published.objects[0].wiki_path.read_bytes() == before["wiki"]
+    assert published.manifest_path.read_bytes() == before["manifest"]
+
+
 def test_stale_object_commits_with_card_removed_and_wiki_lag_recorded(
     tmp_path: Path,
 ) -> None:

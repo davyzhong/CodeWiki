@@ -224,11 +224,20 @@ def _load_matching_evidence_packs(
         except (KeyError, OSError, ValueError):
             continue
         current = objects.get(canonical.id)
-        if current is None or current.model_dump() != canonical.model_dump():
+        if current is None or not _same_verified_content(current, canonical):
             continue
         if pack.target.id == canonical.id:
             packs[canonical.id] = pack
     return packs
+
+
+def _same_verified_content(current: object, historical: object) -> bool:
+    if current.id != historical.id or current.type != historical.type:
+        return False
+    current_payload = current.model_dump(mode="json")
+    historical_payload = historical.model_dump(mode="json")
+    current_payload["validity"] = historical_payload.get("validity")
+    return current_payload == historical_payload
 
 
 def _changed_paths(change_set: ChangeSet) -> set[str]:

@@ -317,11 +317,13 @@ class GenerationPublisher:
         self,
         generation: str,
         items: tuple[tuple[object, EvidencePack | None], ...],
+        *,
+        allow_empty: bool = False,
     ) -> PublishedGenerationBatch:
         """Publish a complete multi-object generation in one transaction."""
 
         self._validate_generation(generation)
-        if not items:
+        if not items and not allow_empty:
             raise PublicationError("generation must contain at least one object")
 
         prepared: list[
@@ -533,6 +535,7 @@ class GenerationPublisher:
             journal = {
                 "schema_version": 2,
                 "generation": generation,
+                "allow_empty": allow_empty,
                 "objects": [
                     {"id": object_id, "type": object_type}
                     for object_id, object_type, _, _ in prepared
@@ -706,12 +709,20 @@ class GenerationPublisher:
         objects = journal.get("objects")
         removed_objects = journal.get("removed_objects", [])
         entries = journal.get("entries")
-        if not isinstance(objects, list) or not objects:
+        allow_empty = journal.get("allow_empty", False)
+        if not isinstance(allow_empty, bool):
+            raise PublicationError("batch journal empty-generation flag is invalid")
+        if (
+            not isinstance(objects, list)
+            or (not objects and not allow_empty)
+        ):
             raise PublicationError("batch journal objects are invalid")
         if not isinstance(entries, list):
             raise PublicationError("batch journal entries are invalid")
         if not isinstance(removed_objects, list):
             raise PublicationError("batch journal removed objects are invalid")
+        if not objects and not removed_objects:
+            raise PublicationError("empty generation must retire existing objects")
 
         destinations_by_object: dict[tuple[str, str], dict[str, Path]] = {}
         for item in objects:
