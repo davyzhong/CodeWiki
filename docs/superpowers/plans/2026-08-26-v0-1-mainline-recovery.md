@@ -49,12 +49,16 @@
 
 ## Gate 5 — Incremental lifecycle
 
-- [ ] Treat missing/corrupt baselines as a full refresh instead of a no-op.
-- [ ] Atomically invalidate canonical objects and remove stale Agent Cards/FTS rows.
-- [ ] Persist and retry pending targets even when the next diff is empty.
-- [ ] Selectively rebuild affected targets and retire only with deterministic proof.
-- [ ] Return update exit codes 0 complete, 1 failed, and 2 partial.
-- [ ] Deliver the protocol-pinned `/knowledge-update` Skill.
+- [x] Treat missing/corrupt baselines as a full refresh instead of a no-op.
+- [x] Atomically invalidate canonical objects and remove stale Agent Cards;
+  verified-only FTS row handling remains part of the Gate 7 index implementation.
+- [x] Persist and retry pending targets even when the next diff is empty.
+- [x] Selectively rebuild affected targets and retire only with deterministic proof.
+- [x] Return update exit codes 0 complete, 1 failed, and 2 partial.
+- [x] Deliver the protocol-pinned `/knowledge-update` Skill.
+- [x] Cover safe invalidation, pending retry, selective rebuild, proof blocking,
+  empty-generation retirement, interruption recovery, and both Skill protocols;
+  run the full suite (603 passed, 1 opt-in live test skipped).
 
 ## Gate 6 — Human overlay runtime semantics
 

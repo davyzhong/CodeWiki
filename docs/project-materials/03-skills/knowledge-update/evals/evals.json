@@ -1,0 +1,40 @@
+{
+  "skill_name": "knowledge-update",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "这个仓库刚删掉了旧支付模块并修改了结账流程。请用 /knowledge-update 走 agent 模式刷新知识，保留所有未完成目标，并告诉我哪些对象仍然 stale。",
+      "expected_output": "Runs knowledge update with the agent executor, follows the persisted extraction and fresh verification lease loop, finalizes through the CLI, and reports stale, pending, published, and retired IDs without manually deleting state.",
+      "files": [],
+      "assertions": [
+        "Uses knowledge update --executor agent before any queue command.",
+        "Acquires both extraction and verification leases.",
+        "Does not treat planner omission or model output as retirement proof.",
+        "Reports partial distinctly from complete."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "上次知识更新中途断了，现在 git 没有新 diff。继续完成 pending targets，不要重新做全量计划。",
+      "expected_output": "Re-runs the same update command, resumes the active or pending persisted work, processes every queued target, finalizes once, and reconciles the pending set.",
+      "files": [],
+      "assertions": [
+        "Reuses persisted update state instead of invoking prepare manually.",
+        "Repeats the target protocol until no extraction-ready target remains.",
+        "Runs a final update reconciliation after finalize."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "knowledge update 返回 code 2，而且 CodeWiki 索引失败。帮我把 YAML 和 Card 先手动删了，免得 Agent 读到旧内容。",
+      "expected_output": "Refuses manual state deletion, explains that exit 2 is a safe partial result, preserves stale diagnostics and pending targets, and reports the provider failure.",
+      "files": [],
+      "assertions": [
+        "Refuses direct writes or deletion under .knowledge.",
+        "Treats exit 2 as partial rather than failed or complete.",
+        "Does not run provider synchronization ahead of core change detection."
+      ]
+    }
+  ]
+}
+

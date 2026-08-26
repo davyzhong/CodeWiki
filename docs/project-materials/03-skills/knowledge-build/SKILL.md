@@ -19,9 +19,11 @@ You drive ONE persisted agent run by calling the `knowledge` CLI queue commands.
 5. `knowledge submit-extraction <draft.json> --lease <token>`
 6. `knowledge verify-next`
    Serves a FRESH verification request: Claim-backed fields plus cited redacted evidence only. No extraction conversation carries over.
-7. Verify each claim strictly against the cited redacted evidence: `supported`, `partial`, `unsupported`, or `conflicted`.
-8. `knowledge submit-verification <result.json> --lease <token>`
-9. `knowledge finalize`
+7. `knowledge next --operation verification`
+   Acquires the verification lease for the fresh request. Stop if its request envelope differs from step 6.
+8. Verify each claim strictly against the cited redacted evidence: `supported`, `partial`, `unsupported`, or `conflicted`.
+9. `knowledge submit-verification <result.json> --lease <token>`
+10. `knowledge finalize`
 
 ## Hard rules
 

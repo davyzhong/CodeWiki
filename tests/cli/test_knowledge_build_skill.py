@@ -39,3 +39,11 @@ def test_skill_never_schedules_or_publishes() -> None:
 def test_skill_mentions_interruption_resume() -> None:
     rendered = skill_instructions()
     assert "resumes" in rendered or "resume" in rendered
+
+
+def test_skill_acquires_a_fresh_verification_lease() -> None:
+    rendered = skill_instructions()
+    assert "knowledge next --operation verification" in rendered
+    assert rendered.index("knowledge verify-next") < rendered.index(
+        "knowledge next --operation verification"
+    ) < rendered.index("knowledge submit-verification")

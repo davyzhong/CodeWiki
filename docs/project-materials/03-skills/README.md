@@ -27,3 +27,8 @@ Skill 表达“Agent 应该如何工作”，Knowledge Card 表达“Agent 已�
 后续批准的 V0.1 规格收敛成两个用户入口：`/knowledge-build` 与 `/knowledge-update`。它们通过同一个持久化 RunOrchestrator 调用 prepare/lease/evidence/submit/verify/finalize 协议，而不是四个彼此独立、各自持有状态的 Skill。
 
 因此，本素材库不伪造四份 `SKILL.md`。如果未来进入 Agent executor 实现阶段，应基于当时的 CLI 合同重新设计，并将历史提案只作为设计输入。
+
+## 当前项目 Skill
+
+- `knowledge-build/`：完整构建入口，使用持久化提取/验证租约协议。
+- `knowledge-update/`：增量更新入口，负责启动或恢复增量 run，并通过同一租约协议完成选择性重建；变更检测、失效和确定性退役仍由核心实现。
