@@ -92,6 +92,41 @@ def test_publishes_all_outputs_and_replaces_manifest_last(tmp_path: Path) -> Non
     assert not (tmp_path / ".knowledge/state/transactions/generation-001").exists()
 
 
+def test_single_publication_rejects_oversized_manifest_before_output_mutation(
+    tmp_path: Path,
+) -> None:
+    module, pack = _verified_inputs()
+    before = _visible(tmp_path)
+
+    with pytest.raises(PublicationError, match="size bound"):
+        GenerationPublisher(tmp_path).publish(
+            "generation-oversized-single",
+            module,
+            pack,
+            pending_targets=("x" * 1_050_000,),
+        )
+
+    assert _visible(tmp_path) == before
+    assert not (tmp_path / ".knowledge").exists()
+
+
+def test_batch_publication_rejects_oversized_manifest_before_output_mutation(
+    tmp_path: Path,
+) -> None:
+    module, pack = _verified_inputs()
+    before = _visible(tmp_path)
+
+    with pytest.raises(PublicationError, match="size bound"):
+        GenerationPublisher(tmp_path).publish_generation(
+            "generation-oversized-batch",
+            ((module, pack),),
+            pending_targets=("x" * 1_050_000,),
+        )
+
+    assert _visible(tmp_path) == before
+    assert not (tmp_path / ".knowledge").exists()
+
+
 FAILURE_POINTS = (
     "stage.canonical.write",
     "stage.canonical.flush",

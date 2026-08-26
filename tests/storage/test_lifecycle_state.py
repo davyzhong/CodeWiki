@@ -19,6 +19,23 @@ from knowledge_compiler.orchestrator.contracts import (
 )
 
 
+_PENDING_TRANSACTION_FAILURE_POINTS = (
+    "pending-lifecycle.journal.replace",
+    "pending-lifecycle.journal.directory.fsync",
+    "pending-lifecycle.pending.replace",
+    "pending-lifecycle.pending.directory.fsync",
+    "pending-lifecycle.plan.replace",
+    "pending-lifecycle.plan.directory.fsync",
+    "pending-lifecycle.manifest.replace",
+    "pending-lifecycle.manifest.directory.fsync",
+    "pending-lifecycle.cleanup.directory.fsync",
+)
+
+
+class _SimulatedProcessDeath(BaseException):
+    pass
+
+
 def _snapshot(root: Path, *, commit: str = "commit-one") -> RepositorySnapshot:
     repository_id = "example/lifecycle-repo"
     return RepositorySnapshot(
@@ -126,6 +143,31 @@ def _terminal_run() -> RunRecord:
     return run.model_copy(update={"active": False, "targets": (alpha, beta)})
 
 
+def _prepare_pending_lifecycle(root: Path) -> None:
+    from test_generation_publication import _verified_inputs
+
+    from knowledge_compiler.storage import GenerationPublisher
+    from knowledge_compiler.storage.lifecycle import save_latest_plan
+
+    module, pack = _verified_inputs()
+    save_latest_plan(root, _plan(), _run())
+    GenerationPublisher(root).publish_generation(
+        "gen-pending-transaction",
+        ((module, pack),),
+        observed_snapshot=_snapshot(root),
+        pending_targets=(),
+    )
+
+
+def _pending_lifecycle_bytes(root: Path) -> tuple[bytes | None, bytes, bytes]:
+    pending_path = root / ".knowledge/state/pending-targets.json"
+    return (
+        pending_path.read_bytes() if pending_path.exists() else None,
+        (root / ".knowledge/plan.yaml").read_bytes(),
+        (root / ".knowledge/manifest.yaml").read_bytes(),
+    )
+
+
 def test_run_store_projects_strict_secret_free_latest_plan(tmp_path: Path) -> None:
     from knowledge_compiler.orchestrator.store import RunStore
 
@@ -170,6 +212,105 @@ def test_run_store_projects_strict_secret_free_latest_plan(tmp_path: Path) -> No
     assert "PROVIDER_SECRET_MUST_NOT_BE_TRACKED" not in rendered
     assert "API_KEY=must-not-be-tracked" not in rendered
     assert (tmp_path / ".knowledge/state/runs/lifecycle-run-001/plan.json").is_file()
+
+
+@pytest.mark.parametrize("failure_point", _PENDING_TRANSACTION_FAILURE_POINTS)
+def test_pending_lifecycle_exception_never_returns_split_brain(
+    tmp_path: Path, failure_point: str
+) -> None:
+    from knowledge_compiler.incremental.pending import PendingStore, PersistedTarget
+    from knowledge_compiler.storage.lifecycle import LifecycleWriteError
+
+    root = tmp_path / "subject"
+    expected_root = tmp_path / "expected"
+    _prepare_pending_lifecycle(root)
+    _prepare_pending_lifecycle(expected_root)
+    old_bytes = _pending_lifecycle_bytes(root)
+    PendingStore(
+        expected_root / ".knowledge/state/pending-targets.json"
+    ).add(PersistedTarget(target_id="module.lifecycle.alpha", reason="retry"))
+    new_bytes = _pending_lifecycle_bytes(expected_root)
+
+    def fail(point: str) -> None:
+        if point == failure_point:
+            raise OSError(f"injected at {point}")
+
+    store = PendingStore(
+        root / ".knowledge/state/pending-targets.json",
+        fault_injector=fail,
+    )
+    with pytest.raises(LifecycleWriteError, match=failure_point):
+        store.add(
+            PersistedTarget(target_id="module.lifecycle.alpha", reason="retry")
+        )
+
+    assert _pending_lifecycle_bytes(root) in {old_bytes, new_bytes}
+    assert not (
+        root / ".knowledge/state/pending-lifecycle-transaction.json"
+    ).exists()
+    assert not (
+        root / ".knowledge/state/pending-lifecycle-transaction.json.tmp"
+    ).exists()
+
+
+@pytest.mark.parametrize("failure_point", _PENDING_TRANSACTION_FAILURE_POINTS)
+def test_pending_lifecycle_restart_recovers_all_old_or_all_new_bytes(
+    tmp_path: Path, failure_point: str
+) -> None:
+    from knowledge_compiler.incremental.pending import PendingStore, PersistedTarget
+
+    root = tmp_path / "subject"
+    expected_root = tmp_path / "expected"
+    _prepare_pending_lifecycle(root)
+    _prepare_pending_lifecycle(expected_root)
+    old_bytes = _pending_lifecycle_bytes(root)
+    PendingStore(
+        expected_root / ".knowledge/state/pending-targets.json"
+    ).add(PersistedTarget(target_id="module.lifecycle.alpha", reason="retry"))
+    new_bytes = _pending_lifecycle_bytes(expected_root)
+
+    def crash(point: str) -> None:
+        if point == failure_point:
+            raise _SimulatedProcessDeath(point)
+
+    store = PendingStore(
+        root / ".knowledge/state/pending-targets.json",
+        fault_injector=crash,
+    )
+    with pytest.raises(_SimulatedProcessDeath, match=failure_point):
+        store.add(
+            PersistedTarget(target_id="module.lifecycle.alpha", reason="retry")
+        )
+
+    PendingStore(root / ".knowledge/state/pending-targets.json")
+    assert _pending_lifecycle_bytes(root) in {old_bytes, new_bytes}
+    assert not (
+        root / ".knowledge/state/pending-lifecycle-transaction.json"
+    ).exists()
+    assert not (
+        root / ".knowledge/state/pending-lifecycle-transaction.json.tmp"
+    ).exists()
+
+
+def test_pending_lifecycle_rejects_manifest_temp_symlink_before_mutation(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.incremental.pending import PendingStore, PersistedTarget
+    from knowledge_compiler.storage.lifecycle import LifecycleWriteError
+
+    _prepare_pending_lifecycle(tmp_path)
+    old_bytes = _pending_lifecycle_bytes(tmp_path)
+    decoy = tmp_path / "decoy.yaml"
+    decoy.write_bytes(b"keep: exact\n")
+    (tmp_path / ".knowledge/manifest.yaml.tmp").symlink_to(decoy)
+
+    with pytest.raises(LifecycleWriteError, match="symlink"):
+        PendingStore(
+            tmp_path / ".knowledge/state/pending-targets.json"
+        ).add(PersistedTarget(target_id="module.lifecycle.alpha", reason="retry"))
+
+    assert _pending_lifecycle_bytes(tmp_path) == old_bytes
+    assert decoy.read_bytes() == b"keep: exact\n"
 
 
 @pytest.mark.parametrize(

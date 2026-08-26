@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 import stat
@@ -20,6 +21,7 @@ from knowledge_compiler.orchestrator.contracts import (
 
 
 _MAX_TRACKED_YAML_BYTES = 1_000_000
+_NON_BLANK = TypeAdapter(NonBlankString)
 _TARGET_IDS = TypeAdapter(tuple[NonBlankString, ...])
 FaultInjector = Callable[[str], None]
 KnowledgeObjectType = Literal[
@@ -190,16 +192,7 @@ def update_latest_plan_pending(
     path = _knowledge_root(root) / "plan.yaml"
     if not os.path.lexists(path):
         return False
-    latest = load_latest_plan(root)
-    pending = set(_validated_target_ids(pending_target_ids))
-    updated = latest.model_copy(
-        update={
-            "targets": tuple(
-                target.model_copy(update={"pending": target.target_id in pending})
-                for target in latest.targets
-            )
-        }
-    )
+    updated = _latest_plan_with_pending(root, pending_target_ids)
     _atomic_yaml(path, updated.model_dump(mode="json"), label="plan")
     return True
 
@@ -323,8 +316,193 @@ def update_manifest_lifecycle(
     return True
 
 
+def commit_pending_lifecycle(
+    root: str | os.PathLike[str],
+    pending_targets: Iterable[object],
+    *,
+    fault_injector: FaultInjector | None = None,
+) -> None:
+    """Commit pending execution state and both tracked projections together."""
+
+    knowledge = _knowledge_root(root)
+    recover_pending_lifecycle(root)
+    payload = tuple(_pending_payload_item(target) for target in pending_targets)
+    payload = tuple(sorted(payload, key=lambda item: item["target_id"]))
+    target_ids = _validated_target_ids(item["target_id"] for item in payload)
+    entries: list[tuple[str, Path, bytes]] = [
+        (
+            "pending",
+            knowledge / "state/pending-targets.json",
+            (
+                json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    indent=2,
+                )
+                + "\n"
+            ).encode("utf-8"),
+        )
+    ]
+    plan_path = knowledge / "plan.yaml"
+    if os.path.lexists(plan_path):
+        latest = _latest_plan_with_pending(root, target_ids)
+        entries.append(
+            (
+                "plan",
+                plan_path,
+                serialize_tracked_yaml(latest.model_dump(mode="json")),
+            )
+        )
+    manifest_path = knowledge / "manifest.yaml"
+    if os.path.lexists(manifest_path):
+        manifest = _load_manifest_mapping(manifest_path)
+        assert manifest is not None
+        manifest["pending_targets"] = list(target_ids)
+        entries.append(
+            ("manifest", manifest_path, serialize_tracked_yaml(manifest))
+        )
+
+    journal_path = knowledge / "state/pending-lifecycle-transaction.json"
+    journal_temporary = journal_path.with_name(journal_path.name + ".tmp")
+    _preflight_pending_transaction(entries, journal_path, journal_temporary)
+    journal = {
+        "schema_version": 1,
+        "entries": [
+            {
+                "name": name,
+                "data": base64.b64encode(data).decode("ascii"),
+            }
+            for name, _, data in entries
+        ],
+    }
+    journal_bytes = (
+        json.dumps(journal, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode("utf-8")
+    inject = fault_injector or (lambda _point: None)
+    try:
+        _write_new_file(journal_temporary, journal_bytes)
+        inject("pending-lifecycle.journal.replace")
+        os.replace(journal_temporary, journal_path)
+        inject("pending-lifecycle.journal.directory.fsync")
+        _fsync_directory(journal_path.parent)
+        for name, path, data in entries:
+            _replace_pending_entry(path, data, name=name, inject=inject)
+        journal_path.unlink()
+        inject("pending-lifecycle.cleanup.directory.fsync")
+        _fsync_directory(journal_path.parent)
+    except Exception as error:
+        try:
+            recover_pending_lifecycle(root)
+        except Exception as recovery_error:
+            raise LifecycleWriteError(
+                "pending lifecycle transaction and recovery failed: "
+                f"{error}; recovery: {recovery_error}"
+            ) from recovery_error
+        if isinstance(error, LifecycleWriteError):
+            raise
+        raise LifecycleWriteError(
+            f"pending lifecycle transaction failed at {error}"
+        ) from error
+
+
+def recover_pending_lifecycle(root: str | os.PathLike[str]) -> bool:
+    """Replay an interrupted pending lifecycle transaction to all-new state."""
+
+    knowledge = _knowledge_root(root)
+    journal_path = knowledge / "state/pending-lifecycle-transaction.json"
+    journal_temporary = journal_path.with_name(journal_path.name + ".tmp")
+    if not os.path.lexists(journal_path):
+        if os.path.lexists(journal_temporary):
+            _reject_unsafe_file(journal_temporary)
+            journal_temporary.unlink()
+        return False
+    try:
+        payload = json.loads(_read_regular(journal_path))
+        if payload.get("schema_version") != 1:
+            raise ValueError("unsupported pending lifecycle journal schema")
+        raw_entries = payload.get("entries")
+        if not isinstance(raw_entries, list):
+            raise ValueError("pending lifecycle journal entries are invalid")
+        expected_paths = {
+            "pending": knowledge / "state/pending-targets.json",
+            "plan": knowledge / "plan.yaml",
+            "manifest": knowledge / "manifest.yaml",
+        }
+        entries: list[tuple[str, Path, bytes]] = []
+        names: set[str] = set()
+        for raw in raw_entries:
+            if not isinstance(raw, dict):
+                raise ValueError("pending lifecycle journal entry is invalid")
+            name = raw.get("name")
+            encoded = raw.get("data")
+            if name not in expected_paths or name in names or not isinstance(
+                encoded, str
+            ):
+                raise ValueError("pending lifecycle journal identity is invalid")
+            names.add(name)
+            entries.append(
+                (
+                    name,
+                    expected_paths[name],
+                    base64.b64decode(encoded, validate=True),
+                )
+            )
+        if (
+            not names
+            or names - {"pending", "plan", "manifest"}
+            or "pending" not in names
+        ):
+            raise ValueError("pending lifecycle journal entry set is invalid")
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+        raise LifecycleWriteError(
+            f"pending lifecycle journal is malformed: {error}"
+        ) from error
+
+    for name in ("pending", "plan", "manifest"):
+        match = next((entry for entry in entries if entry[0] == name), None)
+        if match is not None:
+            _replace_pending_entry(
+                match[1], match[2], name=name, inject=lambda _point: None
+            )
+    journal_path.unlink()
+    _fsync_directory(journal_path.parent)
+    if os.path.lexists(journal_temporary):
+        _reject_unsafe_file(journal_temporary)
+        journal_temporary.unlink()
+    return True
+
+
 def _validated_target_ids(values: Iterable[str]) -> tuple[str, ...]:
     return tuple(sorted(set(_TARGET_IDS.validate_python(tuple(values)))))
+
+
+def _pending_payload_item(target: object) -> dict[str, str]:
+    if hasattr(target, "model_dump"):
+        target = target.model_dump(mode="json")
+    if not isinstance(target, dict) or set(target) != {"target_id", "reason"}:
+        raise LifecycleWriteError("pending target payload is invalid")
+    try:
+        target_id = _NON_BLANK.validate_python(target["target_id"])
+        reason = _NON_BLANK.validate_python(target["reason"])
+    except ValueError as error:
+        raise LifecycleWriteError("pending target payload is invalid") from error
+    return {"target_id": target_id, "reason": reason}
+
+
+def _latest_plan_with_pending(
+    root: str | os.PathLike[str], pending_target_ids: Iterable[str]
+) -> LatestPlan:
+    latest = load_latest_plan(root)
+    pending = set(_validated_target_ids(pending_target_ids))
+    return latest.model_copy(
+        update={
+            "targets": tuple(
+                target.model_copy(update={"pending": target.target_id in pending})
+                for target in latest.targets
+            )
+        }
+    )
 
 
 def _knowledge_root(root: str | os.PathLike[str]) -> Path:
@@ -346,14 +524,7 @@ def _load_manifest_mapping(path: Path) -> dict[str, object] | None:
     return payload
 
 
-def _atomic_yaml(
-    path: Path,
-    payload: object,
-    *,
-    label: str,
-    fault_injector: FaultInjector | None = None,
-) -> None:
-    inject = fault_injector or (lambda _point: None)
+def serialize_tracked_yaml(payload: object) -> bytes:
     data = yaml.safe_dump(
         payload,
         sort_keys=False,
@@ -363,6 +534,18 @@ def _atomic_yaml(
     ).encode("utf-8")
     if len(data) > _MAX_TRACKED_YAML_BYTES:
         raise LifecycleWriteError("tracked lifecycle YAML exceeds the size bound")
+    return data
+
+
+def _atomic_yaml(
+    path: Path,
+    payload: object,
+    *,
+    label: str,
+    fault_injector: FaultInjector | None = None,
+) -> None:
+    inject = fault_injector or (lambda _point: None)
+    data = serialize_tracked_yaml(payload)
     temporary = path.with_name(path.name + ".tmp")
     try:
         _ensure_safe_parent(path.parent)
@@ -393,6 +576,59 @@ def _atomic_yaml(
         if isinstance(error, LifecycleWriteError):
             raise
         raise LifecycleWriteError(f"{label} write failed at {error}") from error
+
+
+def _preflight_pending_transaction(
+    entries: Iterable[tuple[str, Path, bytes]],
+    journal_path: Path,
+    journal_temporary: Path,
+) -> None:
+    paths = [path for _, path, _ in entries]
+    paths.extend((journal_path, journal_temporary))
+    for path in paths:
+        _ensure_safe_parent(path.parent)
+        _reject_unsafe_file(path)
+    for _, path, _ in entries:
+        temporary = path.with_name(path.name + ".tmp")
+        if os.path.lexists(temporary):
+            _reject_unsafe_file(temporary)
+            temporary.unlink()
+    if os.path.lexists(journal_temporary):
+        _reject_unsafe_file(journal_temporary)
+        journal_temporary.unlink()
+
+
+def _replace_pending_entry(
+    path: Path,
+    data: bytes,
+    *,
+    name: str,
+    inject: FaultInjector,
+) -> None:
+    temporary = path.with_name(path.name + ".tmp")
+    _ensure_safe_parent(path.parent)
+    _reject_unsafe_file(path)
+    if os.path.lexists(temporary):
+        _reject_unsafe_file(temporary)
+        temporary.unlink()
+    _write_new_file(temporary, data)
+    inject(f"pending-lifecycle.{name}.replace")
+    os.replace(temporary, path)
+    inject(f"pending-lifecycle.{name}.directory.fsync")
+    _fsync_directory(path.parent)
+
+
+def _write_new_file(path: Path, data: bytes) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, 0o600)
+    try:
+        with os.fdopen(fd, "wb", closefd=False) as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+    finally:
+        os.close(fd)
 
 
 def _ensure_safe_parent(path: Path) -> None:
@@ -452,12 +688,15 @@ __all__ = [
     "LatestPlanTarget",
     "LifecycleWriteError",
     "ObservedSnapshotProjection",
+    "commit_pending_lifecycle",
     "load_latest_plan",
     "load_observed_snapshot_state",
     "load_pending_target_ids",
     "manifest_lifecycle_fields",
+    "recover_pending_lifecycle",
     "save_latest_plan",
     "save_observed_snapshot_state",
+    "serialize_tracked_yaml",
     "update_latest_plan_pending",
     "update_manifest_lifecycle",
 ]

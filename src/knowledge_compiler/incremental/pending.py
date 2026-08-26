@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
@@ -20,9 +21,22 @@ class PendingStore:
     """Persist unresolved required targets so retries happen even with no
     new file diff on the next update."""
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        fault_injector: Callable[[str], None] | None = None,
+    ) -> None:
         self._path = Path(path)
+        self._fault_injector = fault_injector
         self._targets: dict[str, PersistedTarget] = {}
+        repository_root = self._repository_root()
+        if repository_root is not None:
+            from knowledge_compiler.storage.lifecycle import (
+                recover_pending_lifecycle,
+            )
+
+            recover_pending_lifecycle(repository_root)
         if self._path.exists():
             self._targets = self._load()
 
@@ -39,15 +53,31 @@ class PendingStore:
         }
 
     def _save(self) -> None:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
         payload = [target.model_dump(mode="json") for target in self.targets]
+        repository_root = self._repository_root()
+        if repository_root is not None:
+            from knowledge_compiler.storage.lifecycle import (
+                commit_pending_lifecycle,
+            )
+
+            try:
+                commit_pending_lifecycle(
+                    repository_root,
+                    payload,
+                    fault_injector=self._fault_injector,
+                )
+            except Exception:
+                self._targets = self._load() if self._path.exists() else {}
+                raise
+            return
+
+        self._path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self._path.with_suffix(self._path.suffix + ".tmp")
         temporary.write_text(
             json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
             encoding="utf-8",
         )
         os.replace(temporary, self._path)
-        self._project_lifecycle()
 
     @property
     def targets(self) -> tuple[PersistedTarget, ...]:
@@ -72,25 +102,15 @@ class PendingStore:
         self._targets = {target.target_id: target for target in validated}
         self._save()
 
-    def _project_lifecycle(self) -> None:
+    def _repository_root(self) -> Path | None:
         path = self._path.absolute()
         if (
             path.name != "pending-targets.json"
             or path.parent.name != "state"
             or path.parent.parent.name != ".knowledge"
         ):
-            return
-        repository_root = path.parent.parent.parent
-        from knowledge_compiler.storage.lifecycle import (
-            update_latest_plan_pending,
-            update_manifest_lifecycle,
-        )
-
-        target_ids = tuple(sorted(self._targets))
-        update_latest_plan_pending(repository_root, target_ids)
-        update_manifest_lifecycle(
-            repository_root, pending_targets=target_ids
-        )
+            return None
+        return path.parent.parent.parent
 
 
 __all__ = ["PendingStore", "PersistedTarget"]

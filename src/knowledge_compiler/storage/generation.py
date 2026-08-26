@@ -206,6 +206,7 @@ class GenerationPublisher:
             }
             from knowledge_compiler.storage.lifecycle import (
                 manifest_lifecycle_fields,
+                serialize_tracked_yaml,
             )
 
             manifest_payload.update(
@@ -215,11 +216,7 @@ class GenerationPublisher:
                     pending_targets=pending_targets,
                 )
             )
-            manifest = yaml.safe_dump(
-                manifest_payload,
-                sort_keys=False,
-                allow_unicode=True,
-            ).encode("utf-8")
+            manifest = serialize_tracked_yaml(manifest_payload)
         except Exception as error:
             raise PublicationError(f"generation compilation failed: {error}") from error
 
@@ -418,6 +415,7 @@ class GenerationPublisher:
             }
             from knowledge_compiler.storage.lifecycle import (
                 manifest_lifecycle_fields,
+                serialize_tracked_yaml,
             )
 
             manifest_payload.update(
@@ -427,11 +425,7 @@ class GenerationPublisher:
                     pending_targets=pending_targets,
                 )
             )
-            manifest = yaml.safe_dump(
-                manifest_payload,
-                sort_keys=False,
-                allow_unicode=True,
-            ).encode("utf-8")
+            manifest = serialize_tracked_yaml(manifest_payload)
         except PublicationError:
             raise
         except Exception as error:
