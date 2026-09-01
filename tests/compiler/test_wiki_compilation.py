@@ -243,6 +243,25 @@ def test_compile_failure_leaves_wiki_generation_behind(tmp_path: Path) -> None:
     assert manifest_after["active_generation"] == "gen-wiki-002"
 
 
+def test_stale_wiki_stamp_preserves_newer_generation_manifest(tmp_path: Path) -> None:
+    from knowledge_compiler.compiler.wiki import _stamp_wiki_generation
+
+    publish_world(tmp_path, "gen-wiki-old")
+    manifest_path = tmp_path / ".knowledge/manifest.yaml"
+    stale_manifest = yaml.safe_load(manifest_path.read_bytes())
+    module, pack = _verified_inputs()
+    GenerationPublisher(tmp_path).publish_generation(
+        "gen-wiki-new", ((module, pack),)
+    )
+
+    _stamp_wiki_generation(manifest_path, stale_manifest, "gen-wiki-old")
+
+    current = yaml.safe_load(manifest_path.read_bytes())
+    assert current["active_generation"] == "gen-wiki-new"
+    assert current["agent_views_generation"] == "gen-wiki-new"
+    assert current["wiki_generation"] == "gen-wiki-old"
+
+
 def test_unterminated_code_fence_fails_closed() -> None:
     from knowledge_compiler.compiler.wiki import (
         WikiCompilationError,

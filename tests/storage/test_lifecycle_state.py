@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import multiprocessing
+import os
 import threading
 from pathlib import Path
 
@@ -41,13 +42,14 @@ class _SimulatedProcessDeath(BaseException):
 def _crash_pending_in_child(
     root: str,
     start_pending,
-    pending_started,
+    lock_contended,
     pending_finished,
 ) -> None:
     from knowledge_compiler.incremental.pending import PendingStore, PersistedTarget
+    from knowledge_compiler.storage import lifecycle
 
     start_pending.wait()
-    pending_started.set()
+    lifecycle._LOCK_CONTENTION_HOOK = lock_contended.set
 
     def crash(point: str) -> None:
         if point == "pending-lifecycle.plan.replace":
@@ -62,6 +64,41 @@ def _crash_pending_in_child(
         pass
     finally:
         pending_finished.set()
+
+
+def _crash_generation_in_child(root: str, operation: str) -> None:
+    from test_generation_publication import _verified_inputs
+
+    from knowledge_compiler.storage import GenerationPublisher
+
+    module, pack = _verified_inputs()
+
+    def crash(point: str) -> None:
+        if point == "publish.canonical.replace":
+            os._exit(23)
+
+    publisher = GenerationPublisher(root, fault_injector=crash)
+    if operation == "single":
+        publisher.publish("gen-interrupted-single", module, pack)
+    else:
+        publisher.publish_generation(
+            "gen-interrupted-batch", ((module, pack),)
+        )
+
+
+def _acquire_lock_in_child(root: str, contended, acquired) -> None:
+    from knowledge_compiler.storage.lifecycle import repository_lifecycle_lock
+
+    with repository_lifecycle_lock(root, contention_hook=contended.set):
+        acquired.set()
+
+
+def _crash_while_holding_lock(root: str, acquired) -> None:
+    from knowledge_compiler.storage.lifecycle import repository_lifecycle_lock
+
+    with repository_lifecycle_lock(root):
+        acquired.set()
+        os._exit(23)
 
 
 def _snapshot(root: Path, *, commit: str = "commit-one") -> RepositorySnapshot:
@@ -287,14 +324,14 @@ def _assert_generation_interval_blocks_pending_process(
 
     context = multiprocessing.get_context("fork")
     start_pending = context.Event()
-    pending_started = context.Event()
+    lock_contended = context.Event()
     pending_finished = context.Event()
     pending_process = context.Process(
         target=_crash_pending_in_child,
         args=(
             str(root),
             start_pending,
-            pending_started,
+            lock_contended,
             pending_finished,
         ),
     )
@@ -303,8 +340,8 @@ def _assert_generation_interval_blocks_pending_process(
     publisher_thread.start()
     assert recovered.wait(timeout=10)
     start_pending.set()
-    assert pending_started.wait(timeout=10)
-    finished_while_generation_paused = pending_finished.wait(timeout=0.25)
+    contention_observed = lock_contended.wait(timeout=2)
+    finished_while_generation_paused = pending_finished.is_set()
     continue_generation.set()
     publisher_thread.join(timeout=10)
     pending_process.join(timeout=10)
@@ -313,6 +350,7 @@ def _assert_generation_interval_blocks_pending_process(
     assert not pending_process.is_alive()
     assert pending_process.exitcode == 0
     assert publisher_errors == []
+    assert contention_observed is True
     assert finished_while_generation_paused is False
 
     manifest_path = root / ".knowledge/manifest.yaml"
@@ -540,6 +578,283 @@ def test_generation_recovery_lock_blocks_cross_process_pending_mutation(
     _assert_generation_interval_blocks_pending_process(tmp_path, "recover")
 
 
+@pytest.mark.parametrize("operation", ("single", "batch"))
+def test_pending_mutation_recovers_interrupted_generation_before_projection(
+    tmp_path: Path, operation: str
+) -> None:
+    from knowledge_compiler.incremental.pending import PendingStore, PersistedTarget
+    from knowledge_compiler.storage import GenerationPublisher
+
+    _prepare_pending_lifecycle(tmp_path)
+    context = multiprocessing.get_context("fork")
+    process = context.Process(
+        target=_crash_generation_in_child,
+        args=(str(tmp_path), operation),
+    )
+    process.start()
+    process.join(timeout=10)
+    assert not process.is_alive()
+    assert process.exitcode == 23
+    transactions = tmp_path / ".knowledge/state/transactions"
+    assert any(transactions.iterdir())
+
+    PendingStore(tmp_path / ".knowledge/state/pending-targets.json").add(
+        PersistedTarget(target_id="module.lifecycle.alpha", reason="retry")
+    )
+
+    assert not any(transactions.iterdir())
+    committed = _pending_lifecycle_bytes(tmp_path)
+    GenerationPublisher(tmp_path).recover()
+    assert _pending_lifecycle_bytes(tmp_path) == committed
+    manifest = yaml.safe_load(committed[2])
+    plan = yaml.safe_load(committed[1])
+    assert manifest["pending_targets"] == ["module.lifecycle.alpha"]
+    assert next(
+        item for item in plan["targets"]
+        if item["target_id"] == "module.lifecycle.alpha"
+    )["pending"] is True
+
+
+def test_manifest_lifecycle_writer_cannot_replace_newer_generation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from test_generation_publication import _verified_inputs
+
+    from knowledge_compiler.storage import GenerationPublisher
+    from knowledge_compiler.storage import lifecycle
+
+    _prepare_pending_lifecycle(tmp_path)
+    writer_paused = threading.Event()
+    continue_writer = threading.Event()
+    publication_contended = threading.Event()
+    writer_errors: list[BaseException] = []
+    publisher_errors: list[BaseException] = []
+    monkeypatch.setattr(
+        lifecycle,
+        "_LOCK_CONTENTION_HOOK",
+        publication_contended.set,
+        raising=False,
+    )
+
+    def pause_writer(point: str) -> None:
+        if point == "manifest-lifecycle.stage.write":
+            writer_paused.set()
+            if not continue_writer.wait(timeout=10):
+                raise AssertionError("manifest writer pause timed out")
+
+    def write_lifecycle() -> None:
+        try:
+            lifecycle.update_manifest_lifecycle(
+                tmp_path,
+                pending_targets=("module.lifecycle.alpha",),
+                fault_injector=pause_writer,
+            )
+        except BaseException as error:
+            writer_errors.append(error)
+
+    module, pack = _verified_inputs()
+
+    def publish() -> None:
+        try:
+            GenerationPublisher(tmp_path).publish_generation(
+                "gen-new-after-lifecycle-writer", ((module, pack),)
+            )
+        except BaseException as error:
+            publisher_errors.append(error)
+
+    writer = threading.Thread(target=write_lifecycle)
+    publisher = threading.Thread(target=publish)
+    writer.start()
+    assert writer_paused.wait(timeout=10)
+    publisher.start()
+    contention_observed = publication_contended.wait(timeout=2)
+    continue_writer.set()
+    writer.join(timeout=10)
+    publisher.join(timeout=10)
+
+    assert not writer.is_alive()
+    assert not publisher.is_alive()
+    assert writer_errors == []
+    assert publisher_errors == []
+    assert contention_observed is True
+    manifest = yaml.safe_load(
+        (tmp_path / ".knowledge/manifest.yaml").read_bytes()
+    )
+    assert manifest["active_generation"] == "gen-new-after-lifecycle-writer"
+    assert manifest["pending_targets"] == ["module.lifecycle.alpha"]
+
+
+def test_repository_lifecycle_lock_normalizes_supported_root_aliases(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from knowledge_compiler.storage.lifecycle import repository_lifecycle_lock
+
+    repository = tmp_path / "repository"
+    (repository / ".knowledge").mkdir(parents=True)
+    linked = tmp_path / "linked"
+    linked.symlink_to(repository, target_is_directory=True)
+    monkeypatch.chdir(tmp_path)
+    aliases = (
+        repository / ".knowledge",
+        Path("repository"),
+        linked / ".knowledge",
+    )
+    context = multiprocessing.get_context("fork")
+    for alias in aliases:
+        contended = context.Event()
+        acquired = context.Event()
+        with repository_lifecycle_lock(repository):
+            process = context.Process(
+                target=_acquire_lock_in_child,
+                args=(str(alias), contended, acquired),
+            )
+            process.start()
+            contention_observed = contended.wait(timeout=2)
+            acquired_while_held = acquired.is_set()
+        process.join(timeout=10)
+        assert not process.is_alive()
+        assert process.exitcode == 0
+        assert contention_observed is True
+        assert acquired_while_held is False
+        assert acquired.is_set()
+
+
+def test_generation_publisher_normalizes_knowledge_root_alias(
+    tmp_path: Path,
+) -> None:
+    from test_generation_publication import _verified_inputs
+
+    from knowledge_compiler.storage import GenerationPublisher
+
+    module, pack = _verified_inputs()
+    knowledge = tmp_path / ".knowledge"
+    GenerationPublisher(knowledge).publish_generation(
+        "gen-knowledge-root-alias", ((module, pack),)
+    )
+
+    assert (knowledge / "manifest.yaml").is_file()
+    assert not (knowledge / ".knowledge").exists()
+
+
+def test_repository_lifecycle_lock_rejects_public_namespace(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import tempfile
+
+    from knowledge_compiler.storage.lifecycle import (
+        LifecycleWriteError,
+        repository_lifecycle_lock,
+    )
+
+    temporary_root = tmp_path / "temporary"
+    temporary_root.mkdir()
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(temporary_root))
+    lock_root = temporary_root / f"codewiki-lifecycle-{os.geteuid()}"
+    lock_root.mkdir(mode=0o700)
+    lock_root.chmod(0o777)
+
+    with pytest.raises(LifecycleWriteError, match="permissions"):
+        with repository_lifecycle_lock(tmp_path / "repository"):
+            raise AssertionError("public lock namespace must be rejected")
+
+
+def test_repository_lifecycle_lock_rejects_foreign_namespace_owner(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import tempfile
+
+    from knowledge_compiler.storage.lifecycle import (
+        LifecycleWriteError,
+        repository_lifecycle_lock,
+    )
+
+    temporary_root = tmp_path / "temporary"
+    temporary_root.mkdir()
+    effective_user = os.geteuid() + 1
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(temporary_root))
+    monkeypatch.setattr(os, "geteuid", lambda: effective_user)
+    (temporary_root / f"codewiki-lifecycle-{effective_user}").mkdir(mode=0o700)
+
+    with pytest.raises(LifecycleWriteError, match="owner"):
+        with repository_lifecycle_lock(tmp_path / "repository"):
+            raise AssertionError("foreign lock namespace must be rejected")
+
+
+def test_repository_lifecycle_lock_rejects_public_lock_file(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import hashlib
+    import tempfile
+
+    from knowledge_compiler.storage.lifecycle import (
+        LifecycleWriteError,
+        repository_lifecycle_lock,
+    )
+
+    temporary_root = tmp_path / "temporary"
+    temporary_root.mkdir()
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(temporary_root))
+    lock_root = temporary_root / f"codewiki-lifecycle-{os.geteuid()}"
+    lock_root.mkdir(mode=0o700)
+    repository_key = hashlib.sha256(
+        str((tmp_path / "repository").resolve()).encode("utf-8")
+    ).hexdigest()
+    lock_file = lock_root / f"{repository_key}.lock"
+    lock_file.write_bytes(b"")
+    lock_file.chmod(0o666)
+
+    with pytest.raises(LifecycleWriteError, match="permissions"):
+        with repository_lifecycle_lock(tmp_path / "repository"):
+            raise AssertionError("public lock file must be rejected")
+
+
+def test_repository_lifecycle_lock_is_released_by_process_death(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.storage.lifecycle import repository_lifecycle_lock
+
+    context = multiprocessing.get_context("fork")
+    acquired = context.Event()
+    process = context.Process(
+        target=_crash_while_holding_lock,
+        args=(str(tmp_path), acquired),
+    )
+    process.start()
+    assert acquired.wait(timeout=10)
+    process.join(timeout=10)
+    assert not process.is_alive()
+    assert process.exitcode == 23
+
+    contention_points: list[str] = []
+    with repository_lifecycle_lock(
+        tmp_path,
+        contention_hook=lambda: contention_points.append("contended"),
+    ):
+        pass
+    assert contention_points == []
+
+
+def test_locked_recovery_helpers_do_not_reacquire_repository_lock(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.storage.generation import (
+        _recover_generation_transactions_locked,
+    )
+    from knowledge_compiler.storage.lifecycle import (
+        _recover_pending_lifecycle_locked,
+        repository_lifecycle_lock,
+    )
+
+    contention_points: list[str] = []
+    with repository_lifecycle_lock(
+        tmp_path,
+        contention_hook=lambda: contention_points.append("contended"),
+    ):
+        assert _recover_pending_lifecycle_locked(tmp_path) is False
+        assert _recover_generation_transactions_locked(tmp_path) is False
+    assert contention_points == []
+
+
 def test_repository_lifecycle_lock_rejects_symlink_file(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -555,7 +870,7 @@ def test_repository_lifecycle_lock_rejects_symlink_file(
     temporary_root = tmp_path / "temporary"
     temporary_root.mkdir()
     monkeypatch.setattr(tempfile, "gettempdir", lambda: str(temporary_root))
-    lock_root = temporary_root / f"codewiki-lifecycle-{os.getuid()}"
+    lock_root = temporary_root / f"codewiki-lifecycle-{os.geteuid()}"
     lock_root.mkdir(mode=0o700)
     repository_key = hashlib.sha256(
         str((tmp_path / "repository").resolve()).encode("utf-8")

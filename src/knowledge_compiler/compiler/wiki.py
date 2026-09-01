@@ -461,11 +461,17 @@ def _orphaned_overlay_ids(
 def _stamp_wiki_generation(
     manifest_path: Path, manifest: dict, active: str
 ) -> None:
-    manifest["wiki_generation"] = active
-    data = yaml.safe_dump(manifest, sort_keys=False, allow_unicode=True)
-    temporary = manifest_path.with_name("manifest.yaml.tmp")
-    temporary.write_bytes(data.encode("utf-8"))
-    os.replace(temporary, manifest_path)
+    from knowledge_compiler.storage.lifecycle import (
+        LifecycleWriteError,
+        stamp_manifest_wiki_generation,
+    )
+
+    del manifest
+    try:
+        if not stamp_manifest_wiki_generation(manifest_path.parent, active):
+            raise OSError("manifest disappeared before Wiki stamp")
+    except LifecycleWriteError as error:
+        raise OSError(f"Wiki manifest stamp failed: {error}") from error
 
 
 def _h(value: object) -> str:

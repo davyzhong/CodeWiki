@@ -53,6 +53,14 @@ def _with_repository_lifecycle_lock(
     return locked
 
 
+def _recover_generation_transactions_locked(
+    root: str | os.PathLike[str],
+) -> bool:
+    """Recover generation journals while the repository lock is held."""
+
+    return GenerationPublisher(root)._recover_generation_transactions_locked()
+
+
 def _object_type(model: object) -> str:
     from knowledge_compiler.contracts.knowledge import (
         ArchitectureKnowledge,
@@ -168,11 +176,9 @@ class PublishedGenerationBatch:
 class GenerationPublisher:
     """Publish one module generation with a durable rollback journal.
 
-    M1 publication is intentionally single-process. Every managed directory is
-    rejected if it is a symlink, and regular files are opened with O_NOFOLLOW
-    where the platform provides it. Coordinating two publishers, or defending
-    against an administrator concurrently replacing managed directories, is out
-    of the M1 scope; later orchestration must add a repository publication lock.
+    Publication and lifecycle mutation share a repository-wide advisory lock.
+    Every managed directory is rejected if it is a symlink, and regular files
+    are opened with O_NOFOLLOW where the platform provides it.
     """
 
     def __init__(
@@ -181,7 +187,16 @@ class GenerationPublisher:
         *,
         fault_injector: Callable[[str], None] | None = None,
     ) -> None:
-        self.output_root = Path(output_root).absolute()
+        # Keep the caller's path unresolved: the safety checks must inspect
+        # the real ancestry including symlinks, while the advisory lock
+        # derives its canonical key from the resolved path internally. A
+        # literal ".knowledge" leaf is accepted as a lexical alias for the
+        # repository root, but a symlinked alias is kept as-is so the
+        # symlink-ancestry rejection still fires before any mutation.
+        raw = Path(output_root).absolute()
+        if raw.name == ".knowledge" and not raw.is_symlink():
+            raw = raw.parent
+        self.output_root = raw
         self.knowledge_root = self.output_root / ".knowledge"
         self.transactions_root = self.knowledge_root / "state/transactions"
         self._inject = fault_injector or (lambda _point: None)
@@ -710,19 +725,27 @@ class GenerationPublisher:
 
         try:
             self._recover_pending_lifecycle()
-            self._assert_safe_roots(create=False)
-            if not self.transactions_root.exists():
-                return
-            for transaction in sorted(self.transactions_root.iterdir()):
-                if transaction.is_symlink() or not transaction.is_dir():
-                    # Leave stray entries untouched; the next publish refuses
-                    # to run until they are investigated and removed.
-                    continue
-                self._recover_transaction(transaction)
+            self._recover_generation_transactions_locked()
         except Exception as error:
             if isinstance(error, PublicationError):
                 raise
             raise PublicationError(f"recovery failed at {error}") from error
+
+    def _recover_generation_transactions_locked(self) -> bool:
+        """Recover generation journals without reacquiring the shared lock."""
+
+        self._assert_safe_roots(create=False)
+        if not self.transactions_root.exists():
+            return False
+        recovered = False
+        for transaction in sorted(self.transactions_root.iterdir()):
+            if transaction.is_symlink() or not transaction.is_dir():
+                # Leave stray entries untouched; the next publish refuses
+                # to run until they are investigated and removed.
+                continue
+            self._recover_transaction(transaction)
+            recovered = True
+        return recovered
 
     def _recover_pending_lifecycle(self) -> None:
         try:

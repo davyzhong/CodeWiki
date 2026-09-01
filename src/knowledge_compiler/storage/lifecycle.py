@@ -28,6 +28,7 @@ _MAX_TRACKED_YAML_BYTES = 1_000_000
 _NON_BLANK = TypeAdapter(NonBlankString)
 _TARGET_IDS = TypeAdapter(tuple[NonBlankString, ...])
 FaultInjector = Callable[[str], None]
+_LOCK_CONTENTION_HOOK: Callable[[], None] | None = None
 KnowledgeObjectType = Literal[
     "module", "architecture", "flow", "rule", "tech-stack"
 ]
@@ -40,44 +41,126 @@ class LifecycleWriteError(RuntimeError):
 @contextmanager
 def repository_lifecycle_lock(
     root: str | os.PathLike[str],
+    *,
+    contention_hook: Callable[[], None] | None = None,
 ) -> Iterator[None]:
     """Serialize lifecycle and generation transactions across processes."""
 
     temporary_root = Path(tempfile.gettempdir()).resolve()
-    _ensure_safe_parent(temporary_root)
-    lock_root = temporary_root / f"codewiki-lifecycle-{os.getuid()}"
+    effective_user = os.geteuid()
+    namespace_name = f"codewiki-lifecycle-{effective_user}"
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
     try:
-        lock_root.mkdir(mode=0o700)
-    except FileExistsError:
-        if lock_root.is_symlink() or not lock_root.is_dir():
-            raise LifecycleWriteError(
-                f"lifecycle lock directory is unsafe: {lock_root}"
-            )
-    repository_key = hashlib.sha256(
-        str(Path(root).resolve()).encode("utf-8")
-    ).hexdigest()
-    lock_path = lock_root / f"{repository_key}.lock"
-    _reject_unsafe_file(lock_path)
-    flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
-    try:
-        descriptor = os.open(lock_path, flags, 0o600)
+        temporary_descriptor = os.open(temporary_root, directory_flags)
     except OSError as error:
         raise LifecycleWriteError(
-            f"lifecycle lock cannot be opened: {error}"
+            f"lifecycle lock temporary directory cannot be opened: {error}"
         ) from error
+    namespace_descriptor: int | None = None
+    descriptor: int | None = None
     try:
-        info = os.fstat(descriptor)
-        if not stat.S_ISREG(info.st_mode):
-            raise LifecycleWriteError(
-                f"lifecycle lock is not a regular file: {lock_path}"
+        created_namespace = False
+        try:
+            os.mkdir(
+                namespace_name,
+                mode=0o700,
+                dir_fd=temporary_descriptor,
             )
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
+            created_namespace = True
+        except FileExistsError:
+            pass
+        try:
+            namespace_descriptor = os.open(
+                namespace_name,
+                directory_flags,
+                dir_fd=temporary_descriptor,
+            )
+        except OSError as error:
+            raise LifecycleWriteError(
+                "lifecycle lock namespace is a symlink or cannot be opened: "
+                f"{error}"
+            ) from error
+        if created_namespace:
+            os.fchmod(namespace_descriptor, 0o700)
+        _validate_private_lock_node(
+            os.fstat(namespace_descriptor),
+            effective_user,
+            node="namespace",
+            require_directory=True,
+        )
+
+        repository_key = hashlib.sha256(
+            str(_canonical_repository_root(root)).encode("utf-8")
+        ).hexdigest()
+        lock_name = f"{repository_key}.lock"
+        try:
+            lock_info = os.stat(
+                lock_name,
+                dir_fd=namespace_descriptor,
+                follow_symlinks=False,
+            )
+        except FileNotFoundError:
+            lock_info = None
+        if lock_info is not None and stat.S_ISLNK(lock_info.st_mode):
+            raise LifecycleWriteError(
+                "lifecycle lock file is a symlink"
+            )
+        try:
+            flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+            descriptor = os.open(
+                lock_name,
+                flags,
+                0o600,
+                dir_fd=namespace_descriptor,
+            )
+        except OSError as error:
+            raise LifecycleWriteError(
+                f"lifecycle lock file cannot be opened: {error}"
+            ) from error
+        if lock_info is None:
+            os.fchmod(descriptor, 0o600)
+        _validate_private_lock_node(
+            os.fstat(descriptor),
+            effective_user,
+            node="file",
+            require_directory=False,
+        )
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            hook = contention_hook or _LOCK_CONTENTION_HOOK
+            if hook is not None:
+                hook()
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
         try:
             yield
         finally:
             fcntl.flock(descriptor, fcntl.LOCK_UN)
     finally:
-        os.close(descriptor)
+        if descriptor is not None:
+            os.close(descriptor)
+        if namespace_descriptor is not None:
+            os.close(namespace_descriptor)
+        os.close(temporary_descriptor)
+
+
+def _validate_private_lock_node(
+    info: os.stat_result,
+    effective_user: int,
+    *,
+    node: str,
+    require_directory: bool,
+) -> None:
+    expected_type = stat.S_ISDIR if require_directory else stat.S_ISREG
+    if not expected_type(info.st_mode):
+        raise LifecycleWriteError(f"lifecycle lock {node} has an unsafe type")
+    if info.st_uid != effective_user:
+        raise LifecycleWriteError(f"lifecycle lock {node} has an unsafe owner")
+    if stat.S_IMODE(info.st_mode) & 0o077:
+        raise LifecycleWriteError(
+            f"lifecycle lock {node} has unsafe permissions"
+        )
 
 
 class ObservedSnapshotProjection(BaseModel):
@@ -165,6 +248,25 @@ def save_latest_plan(
 ) -> LatestPlan:
     """Atomically project run lifecycle state into tracked ``plan.yaml``."""
 
+    with repository_lifecycle_lock(root):
+        return _save_latest_plan_locked(
+            root,
+            plan,
+            run,
+            fault_injector=fault_injector,
+        )
+
+
+def _save_latest_plan_locked(
+    root: str | os.PathLike[str],
+    plan: KnowledgePlan,
+    run: RunRecord,
+    *,
+    fault_injector: FaultInjector | None = None,
+) -> LatestPlan:
+    """Project plan state while the repository lifecycle lock is held."""
+
+    _prepare_lifecycle_write_locked(root)
     validated_plan = KnowledgePlan.model_validate(plan.model_dump(mode="json"))
     validated_run = RunRecord.model_validate(run.model_dump(mode="json"))
     if (
@@ -236,6 +338,14 @@ def load_latest_plan(root: str | os.PathLike[str]) -> LatestPlan:
 def update_latest_plan_pending(
     root: str | os.PathLike[str], pending_target_ids: Iterable[str]
 ) -> bool:
+    with repository_lifecycle_lock(root):
+        return _update_latest_plan_pending_locked(root, pending_target_ids)
+
+
+def _update_latest_plan_pending_locked(
+    root: str | os.PathLike[str], pending_target_ids: Iterable[str]
+) -> bool:
+    _prepare_lifecycle_write_locked(root)
     path = _knowledge_root(root) / "plan.yaml"
     if not os.path.lexists(path):
         return False
@@ -337,6 +447,23 @@ def update_manifest_lifecycle(
     pending_targets: Iterable[str] | None = None,
     fault_injector: FaultInjector | None = None,
 ) -> bool:
+    with repository_lifecycle_lock(root):
+        return _update_manifest_lifecycle_locked(
+            root,
+            observed_snapshot=observed_snapshot,
+            pending_targets=pending_targets,
+            fault_injector=fault_injector,
+        )
+
+
+def _update_manifest_lifecycle_locked(
+    root: str | os.PathLike[str],
+    *,
+    observed_snapshot: RepositorySnapshot | ObservedSnapshotProjection | None = None,
+    pending_targets: Iterable[str] | None = None,
+    fault_injector: FaultInjector | None = None,
+) -> bool:
+    _prepare_lifecycle_write_locked(root)
     path = _knowledge_root(root) / "manifest.yaml"
     manifest = _load_manifest_mapping(path)
     if manifest is None:
@@ -361,6 +488,24 @@ def update_manifest_lifecycle(
         fault_injector=fault_injector,
     )
     return True
+
+
+def stamp_manifest_wiki_generation(
+    root: str | os.PathLike[str], generation: str
+) -> bool:
+    """Stamp a compiled Wiki without replacing newer manifest fields."""
+
+    if not isinstance(generation, str) or not generation.strip():
+        raise LifecycleWriteError("wiki generation must be non-blank")
+    with repository_lifecycle_lock(root):
+        _prepare_lifecycle_write_locked(root)
+        path = _knowledge_root(root) / "manifest.yaml"
+        manifest = _load_manifest_mapping(path)
+        if manifest is None:
+            return False
+        manifest["wiki_generation"] = generation
+        _atomic_yaml(path, manifest, label="wiki-generation")
+        return True
 
 
 def commit_pending_lifecycle(
@@ -389,6 +534,7 @@ def _commit_pending_lifecycle_locked(
 
     knowledge = _knowledge_root(root)
     _recover_pending_lifecycle_locked(root)
+    _recover_generation_transactions_locked(root)
     payload = tuple(_pending_payload_item(target) for target in pending_targets)
     payload = tuple(sorted(payload, key=lambda item: item["target_id"]))
     target_ids = _validated_target_ids(item["target_id"] for item in payload)
@@ -575,9 +721,35 @@ def _latest_plan_with_pending(
     )
 
 
+def _prepare_lifecycle_write_locked(root: str | os.PathLike[str]) -> None:
+    """Settle both journal domains before a tracked-state read/modify/write."""
+
+    _recover_pending_lifecycle_locked(root)
+    _recover_generation_transactions_locked(root)
+
+
+def _recover_generation_transactions_locked(
+    root: str | os.PathLike[str],
+) -> bool:
+    try:
+        from knowledge_compiler.storage.generation import (
+            _recover_generation_transactions_locked as recover_generation,
+        )
+
+        return recover_generation(root)
+    except Exception as error:
+        raise LifecycleWriteError(
+            f"generation transaction recovery failed: {error}"
+        ) from error
+
+
+def _canonical_repository_root(root: str | os.PathLike[str]) -> Path:
+    path = Path(root).resolve()
+    return path.parent if path.name == ".knowledge" else path
+
+
 def _knowledge_root(root: str | os.PathLike[str]) -> Path:
-    path = Path(root).absolute()
-    return path if path.name == ".knowledge" else path / ".knowledge"
+    return _canonical_repository_root(root) / ".knowledge"
 
 
 def _load_manifest_mapping(path: Path) -> dict[str, object] | None:
@@ -768,6 +940,7 @@ __all__ = [
     "save_latest_plan",
     "save_observed_snapshot_state",
     "serialize_tracked_yaml",
+    "stamp_manifest_wiki_generation",
     "update_latest_plan_pending",
     "update_manifest_lifecycle",
 ]
