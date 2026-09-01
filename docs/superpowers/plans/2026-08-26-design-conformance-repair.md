@@ -125,8 +125,9 @@
 
 ## Final verification
 
-- [ ] Run `git diff --check` and compile `src` only.
-- [ ] Run the full offline suite twice with identical results.
-- [ ] Run one opt-in live CodeWiki/LiteLLM build only when credentials and model configuration are available; otherwise keep the limitation explicit.
-- [ ] Run the final fixture lifecycle without stale snapshot injection.
-- [ ] Record remaining M8 A/B benchmark work separately; do not claim product-effect validation from fixture tests.
+- [x] Run `git diff --check` and compile `src` only.
+- [x] Run the full offline suite twice with identical results
+  (752 passed, 1 opt-in live test skipped, both runs identical).
+- [ ] Run one opt-in live CodeWiki/LiteLLM build only when credentials and model configuration are available; otherwise keep the limitation explicit (kept explicit; the opt-in test remains skipped by default).
+- [x] Run the final fixture lifecycle without stale snapshot injection (`tests/integration/test_final_gate.py` resolves committed snapshots through production paths only).
+- [x] Record remaining M8 A/B benchmark work separately; do not claim product-effect validation from fixture tests.

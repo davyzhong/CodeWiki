@@ -561,6 +561,14 @@ Tools return structured JSON and compact Markdown. The MCP server is read-only a
 
 `knowledge_get_object` and `knowledge_status` accept an explicit `include_stale` diagnostic flag. `knowledge_context_for_task` defaults to verified-only and accepts `include_stale=true` only as a visibly marked diagnostic response. All other calls fail closed on snapshot or generation mismatch.
 
+### 11.1 Recorded implementation deviations (V0.1)
+
+The following deliberate deviations from the letter of this design are implemented and tested; each preserves the fail-closed direction of the original requirement.
+
+1. **MCP transport.** §13 lists the MCP Python SDK in the tech stack; the shipped `knowledge-mcp` server implements the same seven tools over a dependency-free stdio JSON-RPC framing compatible with protocol `2024-11-05` (initialize/tools list/tools call, notifications silent, parse errors `-32700`). Tool semantics, read-only guarantees, and diagnostic flags follow this section exactly. Zero runtime dependencies were preferred for production installs; adopting the SDK later is a transport-only change.
+2. **FTS publication timing.** §9.7 describes the verified-only FTS database as swapped inside the publish transaction. Instead, publication commits canonical objects and stamps `agent_views_generation`, while the index is rebuilt immediately after the canonical commit by `knowledge compile` or the orchestrator's view-compilation step. Every default read is gated on the index stamp equaling the manifest stamps AND the exact resolved repository identity, so a missing or stale index can never serve data — the safety property is preserved with a strictly simpler transaction.
+3. **View failure status.** A failed human Wiki/HTML/index compilation after a successful canonical commit returns run status `partial` with the previous `wiki_generation` preserved (it lags `active_generation`), matching §9.7's "Wiki compiler failure does not roll back valid IR" clause; `knowledge compile` retries deterministically.
+
 ## 12. Incremental update
 
 ```text

@@ -509,11 +509,15 @@ def _standalone_html(
     search_index: list[dict[str, str]] = []
     for relative in sorted(pages):
         markdown = pages[relative].decode("utf-8")
-        body = _markdown_to_html(markdown, diagram_svgs)
         anchor = re.sub(r"[^a-z0-9]+", "-", relative.lower()).strip("-")
+        body, page_toc = _markdown_to_html(
+            markdown, diagram_svgs, page_anchor=anchor
+        )
         sections.append(
             f'<section id="page-{_h(anchor)}" data-page="{_h(relative)}">'
-            f"<h2>{_h(relative)}</h2>\n{body}</section>"
+            f"<h2>{_h(relative)}</h2>\n"
+            + (f'<nav class="toc">{page_toc}</nav>\n' if page_toc else "")
+            + f"{body}</section>"
         )
         text = re.sub(r"<[^>]+>", " ", body)
         search_index.append(
@@ -542,6 +546,11 @@ def _standalone_html(
         "main{flex:1;padding:24px;max-width:900px}\n"
         ".stale{background:#fff3cd;border-left:4px solid #d97706;padding:8px 12px}\n"
         "details{margin:4px 0}\n"
+        "details.evidence{border:1px solid #d0d7de;border-radius:6px;"
+        "padding:4px 8px;margin:8px 0}\n"
+        ".toc{border-left:3px solid #d0d7de;padding-left:10px;margin:8px 0 16px}\n"
+        ".toc a{display:inline-block;margin-right:10px;font-size:0.9em}\n"
+        "h3[id],h4[id]{scroll-margin-top:8px}\n"
         "pre{background:#f6f8fa;padding:8px;overflow:auto}\n"
         ".diagram{border:1px solid #d0d7de;border-radius:6px;margin:8px 0}\n"
         "</style>\n</head>\n<body>\n"
@@ -606,26 +615,59 @@ def _inline_html(text: str) -> str:
 
 
 def _markdown_to_html(
-    markdown: str, diagram_svgs: dict[str, bytes] | None = None
-) -> str:
+    markdown: str,
+    diagram_svgs: dict[str, bytes] | None = None,
+    *,
+    page_anchor: str = "page",
+) -> tuple[str, str]:
+    """Render Markdown to HTML plus a heading TOC for the page nav.
+
+    Headings carry deterministic anchors; the ``Evidence pointers:``
+    list becomes a collapsible <details> block so source references
+    stay available without dominating the page.
+    """
+
     lines = markdown.split("\n")
     html_lines: list[str] = []
+    toc_entries: list[tuple[int, str, str]] = []
+    heading_seq = 0
     paragraph: list[str] = []
     list_items: list[str] = []
     quote_lines: list[str] = []
     code_lines: list[str] | None = None
     code_language = ""
     in_details = 0
+    evidence_label_seen = False
 
     def flush_paragraph():
+        nonlocal evidence_label_seen
         if paragraph:
             html_lines.append(f"<p>{_inline_html(' '.join(paragraph))}</p>")
+            evidence_label_seen = (
+                " ".join(paragraph).strip() == "Evidence pointers:"
+            )
             paragraph.clear()
 
     def flush_list():
+        nonlocal evidence_label_seen
         if list_items:
-            html_lines.append("<ul>" + "".join(list_items) + "</ul>")
+            claim_evidence_only = all(
+                re.sub(r"<[^>]+>", "", item)
+                .lstrip()
+                .startswith(("Evidence:", "Claims:"))
+                for item in list_items
+            )
+            if evidence_label_seen or claim_evidence_only:
+                html_lines.append(
+                    '<details class="evidence"><summary>Claims & evidence'
+                    "</summary><ul>"
+                    + "".join(list_items)
+                    + "</ul></details>"
+                )
+            else:
+                html_lines.append("<ul>" + "".join(list_items) + "</ul>")
             list_items.clear()
+            evidence_label_seen = False
 
     def flush_quote():
         if quote_lines:
@@ -686,8 +728,13 @@ def _markdown_to_html(
             flush_list()
             flush_quote()
             level = len(heading.group(1))
+            heading_seq += 1
+            heading_id = f"h-{page_anchor}-{heading_seq}"
+            text = heading.group(2)
+            toc_entries.append((level, heading_id, text))
             html_lines.append(
-                f"<h{level}>{_inline_html(heading.group(2))}</h{level}>"
+                f'<h{level} id="{_h(heading_id)}">'
+                f"{_inline_html(text)}</h{level}>"
             )
             continue
         if stripped == "<details>":
@@ -729,7 +776,12 @@ def _markdown_to_html(
     flush_quote()
     if code_lines is not None:
         raise WikiCompilationError("unterminated fenced code block")
-    return "\n".join(html_lines)
+    toc = "".join(
+        f'<a href="#{_h(heading_id)}">{_h(text)}</a>'
+        for _level, heading_id, text in toc_entries
+        if _level >= 2
+    )
+    return "\n".join(html_lines), toc
 
 
 __all__ = [

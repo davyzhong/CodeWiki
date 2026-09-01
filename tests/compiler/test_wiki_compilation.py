@@ -270,3 +270,29 @@ def test_unterminated_code_fence_fails_closed() -> None:
 
     with pytest.raises(WikiCompilationError):
         _markdown_to_html("```mermaid\ngraph TD\n")
+
+
+def test_html_export_has_heading_anchors_toc_and_collapsible_evidence(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    publish_world(tmp_path)
+    result = compile_repository_wiki(tmp_path)
+    html = result.html_path.read_text(encoding="utf-8")
+
+    assert '<h3 id="h-' in html
+    assert '<nav class="toc">' in html
+    assert '<details class="evidence">' in html
+    assert "<summary>Claims & evidence</summary>" in html
+
+
+def test_html_export_is_deterministic(tmp_path: Path) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    publish_world(tmp_path)
+    compile_repository_wiki(tmp_path)
+    html_path = tmp_path / ".knowledge/exports/repo-wiki.html"
+    first = html_path.read_bytes()
+    compile_repository_wiki(tmp_path)
+    assert html_path.read_bytes() == first
