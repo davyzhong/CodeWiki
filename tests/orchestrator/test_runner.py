@@ -675,3 +675,197 @@ def test_runner_preserves_previous_generation_on_failure(tmp_path: Path) -> None
     outcome = second.run()
     assert outcome.status == "failed"
     assert (tmp / "out/.knowledge/manifest.yaml").read_bytes() == manifest_before
+
+
+class ScriptedVerifyWorker(StubWorker):
+    """Queued verify outcomes; bad = evidence-unsupported verification."""
+
+    def __init__(self, script) -> None:
+        super().__init__()
+        self._script = list(script)
+        self.verify_calls: list[tuple[int, str]] = []
+
+    def verify(self, request):
+        self.verify_calls.append((request.attempt, request.idempotency_key))
+        step = self._script.pop(0)
+        good = super().verify(request)
+        if step == "bad":
+            return good.model_copy(
+                update={
+                    "verification_request_digest": "sha256:" + "9" * 64,
+                    "verifications": tuple(
+                        item.model_copy(
+                            update={
+                                "verification_request_digest": "sha256:"
+                                + "9" * 64
+                            }
+                        )
+                        for item in good.verifications
+                    ),
+                }
+            )
+        return good
+
+
+class InsufficientWorker(StubWorker):
+    def extract(self, request):
+        from knowledge_compiler.contracts.semantic import InsufficientEvidence
+
+        raise InsufficientEvidence(
+            "evidence cannot support the requested knowledge"
+        )
+
+
+def test_verification_failure_repairs_twice_with_fresh_leases(
+    tmp_path: Path,
+) -> None:
+    worker = ScriptedVerifyWorker(["bad", "bad", "good"])
+    orchestrator, queue, _tmp = make_orchestrator(tmp_path, worker=worker)
+
+    outcome = orchestrator.run()
+
+    assert outcome.status == "complete"
+    target = queue.record().targets[0]
+    assert target.state is TargetState.VERIFIED
+    assert target.result is None
+    assert target.repair_attempts == 2
+    assert [attempt for attempt, _key in worker.verify_calls] == [1, 2, 3]
+    assert len({key for _attempt, key in worker.verify_calls}) == 3
+
+
+def test_exhausted_repairs_end_in_terminal_invalid(tmp_path: Path) -> None:
+    worker = ScriptedVerifyWorker(["bad", "bad", "bad"])
+    orchestrator, queue, _tmp = make_orchestrator(tmp_path, worker=worker)
+
+    outcome = orchestrator.run()
+
+    # No prior generation exists, so a required failure is a failed run.
+    assert outcome.status == "failed"
+    target = queue.record().targets[0]
+    assert target.result is TerminalResult.INVALID
+    assert target.repair_attempts == 2
+    assert len(worker.verify_calls) == 3
+
+
+def test_insufficient_evidence_reaches_its_terminal_result(
+    tmp_path: Path,
+) -> None:
+    orchestrator, queue, _tmp = make_orchestrator(
+        tmp_path, worker=InsufficientWorker()
+    )
+
+    outcome = orchestrator.run()
+
+    assert outcome.status == "failed"
+    target = queue.record().targets[0]
+    assert target.result is TerminalResult.INSUFFICIENT_EVIDENCE
+    assert target.repair_attempts == 0
+
+
+def test_optional_target_is_skipped_after_required_failure(
+    tmp_path: Path,
+) -> None:
+    module_worker = ScriptedVerifyWorker(["bad", "bad", "bad"])
+
+    rule_extract_calls = {"count": 0}
+
+    class MixedWorker(StubWorker):
+        def extract(self, request):
+            if request.evidence_pack.target.type == "rule":
+                rule_extract_calls["count"] += 1
+                base = TypedFixtureWorker("rule")
+                return base.extract(request)
+            return module_worker.extract(request)
+
+        def verify(self, request):
+            if request.target_id.startswith("module."):
+                return module_worker.verify(request)
+            return TypedFixtureWorker("rule").verify(request)
+
+    from knowledge_compiler.contracts.repository import (
+        RepositorySnapshot,
+        build_snapshot_id,
+    )
+    from knowledge_compiler.orchestrator.runner import RunOrchestrator
+    from knowledge_compiler.providers.fake import FakeEvidenceProvider
+
+    repository_id = "fixture/probe-shop"
+    commit = "probe-fixture-v1"
+    snapshot = RepositorySnapshot.model_validate(
+        {
+            "repository_id": repository_id,
+            "snapshot_id": build_snapshot_id(repository_id, commit, False, None),
+            "root": REPOSITORY_ROOT,
+            "branch": "main",
+            "commit": commit,
+            "dirty": False,
+            "working_tree_hash": None,
+            "eligible_files": (
+                "pyproject.toml",
+                "src/shop/__init__.py",
+                "src/shop/api.py",
+                "src/shop/checkout.py",
+                "src/shop/inventory.py",
+            ),
+        }
+    )
+    provider = FakeEvidenceProvider(
+        fixture_dir=FIXTURES, repository_root=REPOSITORY_ROOT
+    )
+    run_record = RunRecord.model_validate(
+        {
+            "run_id": "orch-skip-001",
+            "repository_id": repository_id,
+            "snapshot_id": snapshot.snapshot_id,
+            "executor": "llm",
+            "active": True,
+            "targets": (
+                {
+                    "target_id": "module.shop.checkout",
+                    "object_type": "module",
+                    "topic": "CheckoutService",
+                    "evidence_seeds": ("CheckoutService",),
+                    "state": "queued",
+                    "attempt": 1,
+                    "repair_attempts": 0,
+                    "required": True,
+                    "priority": 1,
+                    "request_digest": "sha256:" + "1" * 64,
+                },
+                {
+                    "target_id": "rule.shop.inventory",
+                    "object_type": "rule",
+                    "topic": "Inventory rule",
+                    "evidence_seeds": ("Inventory",),
+                    "state": "queued",
+                    "attempt": 1,
+                    "repair_attempts": 0,
+                    "required": False,
+                    "priority": 2,
+                    "request_digest": "sha256:" + "2" * 64,
+                },
+            ),
+        }
+    )
+    queue = RunQueue(
+        store_root=tmp_path / ".knowledge/state/runs",
+        run=run_record,
+        clock=FixedClock(),
+    )
+    orchestrator = RunOrchestrator(
+        queue=queue,
+        snapshot=snapshot,
+        evidence_provider=provider,
+        worker=MixedWorker(),
+        output_root=tmp_path / "out",
+        run_id="orch-skip-001",
+    )
+
+    outcome = orchestrator.run()
+
+    assert outcome.status == "failed"
+    record = queue.record()
+    by_id = {target.target_id: target for target in record.targets}
+    assert by_id["module.shop.checkout"].result is TerminalResult.INVALID
+    assert by_id["rule.shop.inventory"].result is TerminalResult.SKIPPED
+    assert rule_extract_calls["count"] == 0

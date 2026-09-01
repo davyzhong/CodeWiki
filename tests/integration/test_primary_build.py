@@ -1051,6 +1051,15 @@ def test_deleted_target_retirement_obeys_deterministic_proof_boundary(
         assert manifest["objects"] == [{"id": flow.id, "type": "flow"}]
         assert not overlay_path.exists()
         assert archive_path.read_bytes() == overlay_bytes
+        plan_doc = yaml.safe_load(
+            (snapshot.root / ".knowledge/plan.yaml").read_bytes()
+        )
+        retired_entry = next(
+            item
+            for item in plan_doc["targets"]
+            if item["target_id"] == object_id
+        )
+        assert retired_entry["result"] == "retired"
     else:
         assert outcome.retired_object_ids == ()
         assert outcome.pending_target_ids == (object_id,)

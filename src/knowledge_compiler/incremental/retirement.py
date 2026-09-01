@@ -265,9 +265,19 @@ def retire_proven_knowledge(
     except PublicationError as error:
         raise RetirementError(str(error)) from error
     from knowledge_compiler.incremental.pending import PendingStore
+    from knowledge_compiler.orchestrator.contracts import TerminalResult
+
+    from knowledge_compiler.storage.lifecycle import (
+        record_latest_plan_target_result,
+    )
 
     pending = PendingStore(root / ".knowledge/state/pending-targets.json")
     for object_id in approved:
+        # The tracked latest plan must reflect the terminal result even
+        # though retirement bypasses a RunStore save.
+        record_latest_plan_target_result(
+            root, object_id, TerminalResult.RETIRED
+        )
         pending.resolve(object_id)
     return RetirementResult(
         retired=tuple(approved),

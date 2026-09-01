@@ -540,12 +540,15 @@ def update(
 
 
 @app.command()
-def validate() -> None:
+def validate(
+    repository_root: Annotated[Path, typer.Option()] = Path("."),
+) -> None:
     """Validate the canonical store consistency (exit 0/1)."""
 
     import yaml
 
-    knowledge = Path(".knowledge")
+    root = repository_root.resolve()
+    knowledge = root / ".knowledge"
     manifest_path = knowledge / "manifest.yaml"
     if not manifest_path.is_file():
         typer.secho(
@@ -557,23 +560,59 @@ def validate() -> None:
     except (OSError, ValueError) as error:
         typer.secho(f"validate: manifest unreadable: {error}", fg=typer.colors.RED)
         raise typer.Exit(code=1) from None
-    generations = {
-        "active_generation",
-        "agent_views_generation",
-        "wiki_generation",
-    }
-    values = {key: manifest.get(key) for key in generations}
-    if any(value is None for value in values.values()) or len(set(values.values())) != 1:
+    if not isinstance(manifest, dict):
+        typer.secho("validate: manifest is invalid", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    active = manifest.get("active_generation")
+    agent_views = manifest.get("agent_views_generation")
+    if not isinstance(active, str) or agent_views != active:
+        values = {
+            "active_generation": active,
+            "agent_views_generation": agent_views,
+        }
         typer.secho(
             "validate: generation markers disagree: " + json_dumps(values),
             fg=typer.colors.RED,
         )
         raise typer.Exit(code=1)
-    expected_files = [
-        knowledge / "objects/modules/module.shop.checkout.yaml",
-        knowledge / "views/cards/module.shop.checkout.md",
-        knowledge / "views/wiki/modules/module.shop.checkout.md",
-    ]
+    inventory = manifest.get("objects")
+    if not isinstance(inventory, list) or not inventory:
+        typer.secho(
+            "validate: manifest object inventory is unavailable",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+    type_directories = {
+        "module": "modules",
+        "architecture": "architecture",
+        "flow": "flows",
+        "rule": "rules",
+        "tech-stack": "tech-stack",
+    }
+    expected_files = []
+    for item in inventory:
+        if not isinstance(item, dict):
+            typer.secho(
+                "validate: manifest object inventory is invalid",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
+        object_id = item.get("id")
+        object_type = item.get("type")
+        directory = type_directories.get(object_type)
+        if not isinstance(object_id, str) or directory is None:
+            typer.secho(
+                "validate: manifest object inventory is invalid",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
+        expected_files.extend(
+            [
+                knowledge / f"objects/{directory}/{object_id}.yaml",
+                knowledge / f"views/cards/{object_id}.md",
+                knowledge / f"views/wiki/{directory}/{object_id}.md",
+            ]
+        )
     missing = [str(path) for path in expected_files if not path.is_file()]
     if missing:
         typer.secho(
@@ -581,7 +620,7 @@ def validate() -> None:
             fg=typer.colors.RED,
         )
         raise typer.Exit(code=1)
-    typer.echo(f"validate: generation {values['active_generation']} consistent")
+    typer.echo(f"validate: generation {active} consistent")
 
 
 def json_dumps(payload: dict) -> str:

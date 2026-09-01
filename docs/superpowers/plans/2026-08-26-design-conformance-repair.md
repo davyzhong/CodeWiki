@@ -116,11 +116,11 @@
 - Produces: explicit insufficient-evidence extraction outcome, two persisted repair attempts with fresh leases/idempotency keys, and correct invalid/conflicted/insufficient/retired/skipped target results.
 - Produces: repository-generic `knowledge validate` driven by manifest object inventory rather than fixture IDs.
 
-- [ ] Add failing tests for malformed extraction repair, unsupported verification repair, exhausted repair terminal state, explicit insufficient evidence, retirement reflected in latest plan, and validation of arbitrary object IDs/types.
-- [ ] Confirm current code marks failures directly invalid/conflicted and `knowledge validate` searches for `module.shop.checkout`.
-- [ ] Implement the minimal terminal outcome contract and repair transitions while preserving extraction/verification context separation.
-- [ ] Replace hard-coded validation paths with manifest-bound canonical/Card/Wiki checks and generation/index consistency checks.
-- [ ] Run orchestrator, CLI, integration, and full offline suite twice; update README truthfully with the new count and remaining live/A-B limitation.
+- [x] Add failing tests for malformed extraction repair, unsupported verification repair, exhausted repair terminal state, explicit insufficient evidence, retirement reflected in latest plan, and validation of arbitrary object IDs/types.
+- [x] Confirm current code marks failures directly invalid/conflicted and `knowledge validate` searches for `module.shop.checkout`.
+- [x] Implement the minimal terminal outcome contract and repair transitions while preserving extraction/verification context separation.
+- [x] Replace hard-coded validation paths with manifest-bound canonical/Card/Wiki checks and generation/index consistency checks.
+- [x] Run orchestrator, CLI, integration, and full offline suite twice; update README truthfully with the new count and remaining live/A-B limitation.
 - [ ] Commit `fix: complete target lifecycle semantics` and push.
 
 ## Final verification

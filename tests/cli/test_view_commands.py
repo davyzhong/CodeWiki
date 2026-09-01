@@ -249,3 +249,54 @@ def test_open_does_not_warn_when_the_wiki_is_current(
 
     assert result.exit_code == 0, result.output
     assert "lags the active generation" not in result.output
+
+
+def test_validate_checks_manifest_inventory_generically(tmp_path: Path) -> None:
+    """validate must drive off the manifest inventory, not fixture IDs."""
+
+    import shutil
+    import subprocess
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "integration"))
+    from test_typed_publication import canonicalize
+
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+    from knowledge_compiler.storage import GenerationPublisher
+
+    architecture = canonicalize("architecture").canonical
+    flow = canonicalize("flow").canonical
+    assert architecture is not None and flow is not None
+    GenerationPublisher(tmp_path).publish_generation(
+        "gen-validate-generic", ((architecture, None), (flow, None))
+    )
+    compile_repository_wiki(tmp_path)
+
+    (tmp_path / "src").mkdir(exist_ok=True)
+    (tmp_path / "src" / "shop.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q", "-b", "main", str(tmp_path)], check=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "config", "user.email", "t@e.com"], check=True
+    )
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "config", "user.name", "T"], check=True
+    )
+    subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], check=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "commit", "--allow-empty", "-qm", "c"],
+        check=True,
+    )
+    monkey_free = None  # placeholder to keep flake quiet
+
+    from typer.testing import CliRunner
+
+    runner = CliRunner()
+    ok = runner.invoke(app, ["validate", "--repository-root", str(tmp_path)])
+    assert ok.exit_code == 0, ok.output
+
+    cards = sorted((tmp_path / ".knowledge/views/cards").glob("*.md"))
+    cards[0].unlink()
+    broken = runner.invoke(app, ["validate", "--repository-root", str(tmp_path)])
+    assert broken.exit_code == 1
+    assert "missing" in broken.output.lower()
+    del shutil, monkey_free

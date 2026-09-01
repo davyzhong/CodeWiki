@@ -342,6 +342,49 @@ def update_latest_plan_pending(
         return _update_latest_plan_pending_locked(root, pending_target_ids)
 
 
+def record_latest_plan_target_result(
+    root: str | os.PathLike[str],
+    object_id: str,
+    result: TerminalResult,
+) -> bool:
+    """Project a terminal target result into the tracked latest plan.
+
+    Retirement and other orchestrator-side terminal results must be
+    visible in ``plan.yaml`` even when they bypass a RunStore save.
+    """
+
+    with repository_lifecycle_lock(root):
+        path = _knowledge_root(root) / "plan.yaml"
+        if not os.path.lexists(path):
+            return False
+        plan = load_latest_plan(root)
+        updated_targets = []
+        matched = False
+        for target in plan.targets:
+            if target.target_id == object_id:
+                matched = True
+                updated_targets.append(
+                    target.model_copy(
+                        update={
+                            "state": TargetState.DONE,
+                            "result": result,
+                        }
+                    )
+                )
+            else:
+                updated_targets.append(target)
+        if not matched:
+            return False
+        _atomic_yaml(
+            path,
+            plan.model_copy(update={"targets": tuple(updated_targets)}).model_dump(
+                mode="json"
+            ),
+            label="plan",
+        )
+        return True
+
+
 def _update_latest_plan_pending_locked(
     root: str | os.PathLike[str], pending_target_ids: Iterable[str]
 ) -> bool:

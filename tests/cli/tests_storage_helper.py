@@ -61,8 +61,8 @@ def build_published_generation(output_root: Path) -> None:
         REPOSITORY_ROOT,
     )
     assert verified.is_valid and verified.module is not None
-    GenerationPublisher(output_root).publish(
-        "gen-validate-001", verified.module, pack
+    GenerationPublisher(output_root).publish_generation(
+        "gen-validate-001", ((verified.module, pack),)
     )
 
 

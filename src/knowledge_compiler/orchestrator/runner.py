@@ -9,12 +9,14 @@ from knowledge_compiler.contracts.repository import (
     PlanTarget,
     RepositorySnapshot,
 )
-from knowledge_compiler.orchestrator.queue import QueueError, RunQueue
+from knowledge_compiler.contracts.semantic import InsufficientEvidence
 from knowledge_compiler.orchestrator.contracts import (
+    _MAX_REPAIR_ATTEMPTS,
     TargetRecord,
     TargetState,
     TerminalResult,
 )
+from knowledge_compiler.orchestrator.queue import QueueError, RunQueue
 from knowledge_compiler.storage import GenerationPublisher, PublicationError
 from knowledge_compiler.validation.module import (
     apply_verification_result,
@@ -92,6 +94,20 @@ class RunOrchestrator:
             if record.state is TargetState.DONE:
                 if record.required:
                     any_required_failed = True
+                continue
+            if not record.required and any_required_failed:
+                # An optional target is never worth model spend once a
+                # required target already failed this run.
+                skipped = record.finish(
+                    TerminalResult.SKIPPED,
+                    diagnostics=("optional target skipped after required failure",),
+                )
+                self.queue.replace_record(
+                    self.queue.record().with_target(skipped)
+                )
+                diagnostics.append(
+                    f"{record.target_id}: skipped as optional after required failure"
+                )
                 continue
             if record.state is TargetState.VERIFIED:
                 try:
@@ -234,9 +250,14 @@ class RunOrchestrator:
 
     # -- internals -----------------------------------------------------------
 
-    def _drive_target(self, record: TargetRecord) -> tuple[Any, tuple[str, ...]]:
+    def _drive_target(
+        self,
+        record: TargetRecord,
+        diagnostics: list[str] | None = None,
+    ) -> tuple[Any, tuple[str, ...]]:
         target_id = record.target_id
-        diagnostics: list[str] = []
+        if diagnostics is None:
+            diagnostics = []
         try:
             if record.state is TargetState.QUEUED:
                 record = self._to_evidence_ready(record)
@@ -344,6 +365,13 @@ class RunOrchestrator:
                         self.queue.record().with_target(record)
                     )
                     return (canonical, pack), tuple(diagnostics)
+                # Unsupported or conflicting verification is repairable:
+                # schedule at most two repairs with fresh leases and
+                # idempotency keys before declaring a terminal result.
+                record = self.queue.target(target_id)
+                repaired = self._schedule_repair(record, target_id, diagnostics)
+                if repaired is not None:
+                    return self._drive_target(repaired, diagnostics)
                 record = record.transition(TargetState.VERIFICATION_LEASED)
                 self.queue.replace_record(self.queue.record().with_target(record))
                 record = record.finish(
@@ -355,8 +383,24 @@ class RunOrchestrator:
                 )
                 diagnostics.append(f"{target_id}: verification rejected the draft")
                 return None, tuple(diagnostics)
+        except InsufficientEvidence as error:
+            record = self.queue.target(target_id)
+            finished = record.finish(
+                TerminalResult.INSUFFICIENT_EVIDENCE,
+                diagnostics=(str(error)[:500],),
+            )
+            self.queue.replace_record(
+                self.queue.record().with_target(finished)
+            )
+            diagnostics.append(
+                f"{target_id}: insufficient evidence for extraction"
+            )
+            return None, tuple(diagnostics)
         except (QueueError, ValueError, RuntimeError, OSError) as error:
             record = self.queue.target(target_id)
+            repaired = self._schedule_repair(record, target_id, diagnostics)
+            if repaired is not None:
+                return self._drive_target(repaired, diagnostics)
             finished = record.finish(
                 TerminalResult.INVALID, diagnostics=(str(error)[:500],)
             )
@@ -366,6 +410,36 @@ class RunOrchestrator:
             diagnostics.append(f"{target_id}: {str(error)[:500]}")
             return None, tuple(diagnostics)
         return None, tuple(diagnostics)
+
+    def _schedule_repair(
+        self,
+        record: TargetRecord,
+        target_id: str,
+        diagnostics: list[str],
+    ) -> TargetRecord | None:
+        """Requeue a failed target for repair with a fresh lease budget.
+
+        Returns the requeued record, or None when repairs are exhausted
+        (or the state machine refuses the rollback), leaving the caller
+        to finish the terminal result.
+        """
+
+        if record.repair_attempts >= _MAX_REPAIR_ATTEMPTS:
+            return None
+        try:
+            requeued = record.model_copy(update={"lease": None}).transition(
+                TargetState.REPAIR_PENDING
+            )
+            requeued = requeued.transition(TargetState.EXTRACTION_LEASED)
+            requeued = requeued.transition(TargetState.EVIDENCE_READY)
+        except ValueError:
+            return None
+        self.queue.replace_record(self.queue.record().with_target(requeued))
+        diagnostics.append(
+            f"{target_id}: repair scheduled "
+            f"({requeued.repair_attempts}/{_MAX_REPAIR_ATTEMPTS})"
+        )
+        return requeued
 
     def _to_evidence_ready(self, record: TargetRecord) -> TargetRecord:
         updated = record.transition(TargetState.EVIDENCE_READY)

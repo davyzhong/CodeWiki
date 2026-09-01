@@ -162,11 +162,17 @@ class VerificationResult(_SemanticModel):
         return tuple(sorted(value, key=lambda item: item.claim_id))
 
 
+class InsufficientEvidence(RuntimeError):
+    """The worker's explicit outcome when evidence cannot support the
+    requested knowledge (design §7); never a reason to guess."""
+
+
 __all__ = [
     "ClaimVerificationResult",
     "DraftKnowledge",
     "ExtractionRequest",
     "ExtractionResult",
+    "InsufficientEvidence",
     "VerificationClaim",
     "VerificationEvidence",
     "VerificationRequest",

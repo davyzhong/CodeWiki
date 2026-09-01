@@ -2,7 +2,7 @@
 
 CodeWiki（项目设计名：Knowledge Compiler）是一个面向 Coding Agent 的本地仓库知识编译器。
 
-V0.1 主链路已全线贯通（恢复计划 Gate 1–8 全部完成）。当前能力：LocalGit + 公开 CodeWiki 证据、五类知识 Planner、统一结构/语义验证、持久化 Orchestrator、原子多对象发布与崩溃恢复、增量失效/重试/确定性退役（退出码 0/1/2）、受保护的人类 overlay（只读校验、Markdown 边界合并、override 冲突判定、退役字节级归档）、确定性 Wiki/聚合页/源索引/独立 HTML（`wiki_generation` 落后语义）、verified-only SQLite FTS5 索引与预算化 ContextRetriever（快照/代际门禁 fail closed）、`compile/context/open/serve/status` 全部真实行为，以及七个只读 MCP 工具（`knowledge-mcp`，stdio JSON-RPC）。当前离线基线为 653 项测试通过（连续两遍结果一致），另有 1 项显式 opt-in live 覆盖默认跳过；`knowledge build --executor llm|agent` 与 `knowledge update --executor llm|agent` 为生产入口，Fake Provider 仅保留在测试/演示。M8 基准工作在全部技术门通过后启动。
+V0.1 主链路已全线贯通（恢复计划 Gate 1–8 全部完成），设计符合性修复计划 Task 1–5 全部落地：LocalGit + 公开 CodeWiki 证据、调研驱动的多目标规划、统一结构/语义验证（含两次修复尝试与 insufficient_evidence/invalid/conflicted/retired/skipped 终态）、持久化 Orchestrator、原子多对象发布与崩溃恢复、增量失效/重试/确定性退役（退出码 0/1/2，增量面 `codewiki update`/`graph affected` 仅在本地 diff 后调用且失败可隔离）、受保护的人类 overlay（只读校验、Markdown 边界合并、override 冲突判定、退役字节级归档）、确定性 Wiki/聚合页/源索引/独立 HTML（`wiki_generation` 落后语义）、verified-only SQLite FTS5 索引与预算化 ContextRetriever（快照/代际/工作树哈希精确门禁）、`compile/context/open/serve/status/validate` 全部真实行为（validate 按清单驱动），以及七个只读 MCP 工具（`knowledge-mcp`，stdio JSON-RPC）。当前离线基线为 750 项测试通过（连续两遍结果一致），另有 1 项显式 opt-in live 覆盖默认跳过；`knowledge build --executor llm|agent` 与 `knowledge update --executor llm|agent` 为生产入口，Fake Provider 仅保留在测试/演示。M8 基准工作在全部技术门通过后启动。
 
 ## 当前文档
 
