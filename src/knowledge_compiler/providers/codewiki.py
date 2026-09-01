@@ -245,6 +245,89 @@ class CodeWikiEvidenceProvider:
                 f"unknown Evidence ID (build a pack first): {evidence_id}"
             ) from error
 
+    def sync_incremental(
+        self,
+        repo: RepositorySnapshot,
+        changes: Any = None,
+    ) -> IndexStatus:
+        """Run the public incremental update after a local diff exists."""
+
+        from knowledge_compiler.providers.base import ProviderHintError
+        from knowledge_compiler.repository.changes import ChangeSet
+
+        if changes is None or (
+            isinstance(changes, ChangeSet) and changes.is_empty()
+        ):
+            raise ValueError(
+                "sync_incremental requires a non-empty local change set"
+            )
+        try:
+            validated = self._validate(repo)
+            self._run(["codewiki", "update", str(self._root), "--json"])
+        except (CodewikiCliError, OSError, ValueError) as error:
+            raise ProviderHintError(
+                f"codewiki incremental update failed: {error}"
+            ) from error
+        return IndexStatus(
+            repository_id=validated.repository_id,
+            snapshot_id=validated.snapshot_id,
+            changed=True,
+        )
+
+    def affected(
+        self,
+        repo: RepositorySnapshot,
+        changes: Any = None,
+    ) -> Any:
+        """Return normalized affected hints for an already-computed diff."""
+
+        from knowledge_compiler.providers.base import (
+            AffectedHints,
+            ProviderHintError,
+        )
+        from knowledge_compiler.repository.changes import ChangeSet
+
+        if changes is None or (
+            isinstance(changes, ChangeSet) and changes.is_empty()
+        ):
+            raise ValueError(
+                "affected requires a non-empty local change set"
+            )
+        try:
+            validated = self._validate(repo)
+            payload = self._run(
+                [
+                    "codewiki", "graph", "affected",
+                    "--repo", str(self._root), "--json",
+                ]
+            )
+        except (CodewikiCliError, OSError, ValueError) as error:
+            raise ProviderHintError(
+                f"codewiki graph affected failed: {error}"
+            ) from error
+        normalized = normalize_affected(payload or {})
+        files = tuple(
+            item
+            for item in sorted({*normalized["changed_files"], *normalized["affected_files"]})
+            if isinstance(item, str) and item
+        )
+        return AffectedHints(
+            repository_id=validated.repository_id,
+            snapshot_id=validated.snapshot_id,
+            affected_files=files,
+            affected_node_ids=tuple(
+                item
+                for item in normalized["affected_node_ids"]
+                if isinstance(item, str) and item
+            ),
+            affected_tests=tuple(
+                item
+                for item in normalized["affected_tests"]
+                if isinstance(item, str) and item
+            ),
+            complete=payload.get("truncated") is not True if isinstance(payload, dict) else True,
+        )
+
     def _select_entries(
         self, entry_points: list[dict[str, Any]], target: PlanTarget
     ) -> list[dict[str, Any]]:

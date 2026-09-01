@@ -38,6 +38,7 @@ class IncrementalUpdateOutcome:
     generation: str | None
     published_object_ids: tuple[str, ...]
     diagnostics: tuple[str, ...]
+    hint_files: tuple[str, ...] | None = None
 
 
 BuildRunner = Callable[..., Any]
@@ -50,6 +51,7 @@ def run_incremental_update(
     config: KnowledgeConfig,
     build_runner: BuildRunner | None = None,
     retirement_prover: Callable[[Any], Any] | None = None,
+    evidence_provider: Any | None = None,
 ) -> IncrementalUpdateOutcome:
     """Detect before provider sync, invalidate safely, then regenerate."""
 
@@ -66,6 +68,51 @@ def run_incremental_update(
     manifest_exists = (root / ".knowledge/manifest.yaml").is_file()
     pending = PendingStore(root / ".knowledge/state/pending-targets.json")
     pending_before = pending.target_ids()
+
+    # Provider incremental surfaces run only after the local ChangeSet
+    # exists; hints enrich local detection and any provider failure just
+    # degrades diagnostics while safe invalidation proceeds untouched.
+    hint_files: tuple[str, ...] | None = None
+    hint_diagnostics: tuple[str, ...] = ()
+    extra_changed_paths: tuple[str, ...] = ()
+    if (
+        evidence_provider is not None
+        and manifest_exists
+        and not change_set.is_empty()
+    ):
+        try:
+            evidence_provider.sync_incremental(observed_snapshot, change_set)
+        except Exception as error:
+            hint_diagnostics = (f"provider hints unavailable: {error}",)
+        else:
+            try:
+                hints = evidence_provider.affected(
+                    observed_snapshot, change_set
+                )
+            except Exception as error:
+                hint_diagnostics = (f"provider hints unavailable: {error}",)
+            else:
+                hint_files = tuple(
+                    sorted(
+                        {
+                            item
+                            for item in (
+                                getattr(hints, "affected_files", ()) or ()
+                            )
+                            if isinstance(item, str) and item
+                        }
+                    )
+                )
+                local_changed = (
+                    set(change_set.added)
+                    | set(change_set.modified)
+                    | set(change_set.deleted)
+                )
+                extra_changed_paths = tuple(
+                    path
+                    for path in hint_files
+                    if path not in local_changed
+                )
 
     if (
         not full_refresh
@@ -97,7 +144,9 @@ def run_incremental_update(
     if manifest_exists and not change_set.is_empty():
         try:
             invalidated = invalidate_changed_knowledge(
-                repository_root=root, change_set=change_set
+                repository_root=root,
+                change_set=change_set,
+                extra_changed_paths=extra_changed_paths,
             )
         except InvalidationError as error:
             return _failed(
@@ -106,6 +155,8 @@ def run_incremental_update(
                 refresh_reason,
                 f"safe invalidation failed: {error}",
                 pending,
+                hint_files=hint_files,
+                extra_diagnostics=hint_diagnostics,
             )
         invalidation_generation = invalidated.generation
         stale_ids = invalidated.stale
@@ -215,7 +266,8 @@ def run_incremental_update(
                 pending_target_ids=remaining_pending,
                 generation=retirement_generation,
                 published_object_ids=(),
-                diagnostics=tuple(diagnostics),
+                diagnostics=tuple(diagnostics) + hint_diagnostics,
+                hint_files=hint_files,
             )
         return _failed(
             change_set,
@@ -223,6 +275,8 @@ def run_incremental_update(
             refresh_reason,
             f"regeneration failed: {error}",
             pending,
+            hint_files=hint_files,
+            extra_diagnostics=hint_diagnostics,
         )
 
     published_ids = tuple(built.published_object_ids)
@@ -262,7 +316,8 @@ def run_incremental_update(
         pending_target_ids=remaining,
         generation=built.generation,
         published_object_ids=published_ids,
-        diagnostics=diagnostics,
+        diagnostics=diagnostics + hint_diagnostics,
+        hint_files=hint_files,
     )
 
 
@@ -297,6 +352,9 @@ def _failed(
     refresh_reason: str | None,
     diagnostic: str,
     pending: PendingStore,
+    *,
+    hint_files: tuple[str, ...] | None = None,
+    extra_diagnostics: tuple[str, ...] = (),
 ) -> IncrementalUpdateOutcome:
     return IncrementalUpdateOutcome(
         status="failed",
@@ -309,7 +367,8 @@ def _failed(
         pending_target_ids=tuple(sorted(pending.target_ids())),
         generation=None,
         published_object_ids=(),
-        diagnostics=(diagnostic,),
+        diagnostics=(diagnostic,) + extra_diagnostics,
+        hint_files=hint_files,
     )
 
 

@@ -790,6 +790,155 @@ def test_no_diff_pending_retry_selects_target_and_preserves_healthy_generation(
     assert manifest["pending_targets"] == [architecture.id]
 
 
+def _prepare_update_scenario(tmp_path: Path):
+    """Initial verified build plus baseline and a committed source edit."""
+
+    import subprocess
+
+    from knowledge_compiler.building import run_primary_build
+    from knowledge_compiler.planning.module import plan_one_module
+    from knowledge_compiler.repository.inventory import (
+        FileRecord,
+        save_baseline,
+    )
+    from knowledge_compiler.repository.local_git import (
+        LocalGitRepositoryProvider,
+    )
+
+    snapshot, provider, worker, plan = make_world(tmp_path)
+    run_primary_build(
+        repository_root=snapshot.root,
+        executor="llm",
+        evidence_provider=provider,
+        worker=worker,
+        snapshot=snapshot,
+        run_id="hints-source-001",
+        planner=plan_one_module,
+    )
+    git_provider = LocalGitRepositoryProvider()
+    save_baseline(
+        snapshot.root / ".knowledge/baseline/eligible-files.json",
+        tuple(
+            FileRecord(
+                path=item.path,
+                blob_id=item.blob_id,
+                content_hash=item.content_hash,
+                size=item.size,
+                language=item.language,
+            )
+            for item in git_provider.inventory(snapshot.root)
+            if item.supported
+        ),
+    )
+    checkout = snapshot.root / "src/shop/checkout.py"
+    checkout.write_text(
+        checkout.read_text(encoding="utf-8") + "\n# changed for hints\n",
+        encoding="utf-8",
+    )
+    subprocess.run(
+        ["git", "-C", str(snapshot.root), "add", "src/shop/checkout.py"],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "git", "-C", str(snapshot.root), "commit", "-qm",
+            "edit checkout for hints",
+        ],
+        check=True,
+    )
+    return snapshot, provider, plan, git_provider
+
+
+def test_provider_incremental_hints_run_after_local_diff_and_enrich(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.cli import _default_config
+    from knowledge_compiler.incremental.updating import run_incremental_update
+
+    snapshot, provider, plan, _git = _prepare_update_scenario(tmp_path)
+    events: list[str] = []
+    from knowledge_compiler.providers.base import AffectedHints, IndexStatus
+
+    def stub_sync(repo, changes):
+        events.append("sync")
+        assert changes.modified == ("src/shop/checkout.py",)
+        return IndexStatus(
+            repository_id=repo.repository_id,
+            snapshot_id=repo.snapshot_id,
+            changed=True,
+        )
+
+    def stub_affected(repo, changes):
+        events.append("affected")
+        return AffectedHints(
+            repository_id=repo.repository_id,
+            snapshot_id=repo.snapshot_id,
+            affected_files=("src/shop/api.py",),
+        )
+
+    provider.sync_incremental = stub_sync  # type: ignore[method-assign]
+    provider.affected = stub_affected  # type: ignore[method-assign]
+
+    def pending_build(**kwargs):
+        raise RuntimeError("semantic work pending")
+
+    outcome = run_incremental_update(
+        repository_root=snapshot.root,
+        executor="llm",
+        config=_default_config("zh"),
+        build_runner=pending_build,
+        evidence_provider=provider,
+    )
+
+    assert events == ["sync", "affected"]
+    assert outcome.status == "partial"
+    assert outcome.invalidation_generation is not None
+    assert outcome.stale_object_ids == (plan.targets[0].target.id,)
+    assert outcome.hint_files == ("src/shop/api.py",)
+
+
+def test_provider_hint_failure_is_isolated_from_safe_invalidation(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.cli import _default_config
+    from knowledge_compiler.incremental.updating import run_incremental_update
+    from knowledge_compiler.providers.base import ProviderHintError
+
+    snapshot, provider, plan, _git = _prepare_update_scenario(tmp_path)
+    events: list[str] = []
+
+    def exploding_sync(repo, changes):
+        events.append("sync")
+        raise ProviderHintError("captured surface unavailable")
+
+    def exploding_affected(repo, changes):
+        events.append("affected")
+        raise ProviderHintError("captured surface unavailable")
+
+    provider.sync_incremental = exploding_sync  # type: ignore[method-assign]
+    provider.affected = exploding_affected  # type: ignore[method-assign]
+
+    def pending_build(**kwargs):
+        raise RuntimeError("semantic work pending")
+
+    outcome = run_incremental_update(
+        repository_root=snapshot.root,
+        executor="llm",
+        config=_default_config("zh"),
+        build_runner=pending_build,
+        evidence_provider=provider,
+    )
+
+    assert events == ["sync"]
+    assert outcome.status == "partial"
+    assert outcome.invalidation_generation is not None
+    assert outcome.stale_object_ids == (plan.targets[0].target.id,)
+    assert outcome.hint_files is None
+    assert any(
+        "provider hints unavailable" in item for item in outcome.diagnostics
+    )
+
+
 @pytest.mark.parametrize(
     ("search_complete", "expected_status"),
     ((True, "complete"), (False, "partial")),
@@ -870,6 +1019,9 @@ def test_deleted_target_retirement_obeys_deterministic_proof_boundary(
             search_complete=search_complete,
             search_found_current=False,
             inbound_relations_verified=True,
+            reindexed_current_snapshot=search_complete,
+            lexical_search_complete=search_complete,
+            graph_search_complete=search_complete,
         )
 
     outcome = run_incremental_update(

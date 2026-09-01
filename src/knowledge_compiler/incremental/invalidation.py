@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -26,12 +27,20 @@ class InvalidationResult:
 def compute_affected(
     change_set: ChangeSet,
     evidence_paths: dict[str, tuple[str, ...]],
+    extra_changed_paths: Sequence[str] = (),
 ) -> set[str]:
-    """Derive the set of object ids whose Evidence intersects the ChangeSet."""
+    """Derive the set of object ids whose Evidence intersects the ChangeSet.
+
+    Extra provider-hint paths widen the comparison set; they never narrow
+    locally detected changes.
+    """
 
     changed = set(change_set.added) | set(change_set.modified) | set(change_set.deleted)
     changed |= {old for old, _ in change_set.renamed}
     changed |= {new for _, new in change_set.renamed}
+    changed |= {
+        path for path in extra_changed_paths if isinstance(path, str) and path
+    }
     affected: set[str] = set()
     for object_id, paths in evidence_paths.items():
         if changed & set(paths):
@@ -70,9 +79,16 @@ class InvalidationError(RuntimeError):
 
 
 def invalidate_changed_knowledge(
-    *, repository_root: Path, change_set: ChangeSet
+    *,
+    repository_root: Path,
+    change_set: ChangeSet,
+    extra_changed_paths: Sequence[str] = (),
 ) -> InvalidationResult:
-    """Atomically mark affected canonicals stale and remove their Cards."""
+    """Atomically mark affected canonicals stale and remove their Cards.
+
+    Provider hints arrive as ``extra_changed_paths``: they enrich local
+    detection and never replace it; hint-only paths get a typed reason.
+    """
 
     root = Path(repository_root).resolve()
     manifest_path = root / ".knowledge/manifest.yaml"
@@ -90,7 +106,9 @@ def invalidate_changed_knowledge(
         object_id: tuple(item.path for item in pack.evidence)
         for object_id, pack in packs.items()
     }
-    affected = compute_affected(change_set, evidence_paths)
+    affected = compute_affected(
+        change_set, evidence_paths, extra_changed_paths
+    )
     if not affected:
         return InvalidationResult(
             stale=(),
@@ -98,7 +116,10 @@ def invalidate_changed_knowledge(
             generation=manifest["active_generation"],
         )
 
-    changed_paths = _changed_paths(change_set)
+    local_paths = _changed_paths(change_set)
+    changed_paths = local_paths | {
+        path for path in extra_changed_paths if isinstance(path, str) and path
+    }
     updated: dict[str, object] = {}
     for object_id, canonical in objects.items():
         if object_id not in affected:
@@ -109,9 +130,13 @@ def invalidate_changed_knowledge(
             for path in evidence_paths[object_id]
             if path in changed_paths
         )
+        if evidence_path in local_paths:
+            reason = _reason_for(change_set, evidence_path)
+        else:
+            reason = "provider-affected-hint"
         updated[object_id] = mark_stale(
             canonical,
-            reason=_reason_for(change_set, evidence_path),
+            reason=reason,
             evidence_path=evidence_path,
         )
 

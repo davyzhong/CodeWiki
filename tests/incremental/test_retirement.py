@@ -29,9 +29,38 @@ def test_all_proofs_pass_authorizes_retirement() -> None:
         search_complete=True,
         search_found_current=False,
         inbound_relations_verified=True,
+        reindexed_current_snapshot=True,
+        lexical_search_complete=True,
+        graph_search_complete=True,
     )
     result = evaluate_retirement(check)
     assert result is True
+
+
+def test_missing_reindex_or_class_completeness_blocks_retirement() -> None:
+    base = {
+        "candidate": candidate(),
+        "source_absent": True,
+        "search_complete": True,
+        "search_found_current": False,
+        "inbound_relations_verified": True,
+    }
+    for missing in (
+        "reindexed_current_snapshot",
+        "lexical_search_complete",
+        "graph_search_complete",
+    ):
+        fields = dict(base)
+        fields[missing] = False
+        assert evaluate_retirement(RetirementCheck(**fields)) is False
+
+    truncated = RetirementCheck(
+        **base, search_truncated=True,
+        reindexed_current_snapshot=True,
+        lexical_search_complete=True,
+        graph_search_complete=True,
+    )
+    assert evaluate_retirement(truncated) is False
 
 
 def test_source_still_present_blocks_retirement() -> None:
@@ -87,6 +116,9 @@ def test_model_output_never_authorizes() -> None:
         search_complete=True,
         search_found_current=False,
         inbound_relations_verified=True,
+        reindexed_current_snapshot=True,
+        lexical_search_complete=True,
+        graph_search_complete=True,
     )
     assert evaluate_retirement(check) is True  # only deterministic proof
 
@@ -119,6 +151,13 @@ def test_codewiki_prover_reindexes_and_searches_every_former_reference(
     assert proof.search_complete is True
     assert proof.search_found_current is False
     assert proof.inbound_relations_verified is True
+    assert proof.reindexed_current_snapshot is True
+    assert proof.lexical_search_complete is True
+    assert proof.graph_search_complete is True
+    assert proof.search_truncated is False
+    # source_absent is recomputed by the transaction service from disk;
+    # the prover-level check alone never authorizes retirement.
+    assert evaluate_retirement(proof) is False
     assert tuple(command[:2] for command in runner.commands) == (
         ("repos", "add"),
         ("analyze", str(tmp_path)),
@@ -129,6 +168,40 @@ def test_codewiki_prover_reindexes_and_searches_every_former_reference(
         "CheckoutService",
         "src/shop/checkout.py",
     }
+
+
+def test_codewiki_prover_softly_blocks_when_a_query_class_fails(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.providers.codewiki_cli import CodewikiCliError
+
+    class FailingSymbolRunner(SearchRunner):
+        def run(self, argv, *, root):
+            if argv[3] == "CheckoutService":
+                raise CodewikiCliError("graph search unavailable")
+            return super().run(argv, root=root)
+
+    proof = CodeWikiRetirementProver(
+        tmp_path, runner=FailingSymbolRunner({})
+    )(candidate())
+
+    assert proof.graph_search_complete is False
+    assert proof.lexical_search_complete is True
+    assert evaluate_retirement(proof) is False
+
+
+def test_codewiki_prover_marks_truncated_results_inconclusive(
+    tmp_path: Path,
+) -> None:
+    flood = [{"node": {"name": f"Symbol{index}"}} for index in range(32)]
+    runner = SearchRunner(
+        {"src/shop/checkout.py": flood, "CheckoutService": []}
+    )
+
+    proof = CodeWikiRetirementProver(tmp_path, runner=runner)(candidate())
+
+    assert proof.search_truncated is True
+    assert evaluate_retirement(proof) is False
 
 
 def test_codewiki_prover_blocks_when_current_graph_finds_a_match(

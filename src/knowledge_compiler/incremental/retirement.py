@@ -11,9 +11,14 @@ from pydantic import BaseModel, ConfigDict
 
 from knowledge_compiler.providers.codewiki import normalize_search
 from knowledge_compiler.providers.codewiki_cli import (
+    CodewikiCliError,
     CodewikiRunner,
     require_supported_version,
 )
+
+# A full search page is inconclusive for absence: retire only when the
+# current graph proves the reference is gone, not when results ran out.
+_SEARCH_TRUNCATION_LIMIT = 32
 
 
 class RetirementCandidate(BaseModel):
@@ -37,13 +42,20 @@ class RetirementCheck(BaseModel):
     search_complete: bool
     search_found_current: bool
     inbound_relations_verified: bool
+    reindexed_current_snapshot: bool = False
+    lexical_search_complete: bool = False
+    graph_search_complete: bool = False
+    search_truncated: bool = False
 
 
 def evaluate_retirement(check: RetirementCheck) -> bool:
-    """Retire only when all four deterministic proofs hold.
+    """Retire only when all deterministic proofs hold.
 
     Model output, vector search, planner omission, and insufficient
-    evidence never authorize deletion — only this proof set does.
+    evidence never authorize deletion — only this proof set does. Every
+    query class (graph-node symbols, lexical paths) must have completed
+    on a freshly reindexed snapshot, and truncated result pages stay
+    inconclusive.
     """
 
     return (
@@ -51,6 +63,10 @@ def evaluate_retirement(check: RetirementCheck) -> bool:
         and check.search_complete
         and not check.search_found_current
         and check.inbound_relations_verified
+        and check.reindexed_current_snapshot
+        and check.lexical_search_complete
+        and check.graph_search_complete
+        and not check.search_truncated
     )
 
 
@@ -83,52 +99,81 @@ class CodeWikiRetirementProver:
         self._indexed = False
 
     def __call__(self, candidate: RetirementCandidate) -> RetirementCheck:
-        if not self._indexed:
-            self._runner.run(
-                ["codewiki", "repos", "add", str(self._root), "--json"],
-                root=self._root,
-            )
-            self._runner.run(
-                ["codewiki", "analyze", str(self._root), "--json"],
-                root=self._root,
-            )
-            self._indexed = True
-        found_current = False
-        queries = tuple(
-            sorted(set(candidate.former_symbols + candidate.evidence_paths))
-        )
-        for query in queries:
-            result = self._runner.run(
-                [
-                    "codewiki",
-                    "graph",
-                    "search",
-                    query,
-                    "--repo",
-                    str(self._root),
-                    "--json",
-                ],
-                root=self._root,
-            )
-            try:
-                payload = json.loads(result.stdout) if result.stdout else []
-            except ValueError as error:
-                raise RetirementError(
-                    "CodeWiki retirement search returned invalid JSON"
-                ) from error
-            if not isinstance(payload, list):
-                raise RetirementError(
-                    "CodeWiki retirement search returned an invalid payload"
+        reindexed = True
+        try:
+            if not self._indexed:
+                self._runner.run(
+                    ["codewiki", "repos", "add", str(self._root), "--json"],
+                    root=self._root,
                 )
-            if normalize_search(payload):
-                found_current = True
+                self._runner.run(
+                    ["codewiki", "analyze", str(self._root), "--json"],
+                    root=self._root,
+                )
+                self._indexed = True
+        except (CodewikiCliError, OSError):
+            reindexed = False
+
+        found_current = False
+        lexical_complete = True
+        graph_complete = True
+        truncated = False
+        if reindexed:
+            queries = tuple(
+                sorted(set(candidate.former_symbols + candidate.evidence_paths))
+            )
+            for query in queries:
+                is_path = "/" in query
+                try:
+                    result = self._runner.run(
+                        [
+                            "codewiki",
+                            "graph",
+                            "search",
+                            query,
+                            "--repo",
+                            str(self._root),
+                            "--json",
+                        ],
+                        root=self._root,
+                    )
+                    payload = (
+                        json.loads(result.stdout) if result.stdout else []
+                    )
+                    if not isinstance(payload, list):
+                        raise ValueError("invalid payload")
+                except (CodewikiCliError, OSError, ValueError):
+                    if is_path:
+                        lexical_complete = False
+                    else:
+                        graph_complete = False
+                    continue
+                matches = normalize_search(payload)
+                if len(payload) >= _SEARCH_TRUNCATION_LIMIT:
+                    truncated = True
+                if matches:
+                    found_current = True
+        else:
+            lexical_complete = False
+            graph_complete = False
+
+        search_complete = (
+            reindexed
+            and lexical_complete
+            and graph_complete
+            and not truncated
+        )
         return RetirementCheck(
             candidate=candidate,
             # The transaction service recomputes this proof from disk.
             source_absent=False,
-            search_complete=True,
+            search_complete=search_complete,
             search_found_current=found_current,
             inbound_relations_verified=not candidate.inbound_relations,
+            reindexed_current_snapshot=reindexed,
+            lexical_search_complete=lexical_complete,
+            graph_search_complete=graph_complete,
+            search_truncated=truncated,
         )
 
 
@@ -171,9 +216,13 @@ def retire_proven_knowledge(
         source_absent = bool(paths) and all(
             not root.joinpath(*Path(path).parts).exists() for path in paths
         )
-        check = RetirementCheck.model_validate(
-            prover(candidate).model_dump(mode="json")
-        )
+        try:
+            check = RetirementCheck.model_validate(
+                prover(candidate).model_dump(mode="json")
+            )
+        except Exception as error:
+            blocked.append(f"{object_id}: retirement proof failed: {error}")
+            continue
         if check.candidate != candidate:
             raise RetirementError("retirement prover changed candidate identity")
         check = check.model_copy(update={"source_absent": source_absent})

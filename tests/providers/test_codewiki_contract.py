@@ -316,3 +316,89 @@ def test_m5_reserved_surfaces_normalize_without_invocation() -> None:
     affected = normalize_affected(affected_payload)
     assert isinstance(affected["changed_files"], list)
     assert isinstance(affected["affected_node_ids"], list)
+
+
+class RecordingRunner:
+    """Fixture-backed runner that records public command invocations."""
+
+    def __init__(self, fixture_dir: Path) -> None:
+        from knowledge_compiler.providers.codewiki_cli import (
+            FixtureCodewikiRunner,
+        )
+
+        self._inner = FixtureCodewikiRunner(fixture_dir)
+        self.commands: list[tuple[str, ...]] = []
+
+    def version(self) -> str:
+        return self._inner.version()
+
+    def run(self, argv, *, root):
+        self.commands.append(tuple(argv[1:]))
+        return self._inner.run(argv, root=root)
+
+
+def _modified_changes():
+    from knowledge_compiler.repository.changes import ChangeSet
+
+    return ChangeSet(modified=("src/shop/checkout.py",))
+
+
+def test_sync_incremental_runs_public_update_only_for_a_real_diff() -> None:
+    from knowledge_compiler.providers.codewiki import CodeWikiEvidenceProvider
+
+    runner = RecordingRunner(NORMALIZED)
+    provider = CodeWikiEvidenceProvider(
+        runner, repository_root=REPOSITORY_ROOT
+    )
+
+    with pytest.raises(ValueError, match="change set"):
+        provider.sync_incremental(repository(), _modified_changes().__class__())
+
+    status = provider.sync_incremental(repository(), _modified_changes())
+
+    assert status.state == "ready"
+    assert status.changed is True
+    assert status.repository_id == REPOSITORY_ID
+    assert status.snapshot_id == SNAPSHOT_ID
+    assert [command[0] for command in runner.commands][-1] == "update"
+
+
+def test_affected_returns_normalized_hints_after_local_diff() -> None:
+    from knowledge_compiler.providers.base import AffectedHints
+    from knowledge_compiler.providers.codewiki import CodeWikiEvidenceProvider
+
+    runner = RecordingRunner(NORMALIZED)
+    provider = CodeWikiEvidenceProvider(
+        runner, repository_root=REPOSITORY_ROOT
+    )
+
+    hints = provider.affected(repository(), _modified_changes())
+
+    assert isinstance(hints, AffectedHints)
+    assert "src/shop/checkout.py" in hints.affected_files
+    assert hints.complete is True
+    assert [command[0] for command in runner.commands][-1] == "graph"
+
+
+def test_provider_hint_failure_translates_into_typed_error() -> None:
+    from knowledge_compiler.providers.codewiki import CodeWikiEvidenceProvider
+    from knowledge_compiler.providers.codewiki_cli import CodewikiCliError
+
+    class ExplodingRunner(RecordingRunner):
+        def run(self, argv, *, root):
+            tokens = tuple(argv[1:])
+            if tokens[0] == "update" or tokens[:2] == ("repos", "scan"):
+                raise CodewikiCliError("captured surface unavailable")
+            return super().run(argv, root=root)
+
+    provider = CodeWikiEvidenceProvider(
+        ExplodingRunner(NORMALIZED), repository_root=REPOSITORY_ROOT
+    )
+
+    with pytest.raises(Exception) as error:
+        provider.sync_incremental(repository(), _modified_changes())
+    assert type(error.value).__name__ == "ProviderHintError"
+
+    with pytest.raises(Exception) as affected_error:
+        provider.affected(repository(), _modified_changes())
+    assert type(affected_error.value).__name__ == "ProviderHintError"

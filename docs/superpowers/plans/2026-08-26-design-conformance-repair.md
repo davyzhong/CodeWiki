@@ -94,11 +94,11 @@
 - Produces: provider `sync_incremental(repo, changes)` and `affected(repo, changes)` DTOs invoked only after Knowledge Compiler computes its local ChangeSet.
 - Produces: retirement proof that records exact symbol, path, graph-node, and lexical searches, completeness/limit status, and refreshed inbound relation results.
 
-- [ ] Add failing adapter tests asserting `codewiki update` and `graph affected` occur after local diff creation and provider failure still leaves safe invalidation committed.
-- [ ] Add failing retirement tests for truncated/inconclusive results, lexical-only matches, graph-node matches, and inbound relations that disappear only after refresh.
-- [ ] Implement public CLI calls and normalized bounded DTOs; provider hints enrich but never replace local invalidation.
-- [ ] Extend retirement checks so every required query class completes on the current snapshot; any unsupported/truncated/error result remains stale and pending.
-- [ ] Run provider/incremental/security suites; commit `feat: use complete incremental evidence proofs` and push.
+- [x] Add failing adapter tests asserting `codewiki update` and `graph affected` occur after local diff creation and provider failure still leaves safe invalidation committed.
+- [x] Add failing retirement tests for truncated/inconclusive results, lexical-only matches, graph-node matches, and inbound relations that disappear only after refresh.
+- [x] Implement public CLI calls and normalized bounded DTOs; provider hints enrich but never replace local invalidation.
+- [x] Extend retirement checks so every required query class completes on the current snapshot; any unsupported/truncated/error result remains stale and pending.
+- [x] Run provider/incremental/security suites; commit `feat: use complete incremental evidence proofs` and push.
 
 ### Task 5: Reachable terminal results and generic validation
 
