@@ -1,6 +1,8 @@
 # Live Smoke Runbook（真实 CodeWiki + LiteLLM 端到端冒烟）
 
 > 用途：闭合恢复计划中唯一保持 opt-in 的验收项，在真实仓库上跑通一次非夹具的完整构建。全程约 5–15 分钟，消耗一次真实 LLM 调用量（小型仓库约 0.5–2M tokens）。
+>
+> **自动化闭环入口：`bash scripts/verify.sh`**。它每次更新后自动运行全部离线验证（双遍一致性、compileall、diff-check、pip-audit），并自动探测 live 条件（codewiki 0.6.x 在 PATH、`KNOWLEDGE_EXTRACTION_MODEL`、`KNOWLEDGE_LIVE_REPOSITORY` 齐备即执行本冒烟，否则明确列出缺失原因跳过）。本手册是首次配置凭据与人工排查时的详细版；`REQUIRE_LIVE=1` 可强制 live 阶段失败闭合，`VERIFY_FAST=1` 跳过第二遍套件。
 
 ## 0. 前置核对
 

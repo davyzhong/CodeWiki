@@ -37,6 +37,16 @@ knowledge-mcp <repository-root>      # 七个只读 MCP 工具（stdio JSON-RPC�
 
 后续实现必须以 Phase 0 捕获的真实公共 DTO 为依据，不能把外部 CodeWiki 的内部实现当成稳定合同。
 
+## 验证闭环
+
+每次更新后运行一条命令完成生产验证：
+
+```bash
+bash scripts/verify.sh        # 双遍套件一致性 + compileall + diff-check + pip-audit + live 冒烟自动探测
+```
+
+live 阶段在 `codewiki` 0.6.x 与 `KNOWLEDGE_EXTRACTION_MODEL`/`KNOWLEDGE_LIVE_REPOSITORY` 齐备时自动执行真实端到端冒烟，否则明确报告缺失项跳过；`REQUIRE_LIVE=1` 强制失败闭合，`VERIFY_FAST=1` 跳过第二遍。Mimosa 深度扫描是发布前的 IDE 工具步骤，不在脚本内。
+
 ## 项目边界
 
 - 只通过外部 CodeWiki 的公开 CLI、MCP 或 HTTP 接口集成。
