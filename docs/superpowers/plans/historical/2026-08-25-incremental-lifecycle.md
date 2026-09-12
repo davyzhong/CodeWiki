@@ -1,5 +1,7 @@
 # Incremental Lifecycle Implementation Plan
 
+> **状态：historical（已完成）** M5 计划已执行，门禁记录 `fdc54d8`（含 follow-up）；其全部 follow-up 由主航道恢复计划 Gate 5 闭合。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to execute this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Explicit updates detect local repository changes before provider sync, atomically remove stale knowledge from safe Agent surfaces, retry pending work, and retire objects only through deterministic proof.

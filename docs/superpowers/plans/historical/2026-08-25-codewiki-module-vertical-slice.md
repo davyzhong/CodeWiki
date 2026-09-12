@@ -1,5 +1,7 @@
 # CodeWiki Real-Provider Module Vertical Slice Implementation Plan
 
+> **状态：historical（已完成）** M2 计划已全部执行；门禁 PASS 记录 `63ed7ba`。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to execute this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Prove one real local Git repository produces the same verified `ModuleKnowledge` contract as M1 through public CodeWiki interfaces and a built-in LiteLLM semantic worker, without a persisted RunOrchestrator.

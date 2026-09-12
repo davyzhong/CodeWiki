@@ -20,6 +20,7 @@
 | 2026-08-26 | 主航道恢复计划 Gate 1–8 | 闭合完成归档记录的全部 gap：CLI 真实化、原子多对象发布、通用类型化编排器、真实主构建（LiteLLM/Agent 双执行）、增量生命周期全接线、human overlay 运行时语义、确定性 Wiki/HTML/FTS/ContextRetriever 与精确快照门禁、七个只读 MCP 工具与安全边界；最终技术门 653×2 一致（`c821674`→`6a1b2b3`）。 |
 | 2026-08-26→09-02 | 设计符合性修复 | 审计出的 5 项设计差距全部闭合：调研驱动多目标规划、tracked plan/manifest 生命周期状态、clean/dirty 精确快照检索门禁、真实增量提示与完整退役证明、可达终态与两次修复尝试；三项刻意偏差记入规格 §11.1；752×2 离线套件一致（`e090283`→`ab259fa`）。M4.8b per-type 夹具延后项经核查由五类型 fixture worker、provider 公开面合同测试与 opt-in live 测试组合覆盖，正式关闭。 |
 | 2026-09-02 | 生产验证闭环与 M8 准备 | pip-audit 无已知漏洞（扫描器离线匹配为模式级误报）；`scripts/verify.sh` 一键验证（双遍套件、compileall、diff-check、pip-audit、live 冒烟自动探测）成为每次更新的固定入口；M8 A/B 基准设计草案完成（预注册判定标准，待用户冻结任务集/harness/预算）；live 冒烟 runbook 就绪（`1ef6770`、`7fe5a90`）。 |
+| 2026-09-12 | 文档库三层治理重组 | 素材/知识/工作流三层分离（materials ≈ Evidence、knowledge ≈ Canonical IR、specs/plans ≈ Views）：新建静态知识库（产品/行业/方法/系统四区 13 篇，含全量决策日志 D-001…D-023）；计划分 active/historical 并全量标注状态；project-materials 更名 materials 并澄清素材层角色；建立 docs/README 总索引、状态表与命名规范（决策 D-023）。 |
 
 ## 贯穿始终的决策链
 

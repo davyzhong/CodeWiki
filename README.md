@@ -6,20 +6,13 @@ V0.1 主链路已全线贯通（恢复计划 Gate 1–8 全部完成），设计
 
 ## 当前文档
 
-- [V0.1 设计规格](docs/superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md)
-- [Phase 0 CodeWiki Adapter Spike 计划](docs/superpowers/plans/2026-08-24-codewiki-adapter-spike.md)
-- [Phase 0 公共接口报告](docs/spikes/codewiki-public-surface.md)
-- [Phase 1 Fake Provider 垂直切片计划](docs/superpowers/plans/2026-08-24-fake-provider-module-vertical-slice.md)
-- [V0.1 总执行路线图与 To-do List](docs/superpowers/plans/2026-08-25-v0-1-execution-roadmap.md)
-- [V0.1 完整跨 Agent 接续 To-do（M1–M8，历史清单，已被恢复计划与完成归档取代，见其顶部状态覆盖）](docs/superpowers/plans/2026-08-25-v0-1-complete-handoff-todo.md)
-- [V0.1 主航道恢复计划](docs/superpowers/plans/2026-08-26-v0-1-mainline-recovery.md)
-- [设计符合性修复计划（已闭合）](docs/superpowers/plans/2026-08-26-design-conformance-repair.md)
-- [M8 A/B 基准设计草案](docs/superpowers/plans/2026-09-02-m8-ab-benchmark-design.md)
+文档库采用三层治理（素材 → 静态知识库 → 工作流产物），完整导航与全文档状态表见 [docs/README.md](docs/README.md)。
+
+- [静态知识库](docs/knowledge/README.md)：产品定义与决策日志（D-001…）、行业格局与上游 CodeWiki、方法论、as-built 系统参考——设计工作的事实基础
+- [V0.1 设计规格](docs/superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md)（active，权威合同）
+- [M8 A/B 基准设计草案](docs/superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md)（draft，待冻结任务集/harness/预算）
 - [Live 冒烟手册](docs/runbooks/2026-09-02-live-smoke.md)
-- [2026-08-25 项目接续归档清单](docs/project-materials/archives/2026-08-25-archive-manifest.md)
-- [2026-08-25 M1 实施会话归档](docs/project-materials/archives/2026-08-25-m1-implementation-session.md)
-- [2026-08-25 V0.1 执行完成归档与交叉验证说明](docs/project-materials/archives/2026-08-25-completion-archive.md)
-- [项目起源与原始素材库](docs/project-materials/README.md)
+- 历史计划（M1–M5、恢复计划、符合性修复等）与归档见 [docs/README.md 状态表](docs/README.md#全文档状态表)
 
 ## 快速上手
 

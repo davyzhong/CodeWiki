@@ -22,7 +22,7 @@
 | ATLAS（private） | 治理规范、跨库边界、来源映射、演进时间线、归档基线 | 状态、证据层级、来源追踪、稳定 ID、历史保留、跨库裁决方法 | 业务/组织事实、规划正文、原始素材、图片、内部路径与仓库快照 |
 | Enterprise Intelligence（private） | 重建设计、AI 检索/维护指南、front matter schema、覆盖报告 | 事实层级、源码锚点、确定性合同、canonical-first 检索、发布门禁、覆盖诚实性 | 企业事实、代码对象、应用/数据库清单、业务指标、原始素材与机器索引 |
 
-公开安全的提炼结果见 [跨项目方法沉淀](01-local-practice/cross-project-lessons.md)。两个私有项目只作为思想来源，不成为本项目运行时数据依赖。
+公开安全的提炼结果见 [跨项目方法沉淀](../knowledge/methods/knowledge-engineering.md)（2026-09-12 文档重组时由 `01-local-practice/cross-project-lessons.md` 迁入知识库并升级格式，原目录已撤销）。两个私有项目只作为思想来源，不成为本项目运行时数据依赖。
 
 本机还发现 Enterprise Intelligence 的主计划副本、根导航副本和完整压缩包。它们属于私有项目的重复或打包资产，可能包含企业事实和大量可生成内容，因此不复制到公开仓库；其方法层信息已经由私有工作区中的当前治理文档交叉核对后纳入上述摘要。ATLAS 的原始母本、演示资产和历史归档同理不复制。
 
@@ -37,7 +37,7 @@
 | GitHub Copilot Memory 文档 | 产品文档 | 2026-08-24 | 摘要 + 官方链接 |
 | PorunC/CodeWiki | MIT 开源仓库 | 2026-08-24 | 摘要、实测报告、固定提交 Skill + MIT 许可快照 |
 
-早期归档还包含 Sourcegraph、Cursor、DeepWiki、Microsoft deep-wiki Skill 和 Qwen CodeScope 的概念性研究。由于原始材料没有完整保留每项的精确官方页面版本，它们被列为[次级研究线索](02-external-research/reference-products.md)，不伪装成已固定、可复现的来源快照。
+早期归档还包含 Sourcegraph、Cursor、DeepWiki、Microsoft deep-wiki Skill 和 Qwen CodeScope 的概念性研究。由于原始材料没有完整保留每项的精确官方页面版本，它们被列为[次级研究线索](research/reference-products.md)，不伪装成已固定、可复现的来源快照。
 
 ## 公开仓库安全边界
 

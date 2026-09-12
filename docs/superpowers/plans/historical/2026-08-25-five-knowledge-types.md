@@ -1,5 +1,7 @@
 # Five Knowledge Types Implementation Plan
 
+> **状态：historical（已完成）** M3 五类型计划已全部执行；门禁 PASS 记录 `a443a4d`。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to execute this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Architecture, Module, Flow, Rule, and TechStack knowledge share stable Claim/Evidence semantics, validate without type-specific bypasses, cross-reference safely, and compile deterministically.

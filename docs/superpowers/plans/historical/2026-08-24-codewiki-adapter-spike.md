@@ -1,5 +1,7 @@
 # CodeWiki Public-Surface Adapter Spike Implementation Plan
 
+> **状态：historical（已完成）** Phase 0 公开接口验证已完成，结论 `go`（`codewiki 0.6.5`，12 项能力全部 supported）。实测报告见 `docs/spikes/codewiki-public-surface.md`。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Prove whether CodeWiki 0.6.x public CLI, MCP, or HTTP surfaces can supply every fact required by the Knowledge Compiler `EvidenceProvider` contract without importing CodeWiki internals or reading its database.

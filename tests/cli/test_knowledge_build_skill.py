@@ -11,7 +11,7 @@ from knowledge_compiler.skills.knowledge_build import (
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SKILL = ROOT / "docs/project-materials/03-skills/knowledge-build/SKILL.md"
+SKILL = ROOT / "docs/materials/skills/knowledge-build/SKILL.md"
 
 
 def test_skill_source_is_archived_and_matches() -> None:

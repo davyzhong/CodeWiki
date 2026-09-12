@@ -1,5 +1,7 @@
 # Fake Provider Module Vertical Slice Implementation Plan
 
+> **状态：historical（已完成）** M1 垂直切片计划已全部执行并通过整片终审；M1 出口门禁 PASS 记录 `9c50176`。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Prove one evidence-backed `ModuleKnowledge` object can move deterministically from a fake repository survey and bounded Evidence Pack through structural validation and fake semantic verification into one transactionally published generation containing canonical YAML, a Markdown Card, and a Wiki page.

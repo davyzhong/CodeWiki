@@ -1,5 +1,7 @@
 # M8 A/B Benchmark Design（草案，待用户冻结）
 
+> **状态：draft — 等待用户冻结** 执行前置 = live 冒烟通过 + 用户冻结 §8 四项决策（任务来源、harness/模型档、token 预算档位、是否追加 MCP 臂）。
+
 **Status:** Draft 2026-09-02；执行前置 = live 冒烟通过 + 用户冻结任务集/harness/预算。工程链已全部闭合（origin/main `ab259fa`，752×2 绿），本计划是恢复路线图明确留存的最后一段："Start M8 benchmark work only after every technical gate above passes" 已解锁。
 
 **目的：** 验证产品初心（设计规格 §2/§3）——预先萃取、源码证据支持的仓库知识，能否提高 Coding Agent 的任务成功率（H1），或在成功率相当时降低探索成本（H2）。夹具测试无法替代本验证。
@@ -57,7 +59,7 @@ v0 最小可执行集 = Control vs Treatment-A；B 在 harness 支持 MCP 且预
 
 - harness 脚本放顶层 `benchmark/`（不进 wheel，`pyproject` 不引用）；
 - 原始 JSONL + 汇总 markdown 存 `benchmark/results/<date>/`；
-- 报告写入 `docs/project-materials/`，结论无论正负都入 README 状态段。
+- 报告写入 `docs/materials/`，结论无论正负都入 README 状态段。
 
 ## 8. 用户待决清单
 

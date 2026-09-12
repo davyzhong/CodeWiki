@@ -1,5 +1,7 @@
 # Design Conformance Repair Implementation Plan
 
+> **状态：historical（已完成）** Task 1–5 全部落地（752×2 离线一致）；唯一保留项为 opt-in live 冒烟（等环境）。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close the audited gaps between the implemented V0.1 technical chain and the approved design without weakening existing fail-closed behavior.

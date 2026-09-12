@@ -1,5 +1,7 @@
 # RunOrchestrator and Two Execution Modes Implementation Plan
 
+> **状态：historical（已完成）** M4 编排器计划已全部执行；门禁 PASS 记录 `c8d5970`。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to execute this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Built-in LiteLLM and Codex Skill/Agent transports consume one persisted queue with recoverable leases, bounded retries, idempotency, and publication ownership, delivered through `knowledge build`/`knowledge validate` and the Agent queue CLI.

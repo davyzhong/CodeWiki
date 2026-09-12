@@ -9,7 +9,7 @@ from knowledge_compiler.skills.knowledge_update import (
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SKILL = ROOT / "docs/project-materials/03-skills/knowledge-update/SKILL.md"
+SKILL = ROOT / "docs/materials/skills/knowledge-update/SKILL.md"
 
 
 def test_update_skill_source_is_archived_and_matches() -> None:

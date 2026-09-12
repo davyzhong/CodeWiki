@@ -2,6 +2,10 @@
 
 Skill 表达“Agent 应该如何工作”，Knowledge Card 表达“Agent 已经知道什么”。两者互补，但不应混成同一类资产。
 
+## 本项目 Skill 的文档副本
+
+`knowledge-build/` 与 `knowledge-update/` 是本项目两个交付 Skill（`/knowledge-build`、`/knowledge-update`）的文档副本；**权威源在 `src/knowledge_compiler/skills/` 并随包分发**，此处副本与权威源的逐字节一致由协议测试钉住（`tests/cli/test_knowledge_*_skill.py`）。`knowledge-update/evals/` 保存其评估数据。
+
 ## 已保存的第三方 Skill 单文件快照
 
 `upstream-codewiki/` 保存 PorunC/CodeWiki 官方 Codex Skill 的固定提交快照：

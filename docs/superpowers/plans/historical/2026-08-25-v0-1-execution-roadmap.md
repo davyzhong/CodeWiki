@@ -1,5 +1,7 @@
 # CodeWiki V0.1 Execution Roadmap
 
+> **状态：historical（路线图快照）** 注意：本文档的 M6/M7 为旧编号（M6=视图、M7=基准）。2026-08-25 人工知识层设计修订后编号重排为 M6=人工层、M7=视图、M8=基准；实际执行以完成归档与恢复计划为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to execute each approved slice task-by-task. Work directly on `main`; do not create branches or additional worktrees. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deliver and evaluate one complete local repository-to-verified-knowledge-to-Agent-context loop without expanding into a team SaaS or importing PorunC/CodeWiki internals.

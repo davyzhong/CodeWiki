@@ -1,5 +1,7 @@
 # CodeWiki V0.1 Mainline Recovery Plan
 
+> **状态：historical（已完成）** Gate 1–8 与最终技术门全部通过并推送（最终 653×2 一致）。
+
 **Status:** Approved by the user; execution started 2026-08-26
 
 **Goal:** Restore the approved V0.1 product path from real repository evidence through five-type generation, incremental lifecycle, protected human knowledge, compiled views, retrieval, and exactly seven read-only MCP tools.
