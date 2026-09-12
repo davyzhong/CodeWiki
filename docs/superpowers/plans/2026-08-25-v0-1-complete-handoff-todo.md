@@ -1,5 +1,7 @@
 # CodeWiki V0.1 Complete Handoff Implementation Plan
 
+> **状态覆盖（2026-09-12，以此为准）：本清单已完成历史使命，不再是权威执行清单，不要按它开工。** M1–M7 的实现与门禁已由后续会话全部完成：M1 整片终审 PASS（`9c50176`）；M2–M7 的交付与审查见[完成归档](../../../project-materials/archives/2026-08-25-completion-archive.md)（HEAD `7892063`）；其记录的全部遗留 gap 由[主航道恢复计划](2026-08-26-v0-1-mainline-recovery.md) Gate 1–8（`6a1b2b3`）与[设计符合性修复计划](2026-08-26-design-conformance-repair.md) Task 1–5（`ab259fa`，752×2 离线一致）闭合。本文未勾选的 M1–M7 条目是当时的计划快照，不代表未完成；第 0.3 节"paused state"描述的 15 个未推送提交也早已评审通过并推送。唯一仍然有效的外部工作是 M8：由 [M8 A/B 基准设计草案](2026-09-02-m8-ab-benchmark-design.md)（待用户冻结任务集/harness/预算）与 [live 冒烟手册](../../runbooks/2026-09-02-live-smoke.md)（opt-in，待环境）接管。当前权威入口是仓库根 README。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Continue from the in-review M1 implementation, complete M1 acceptance, then deliver M2 through M8 in gated order until CodeWiki V0.1 has a measured product-gate result.

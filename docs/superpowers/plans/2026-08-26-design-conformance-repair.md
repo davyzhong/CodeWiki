@@ -121,7 +121,7 @@
 - [x] Implement the minimal terminal outcome contract and repair transitions while preserving extraction/verification context separation.
 - [x] Replace hard-coded validation paths with manifest-bound canonical/Card/Wiki checks and generation/index consistency checks.
 - [x] Run orchestrator, CLI, integration, and full offline suite twice; update README truthfully with the new count and remaining live/A-B limitation.
-- [ ] Commit `fix: complete target lifecycle semantics` and push.
+- [x] Commit `fix: complete target lifecycle semantics` and push (`33ce1c9`; checkbox retroactively closed 2026-09-12 after verifying the commit on `origin/main`).
 
 ## Final verification
 
