@@ -1,8 +1,8 @@
-# M8 A/B Benchmark Design（草案，待用户冻结）
+# M8 A/B Benchmark Design（已冻结 v1.0）
 
-> **状态：draft — 等待用户冻结** 执行前置 = live 冒烟通过 + 用户冻结 §8 四项决策（任务来源、harness/模型档、token 预算档位、是否追加 MCP 臂）。
+> **状态：frozen（2026-09-16 冻结 §8 四项决策，依据用户授权"缺决策信息参考竞对与同行惯例自主决策"）**。执行前置 = live 冒烟通过 + API key 配置（技术前置与凭据前置分离：harness 与 dry-run 不依赖 key，已先行实现）。
 
-**Status:** Draft 2026-09-02；执行前置 = live 冒烟通过 + 用户冻结任务集/harness/预算。工程链已全部闭合（origin/main `ab259fa`，752×2 绿），本计划是恢复路线图明确留存的最后一段："Start M8 benchmark work only after every technical gate above passes" 已解锁。
+**Status:** Frozen v1.0 2026-09-16；工程链全部闭合（origin/main `ab259fa`，752×2 绿），harness 于冻结同日实现（`benchmark/`）。本计划是恢复路线图明确留存的最后一段："Start M8 benchmark work only after every technical gate above passes" 已解锁。
 
 **目的：** 验证产品初心（设计规格 §2/§3）——预先萃取、源码证据支持的仓库知识，能否提高 Coding Agent 的任务成功率（H1），或在成功率相当时降低探索成本（H2）。夹具测试无法替代本验证。
 
@@ -61,9 +61,18 @@ v0 最小可执行集 = Control vs Treatment-A；B 在 harness 支持 MCP 且预
 - 原始 JSONL + 汇总 markdown 存 `benchmark/results/<date>/`；
 - 报告写入 `docs/materials/`，结论无论正负都入 README 状态段。
 
-## 8. 用户待决清单
+## 8. 决策记录（2026-09-16 冻结）
 
-1. 指定任务来源（仓库列表/issue 集）与最终任务数；
-2. 指定 harness（Codex CLI / Claude Code / 其他）与模型档；
-3. 批准 token 预算档位；
-4. 是否追加 Treatment-B（MCP 臂）。
+按用户 2026-09-16 授权（"没有决策信息就多参考竞对和同行的实现方式来决策"），四项决策自主定稿如下；冻结后修改任何一项须在本文追加 Revision History 并重跑预注册核对：
+
+| # | 决策 | 定稿 | 依据（行业惯例） |
+|---|--- |--- |---|
+| 1 | 任务来源 | 15 任务 × 3 仓库，候选池优先序：pallets/click → pallets/flask → psf/requests，备选 hynek/structlog、jsonschema；执行时按 §2 标准逐条核对，不合格顺延 | SWE-bench 范式（真实 issue + 测试红→绿机器判定）；小样本配对设计的常见规模（12–20）取中值 |
+| 2 | harness 与模型档 | Claude Code headless（`claude -p --output-format json`）为默认后端；后端做成可替换接口（`benchmark/backends.py`），预留 Codex CLI；模型档执行时按可用 key 定，JSONL 记录模型标识 | harness = 用户实际使用的 Agent，结论才可迁移；headless JSON 输出可编程、可复现记录 |
+| 3 | token 预算 | 低档起步：每次运行上限 60k，总运行 ≈5.4M（15 任务 × 2 臂 × 3 种子）+ 每仓库一次性构建 0.5–2M；不足时显式升级中档并记录理由 | 小样本实验从低档防单任务爆量；升级留痕防事后调参 |
+| 4 | Treatment-B（MCP 臂） | v0 不含；仅当 Treatment-A 显示正效应后作为追加实验（B 回答"按需检索是否优于一次性注入"，前提是注入本身有效） | 实验效率顺序：A 无效则 B 无意义；三臂预算翻倍不合理 |
+
+## Revision History
+
+- 2026-09-16 v1.0 frozen：§8 四项决策定稿（任务池/harness/低档预算/两臂）；harness 同日实现（benchmark/，dry-run 可跑）。
+- 2026-09-02 draft：初始设计。
