@@ -1,0 +1,25 @@
+schema_version: "0.1"
+tasks:
+  - task_id: probe-greet
+    repo: local
+    repo_path: tests/fixtures/probe_repo
+    base_commit: null
+    difficulty: simple
+    prompt: >
+      Add a greet(name) helper that returns a friendly greeting string,
+      with a test covering the empty-name case.
+    test_cmd: [python, -m, pytest, -q, tests/test_greet.py]
+    fail_to_pass: [tests/test_greet.py::test_greet_empty]
+    token_cap: 60000
+  - task_id: probe-report
+    repo: local
+    repo_path: tests/fixtures/probe_repo
+    base_commit: null
+    difficulty: medium
+    prompt: >
+      Extend the reporting module with a weekly summary function that
+      aggregates by weekday, keeping the existing daily summary tests
+      green.
+    test_cmd: [python, -m, pytest, -q, tests/test_report.py]
+    fail_to_pass: [tests/test_report.py::test_weekly_summary]
+    token_cap: 60000
