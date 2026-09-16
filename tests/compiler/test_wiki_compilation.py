@@ -551,3 +551,62 @@ def test_catalog_status_chips_and_overlay_badges(tmp_path: Path) -> None:
         tmp_path / ".knowledge/exports/repo-wiki.html"
     ).read_text(encoding="utf-8")
     assert "@media (max-width:900px)" in single
+
+
+def test_site_history_page_lists_runs_and_diff_payload(tmp_path: Path) -> None:
+    import json as _json
+
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    publish_world(tmp_path)
+    runs_dir = tmp_path / ".knowledge/state/runs/run-hist-001"
+    runs_dir.mkdir(parents=True)
+    (runs_dir / "run.json").write_text(
+        _json.dumps(
+            {
+                "run_id": "run-hist-001",
+                "repository_id": "fixture/probe-shop",
+                "snapshot_id": "sha256:" + "2" * 64,
+                "executor": "llm",
+                "active": False,
+                "targets": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    compile_repository_wiki(tmp_path)
+
+    history = (
+        tmp_path / ".knowledge/exports/site/history.html"
+    ).read_text(encoding="utf-8")
+    assert "Generation timeline" in history
+    assert "run-hist-001" in history
+    assert "diffRuns" in history
+    index = (
+        tmp_path / ".knowledge/exports/site/index.html"
+    ).read_text(encoding="utf-8")
+    assert 'href="history.html"' in index
+
+
+def test_detail_page_renders_related_card(tmp_path: Path) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    ids = publish_world(tmp_path)
+    compile_repository_wiki(tmp_path)
+    flow_page = (
+        tmp_path
+        / ".knowledge/exports/site/flows"
+        / f"{ids['flow']}.html"
+    ).read_text(encoding="utf-8")
+    # The fixture flow references the module via relations or claims;
+    # the card renders whenever forward or inbound relations exist.
+    if "Related knowledge" in flow_page:
+        assert "<svg" in flow_page
+
+    module_page = (
+        tmp_path
+        / ".knowledge/exports/site/modules"
+        / f"{ids['module']}.html"
+    ).read_text(encoding="utf-8")
+    assert "Related knowledge" in module_page
+    assert "<svg" in module_page

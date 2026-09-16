@@ -1,6 +1,6 @@
 # CodeWiki — 仓库知识编译器
 
-[![tests](https://img.shields.io/badge/tests-765%20passed%20%C2%B71%20skipped-brightgreen)](scripts/verify.sh)
+[![tests](https://img.shields.io/badge/tests-775%20passed%20%C2%B71%20skipped-brightgreen)](scripts/verify.sh)
 [![python](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
 [![version](https://img.shields.io/badge/version-0.1.0.dev0-orange)](pyproject.toml)
 [![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](scripts/verify.sh)
@@ -71,7 +71,7 @@ flowchart LR
   <img src="docs/assets/wiki-sources.png" width="840" alt="源索引页：代码行区间 permalink 与引用它的知识对象">
 </p>
 
-`compile` 同时产出一个**可托管的多页静态站点**（`exports/site/`，目录表支持搜索/过滤/列头排序，Ask 是 evidence-only 检索——只返回命中 Claim 与证据锚点，不做生成式回答）；`knowledge serve` 从站点目录起本地只读服务，`knowledge open` 打开的单文件 HTML 支持 dark mode 与全文搜索：
+`compile` 同时产出一个**可托管的多页静态站点**（`exports/site/`，目录表支持搜索/过滤/列头排序，Ask 是 evidence-only 检索——只返回命中 Claim 与证据锚点，不做生成式回答）；`knowledge serve` 从站点目录起本地只读服务（含 `/api/preview` 任务上下文预览端点，Ask 面板自动升级为 server-backed 模式），站点另含 `history.html` 世代时间线与两代知识 diff；`knowledge open` 打开的单文件 HTML 支持 dark mode 与全文搜索：
 
 <p align="center">
   <img src="docs/assets/site-catalog.png" width="840" alt="静态站点目录页：对象目录表、覆盖率、Ask(evidence-only)">
@@ -145,7 +145,7 @@ bash scripts/verify.sh
 ## 项目状态
 
 - **V0.1 主链路全线贯通**：规划 → 证据 → 抽取 → 验证 → 原子发布 → 增量失效/重试/确定性退役 → 三视图编译 → FTS/门禁检索 → CLI + MCP，恢复计划 Gate 1–8 与符合性修复 Task 1–5 全部完成。
-- 离线基线 **765 项测试通过（双遍一致）** + 1 项 opt-in live 冒烟默认跳过。
+- 离线基线 **775 项测试通过（双遍一致）** + 1 项 opt-in live 冒烟默认跳过。
 - 剩余两件事都在等外部输入：真实仓库 + API key 的 live 冒烟；M8 A/B 基准的四项设计决策冻结。
 
 ## 文档导航

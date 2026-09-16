@@ -1,19 +1,44 @@
 from __future__ import annotations
 
+import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 
 _ALLOWED_ROOT_PATHS = ("/", "/index.html")
 
+_PREVIEW_TASK_LIMIT = 500
+
 _CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
 }
 
 
 class ServeError(RuntimeError):
     """Raised when the local knowledge server cannot start safely."""
+
+
+def _preview_payload(root: Path, task: str) -> tuple[int, bytes]:
+    """Read-only task-context preview; never builds or mutates state."""
+
+    from knowledge_compiler.retrieval.context import (
+        ContextRetrievalError,
+        retrieve_task_context,
+    )
+
+    try:
+        markdown = retrieve_task_context(root, task)
+    except ContextRetrievalError as error:
+        return 503, json.dumps(
+            {"error": str(error)}, ensure_ascii=False, sort_keys=True
+        ).encode("utf-8")
+    return 200, json.dumps(
+        {"task": task, "markdown": markdown},
+        ensure_ascii=False,
+        sort_keys=True,
+    ).encode("utf-8")
 
 
 def _site_file(site_root: Path, request_path: str) -> Path | None:
@@ -37,7 +62,9 @@ def _site_file(site_root: Path, request_path: str) -> Path | None:
 
 
 def _make_handler(
-    payload: bytes, site_root: Path | None = None
+    payload: bytes,
+    site_root: Path | None = None,
+    repository_root: Path | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     class WikiHandler(BaseHTTPRequestHandler):
         server_version = "KnowledgeServe/0.1"
@@ -50,7 +77,11 @@ def _make_handler(
             self._serve(head_only=True)
 
         def _serve(self, *, head_only: bool) -> None:
-            path = urlsplit(self.path).path
+            split = urlsplit(self.path)
+            path = split.path
+            if path == "/api/preview":
+                self._preview(split, head_only=head_only)
+                return
             body: bytes | None = None
             content_type = "text/html; charset=utf-8"
             if path in _ALLOWED_ROOT_PATHS and site_root is not None:
@@ -81,6 +112,36 @@ def _make_handler(
             self.end_headers()
             if not head_only:
                 self.wfile.write(body)
+
+        def _preview(self, split, *, head_only: bool) -> None:
+            if repository_root is None or head_only:
+                self.send_response(404)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            tasks = parse_qs(split.query).get("task", [])
+            task = tasks[0] if tasks else ""
+            if not task.strip() or len(task) > _PREVIEW_TASK_LIMIT:
+                self._json_response(
+                    400,
+                    {"error": "task must be 1-500 characters"},
+                )
+                return
+            status, body = _preview_payload(repository_root, task)
+            self._json_response(status, json.loads(body.decode("utf-8")))
+
+        def _json_response(self, status: int, document: dict) -> None:
+            body = json.dumps(
+                document, ensure_ascii=False, sort_keys=True
+            ).encode("utf-8")
+            self.send_response(status)
+            self.send_header(
+                "Content-Type", "application/json; charset=utf-8"
+            )
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
 
         def log_message(self, *_args: object) -> None:
             # A quiet local server; request logging is not part of the
@@ -113,7 +174,9 @@ def create_wiki_server(
     if not (site_root / "index.html").is_file() or site_root.is_symlink():
         site_root = None
     payload = html_path.read_bytes()
-    return HTTPServer((host, port), _make_handler(payload, site_root))
+    return HTTPServer(
+        (host, port), _make_handler(payload, site_root, root)
+    )
 
 
 __all__ = ["ServeError", "create_wiki_server"]

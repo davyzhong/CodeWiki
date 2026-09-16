@@ -1,7 +1,7 @@
 # HANDOFF — 会话交接文档
 
 > 交接时间：2026-09-16（同日第二次更新：展示层 v2 已实施） ｜ HEAD：见 `git log -1`（展示层实施提交）
-> 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**765 passed + 1 opt-in live skipped**，compileall / diff-check / pip-audit 绿；live SKIP 属预期）
+> 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**775 passed + 1 opt-in live skipped**，compileall / diff-check / pip-audit 绿；live SKIP 属预期）
 > 新会话第一步：`git fetch origin && git status --short --branch` 核对是否有并行推进，再读本文与 [docs/README.md](docs/README.md)。
 
 ---
@@ -19,7 +19,8 @@
    - `exports/site/` 多页静态站点（index 目录表：搜索/过滤/列头排序；每对象详情页；相对路径可托管）+ `_render_page_bodies` 单源双渲染防漂移
    - serve 升级：site 目录静态服务（`.html` 白名单 + 路径穿越/symlink 防护），无 site 时回退单文件
    - MCP 合规：`structuredContent` 双返回、三个工具描述意图化、全部工具 payload 加 `provenance` 头（generation/commit/freshness）
-4. README 更新（四张新截图含 site-catalog、计数 765、--web-url 快速上手）。
+4. README 更新（四张新截图含 site-catalog、--web-url 快速上手）。
+5. **V3 三阶段连续实施完成**（同日，f9359d0/9492a47/后续）：F1-F3 typed 页证据引用+Claim 级 Ask+insufficient 诚实层；F4-F6 status 过滤+响应式+overlay 徽章；F7-F9 history 时间线 diff+Related 卡局部 SVG+serve /api/preview 双模 Ask；F10 静态托管 runbook（docs/runbooks/2026-09-16-static-hosting.md）。关系逻辑抽至 compiler/relations.py 供 MCP 与站点共享。
 
 ## 二、已完成的内容
 
@@ -78,7 +79,7 @@ V0.1 **技术链全部完成**（M1–M7、恢复计划 Gate 1–8、符合性�
 ```bash
 cd /Users/qiming/workspace/CodeWiki
 git fetch origin && git status --short --branch   # 预期：clean、与远程同步（adaa907）
-bash scripts/verify.sh                             # 预期：VERIFY: PASS（765+1skip，live SKIP 属预期）
+bash scripts/verify.sh                             # 预期：VERIFY: PASS（775+1skip，live SKIP 属预期）
 ```
 
 然后：读本文 → [README.md](README.md)（新门面，含三图三截图）→ [docs/README.md](docs/README.md)（文档地图）。若用户带来了环境/决策，按第三节解锁路径直接开工；若需要重新演示或重新截图，按第二节 2.1/2.2 的方法重做（临时产物已随 /tmp 清理）；演示仓库 config 已含 web_url=fixture URL，重跑 demo 脚本后需重新写入 config 再 compile 才有 permalink。

@@ -8,6 +8,8 @@ from typing import Any
 
 import yaml
 
+from knowledge_compiler.compiler.relations import relations_of
+
 
 PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "knowledge-compiler"
@@ -482,12 +484,12 @@ def _get_related(
             "object is not part of the current verified view: "
             + _as_data(object_id)
         )
-    forward = _relations_of(canonical)
+    forward = relations_of(canonical)
     inbound = [
         (other.id, predicate)
         for other in verified.values()
         if other.id != object_id
-        for _source, target, predicate in _relations_of(other)
+        for _source, target, predicate in relations_of(other)
         if target == object_id
     ]
     return _ToolResult(
@@ -648,28 +650,6 @@ def _status(root: Path, arguments: dict[str, Any]) -> _ToolResult:
                 )
             ]
     return _ToolResult(payload)
-
-
-def _relations_of(canonical: object) -> list[tuple[str, str, str]]:
-    rows: list[tuple[str, str, str]] = []
-    for field, default in (
-        ("dependencies", "depends on"),
-        ("relations", "relates to"),
-    ):
-        for item in getattr(canonical, field, ()) or ():
-            target = getattr(item, "target", None)
-            if isinstance(target, str):
-                predicate = getattr(item, "predicate", None) or default
-                rows.append((canonical.id, target, predicate))
-    for target in getattr(canonical, "related_objects", ()) or ():
-        if isinstance(target, str):
-            rows.append((canonical.id, target, "related to"))
-    for relationship in getattr(canonical, "relationships", ()) or ():
-        target = getattr(relationship, "target", None)
-        predicate = getattr(relationship, "predicate", "relates to")
-        if isinstance(target, str):
-            rows.append((canonical.id, target, predicate))
-    return sorted(set(rows))
 
 
 def main() -> None:

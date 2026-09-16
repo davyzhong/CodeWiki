@@ -735,6 +735,15 @@ font-size:.78em;border:1px solid var(--border)}
 border-radius:999px;font-size:.72em;border:1px solid var(--accent);
 color:var(--accent);white-space:nowrap;vertical-align:middle}
 .status-chips{margin-top:-4px;margin-bottom:2px}
+.preview-md{white-space:pre-wrap;max-height:420px;overflow:auto;
+font-size:.82em;background:var(--bg)}
+.related{border:1px solid var(--border);border-radius:8px;padding:4px 18px
+12px;margin-top:18px}
+.related h2{font-size:1.05em;border-bottom:1px solid var(--border);
+padding-bottom:6px}
+.related ul{list-style:none;padding-left:0;margin:8px 0}
+.related li{padding:2px 0;font-size:.88em;word-break:break-all}
+.related svg{max-width:100%;height:auto;color:var(--fg)}
 @media (max-width:900px){
 body{display:block}
 nav{width:auto;height:auto;max-height:45vh;position:static;
@@ -857,6 +866,123 @@ def _diagram_svgs(objects: dict[str, object]) -> dict[str, bytes]:
                 compile_flow_sequence(canonical).decode("utf-8").rstrip("\n")
             ] = render_flow_sequence_svg(canonical)
     return diagram_svgs
+
+
+def _history_data(root: Path) -> list[dict[str, object]]:
+    """Per-run published sets and result tallies for the timeline view.
+
+    Claim-level history is not persisted, so the honest diff is at
+    object granularity; the page says so instead of guessing.
+    """
+
+    runs_root = root / ".knowledge/state/runs"
+    if not runs_root.is_dir():
+        return []
+    try:
+        from knowledge_compiler.orchestrator.store import RunStore
+
+        timeline: list[dict[str, object]] = []
+        for record in RunStore(runs_root)._list_runs():
+            published = sorted(
+                {
+                    target.published_object_id
+                    for target in record.targets
+                    if target.published_object_id
+                }
+            )
+            tallies: dict[str, int] = {}
+            for target in record.targets:
+                key = target.result.value if target.result else target.state.value
+                tallies[key] = tallies.get(key, 0) + 1
+            timeline.append(
+                {
+                    "run_id": record.run_id,
+                    "executor": record.executor,
+                    "active": record.active,
+                    "published": published,
+                    "tallies": dict(sorted(tallies.items())),
+                }
+            )
+        return timeline
+    except Exception:
+        return []
+
+
+def _site_history_html(
+    root_name: str,
+    active: str,
+    payload: str,
+    commit: str,
+) -> bytes:
+    return (
+        "<!doctype html>\n"
+        '<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        '<meta name="color-scheme" content="light dark">\n'
+        f"<title>{_h(root_name)} knowledge history</title>\n"
+        f"<style>{_WIKI_STYLE}</style>\n</head>\n<body>\n"
+        '<nav class="site-nav"><a href="index.html">← catalog</a>'
+        f'<span class="meta">{_h(root_name)} · generation {_h(active)}'
+        f" · commit {_h(commit)}</span>"
+        '<button id="theme-toggle" title="Toggle theme">◐</button></nav>\n'
+        "<main>\n<h1>Generation timeline</h1>\n"
+        '<p class="ask-hint">Runs in execution order. Object-level diff '
+        "only: claim-level history is not persisted, so changes between "
+        "runs are reported as published-object sets.</p>\n"
+        '<p class="ask-hint">Compare: '
+        '<select id="run-a"></select> vs <select id="run-b"></select> '
+        '<button class="chip" onclick="diffRuns()">diff</button></p>\n'
+        '<div id="diff-results"></div>\n'
+        '<table class="catalog-table"><thead><tr><th>Run</th><th>Executor</th>'
+        "<th>Published</th><th>Results</th></tr></thead>"
+        '<tbody id="catalog-body"></tbody></table>\n'
+        "</main>\n"
+        "<script>var RUNS="
+        + payload
+        + ";\n"
+        """(function(){
+ var body=document.getElementById('catalog-body');
+ var a=document.getElementById('run-a');
+ var b=document.getElementById('run-b');
+ RUNS.forEach(function(r,i){
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td>'+esc(r.run_id)+'</td><td>'+esc(r.executor)+'</td>'
+   +'<td style="text-align:right">'+r.published.length+'</td>'
+   +'<td>'+Object.keys(r.tallies).map(function(k){
+    return esc(k+'×'+r.tallies[k]);}).join(', ')+'</td>';
+  body.appendChild(tr);
+  [a,b].forEach(function(sel){
+   var opt=document.createElement('option');
+   opt.value=i;opt.textContent=r.run_id;
+   sel.appendChild(opt);
+  });
+ });
+ if(RUNS.length>1){b.selectedIndex=RUNS.length-1;}
+})();
+function diffRuns(){
+ var ai=parseInt(document.getElementById('run-a').value,10);
+ var bi=parseInt(document.getElementById('run-b').value,10);
+ var box=document.getElementById('diff-results');
+ if(isNaN(ai)||isNaN(bi)||ai===bi){
+  box.innerHTML='<p class="ask-empty">Pick two different runs.</p>';
+  return;
+ }
+ var A=RUNS[ai],B=RUNS[bi];
+ var added=B.published.filter(function(id){return A.published.indexOf(id)<0;});
+ var removed=A.published.filter(function(id){return B.published.indexOf(id)<0;});
+ var html='<div class="ask-hit"><strong>'+esc(A.run_id)+' → '+esc(B.run_id)
+  +'</strong><p class="claim-meta">added ('+added.length+'): '
+  +(added.length?added.map(esc).join(', '):'none')
+  +'</p><p class="claim-meta">removed ('+removed.length+'): '
+  +(removed.length?removed.map(esc).join(', '):'none')+'</p></div>';
+ box.innerHTML=html;
+}
+"""
+        f"</script>\n"
+        f"<script>{_ESC_JS}</script>\n"
+        f"<script>{_THEME_TOGGLE_JS}</script>\n"
+        "</body>\n</html>\n"
+    ).encode("utf-8")
 
 
 def _claim_index(
@@ -1117,6 +1243,14 @@ btn.addEventListener('click',function(){
 });
 """
 
+_ESC_JS = """
+function esc(s){
+ return String(s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+ });
+}
+"""
+
 _SITE_ASK_JS = """
 function esc(s){
  return String(s).replace(/[&<>"']/g,function(c){
@@ -1171,8 +1305,41 @@ function renderAsk(q){
    '</a><p class="snippet">'+snippet(item,terms[0])+'</p></div>';
  }).join('');
 }
+var SERVER_MODE=false;
+fetch('/api/preview?task=probe').then(function(r){
+ SERVER_MODE=r.ok;
+}).catch(function(){SERVER_MODE=false;});
+var ASK_TIMER=null;
+var LAST_TASK='';
 document.getElementById('ask-input').addEventListener('input',function(e){
- renderAsk(e.target.value);
+ var q=e.target.value;
+ if(SERVER_MODE){
+  clearTimeout(ASK_TIMER);
+  if(!q.trim()){
+   document.getElementById('ask-results').innerHTML='';
+   return;
+  }
+  ASK_TIMER=setTimeout(function(){
+   if(q===LAST_TASK){return;}
+   LAST_TASK=q;
+   fetch('/api/preview?task='+encodeURIComponent(q))
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(doc){
+     if(!doc||!doc.markdown){
+      document.getElementById('ask-results').innerHTML=
+       '<p class="ask-empty">检索门禁未放行（知识视图过期或不可读）。</p>';
+      return;
+     }
+     document.getElementById('ask-results').innerHTML=
+      '<p class="ask-hint">server-backed preview — the exact context pack'
+      +' an agent would receive:</p>'
+      +'<pre class="preview-md">'+esc(doc.markdown)+'</pre>';
+    })
+    .catch(function(){});
+  },300);
+  return;
+ }
+ renderAsk(q);
 });
 """
 
@@ -1240,6 +1407,100 @@ function sortTable(col){
 """
 
 
+def _related_section(
+    canonical: object,
+    objects: dict[str, object],
+) -> str:
+    """Related-objects card with a deterministic local relation SVG."""
+
+    from knowledge_compiler.compiler.relations import relations_of
+
+    forward = relations_of(canonical)
+    inbound = sorted(
+        {
+            (other.id, predicate)
+            for other in objects.values()
+            if other.id != canonical.id
+            for _source, target, predicate in relations_of(other)
+            if target == canonical.id
+        }
+    )
+    if not forward and not inbound:
+        return ""
+
+    def _link(object_id: str) -> str:
+        if object_id in objects:
+            type_directory = _TYPE_DIRECTORIES[
+                object_id.split(".", 1)[0]
+            ] if object_id.split(".", 1)[0] in _TYPE_DIRECTORIES else None
+            if type_directory is not None:
+                return (
+                    f'<a href="../{type_directory}/{_h(object_id)}.html">'
+                    f"{_h(object_id)}</a>"
+                )
+        return f'<span class="muted-cell">{_h(object_id)}</span>'
+
+    rows = "".join(
+        f"<li>{_link(target)} · {_h(predicate)}</li>"
+        for _source, target, predicate in forward
+    ) + "".join(
+        f"<li>← {_link(source)} · {_h(predicate)}</li>"
+        for source, predicate in inbound
+    )
+
+    nodes_right = [target for _s, target, _p in forward]
+    nodes_left = [source for source, _p in inbound]
+    height = max(len(nodes_right), len(nodes_left), 1) * 40 + 40
+    svg = [
+        f'<svg viewBox="0 0 800 {height}" role="img"'
+        ' class="diagram" xmlns="http://www.w3.org/2000/svg">'
+    ]
+    svg.append(
+        f'<rect x="330" y="{height / 2 - 16}" rx="8" width="140" height="32" '
+        'fill="none" stroke="currentColor"/>'
+        f'<text x="400" y="{height / 2 + 4}" text-anchor="middle" '
+        'font-size="11">this object</text>'
+    )
+    for position, target in enumerate(nodes_right):
+        y = 40 * position + 32
+        svg.append(
+            f'<line x1="470" y1="{height / 2}" x2="620" y2="{y}" '
+            'stroke="currentColor" stroke-opacity="0.4"/>'
+        )
+        svg.append(
+            f'<rect x="620" y="{y - 12}" rx="6" width="170" height="24" '
+            'fill="none" stroke="currentColor" stroke-opacity="0.6"/>'
+        )
+        label = target if len(target) <= 24 else target[:22] + "…"
+        svg.append(
+            f'<text x="705" y="{y + 4}" text-anchor="middle" '
+            f'font-size="10">{_h(label)}</text>'
+        )
+    for position, source in enumerate(nodes_left):
+        y = 40 * position + 32
+        svg.append(
+            f'<line x1="330" y1="{height / 2}" x2="180" y2="{y}" '
+            'stroke="currentColor" stroke-opacity="0.4"/>'
+        )
+        svg.append(
+            f'<rect x="10" y="{y - 12}" rx="6" width="170" height="24" '
+            'fill="none" stroke="currentColor" stroke-opacity="0.6"/>'
+        )
+        label = source if len(source) <= 24 else source[:22] + "…"
+        svg.append(
+            f'<text x="95" y="{y + 4}" text-anchor="middle" '
+            f'font-size="10">{_h(label)}</text>'
+        )
+    svg.append("</svg>")
+    return (
+        '<section class="related"><h2>Related knowledge</h2><ul>'
+        + rows
+        + "</ul>"
+        + "".join(svg)
+        + "</section>"
+    )
+
+
 def _overlay_badge(overlays: dict[str, object] | None, object_id: str) -> str:
     overlay = (overlays or {}).get(object_id)
     if overlay is None:
@@ -1275,6 +1536,7 @@ def _site_page_html(
     body: str,
     page_toc: str,
     overlay_count: int = 0,
+    related_html: str = "",
 ) -> bytes:
     return (
         "<!doctype html>\n"
@@ -1296,7 +1558,9 @@ def _site_page_html(
             else ""
         )
         + (f'<nav class="toc">{page_toc}</nav>\n' if page_toc else "")
-        + f"{body}\n</main>\n"
+        + f"{body}\n"
+        + related_html
+        + "\n</main>\n"
         f"<script>{_THEME_TOGGLE_JS}</script>\n</body>\n</html>\n"
     ).encode("utf-8")
 
@@ -1354,6 +1618,8 @@ def _site_index_html(
         ' placeholder="Filter catalog">\n'
         f'<div class="chips">{chips_html}</div>\n'
         f'<div class="chips status-chips">{status_chips_html}</div>\n'
+        '<p class="ask-hint"><a href="history.html">Generation timeline'
+        " &amp; diff →</a></p>\n"
         '<table class="catalog-table"><thead><tr>'
         "<th>Knowledge ID</th><th>Type</th><th>Status</th>"
         "<th>Claims</th><th>Evidence</th></tr></thead>"
@@ -1400,6 +1666,7 @@ def _site_pages(
             overlay = (overlays or {}).get(page_object_id)
             if overlay is not None:
                 overlay_count = len(overlay.sections) + len(overlay.notes)
+        page_canonical = objects.get(page_object_id) if "/" in relative else None
         pages_out[html_relative] = _site_page_html(
             root.name,
             relative,
@@ -1410,6 +1677,9 @@ def _site_pages(
             site_body,
             page_toc,
             overlay_count,
+            _related_section(page_canonical, objects)
+            if page_canonical is not None
+            else "",
         )
         ask_index.append(
             {
@@ -1482,6 +1752,12 @@ def _site_pages(
         entry["href"] = (
             f"{_TYPE_DIRECTORIES[entry['type']]}/{entry['object']}.html"
         )
+    pages_out["history.html"] = _site_history_html(
+        root.name,
+        active,
+        json.dumps(_history_data(root), ensure_ascii=False, sort_keys=True),
+        commit,
+    )
     pages_out["index.html"] = _site_index_html(
         root.name,
         active,
