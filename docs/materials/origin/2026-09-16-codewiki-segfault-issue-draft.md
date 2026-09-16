@@ -1,5 +1,5 @@
 ---
-status: draft（issue 草稿，发布需用户确认——公开发布红线）
+status: published（2026-09-16 已发布：https://github.com/PorunC/CodeWiki/issues/2）
 created: 2026-09-16
 target: PorunC/CodeWiki（GitHub issue）
 ---
