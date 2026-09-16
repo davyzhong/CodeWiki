@@ -93,16 +93,62 @@ def normalize_search(payload: list[dict[str, Any]]) -> list[str]:
     symbols: list[str] = []
     for entry in payload or []:
         node = entry.get("node") if isinstance(entry, dict) else None
-        name = node.get("name") if isinstance(node, dict) else None
+        if not isinstance(node, dict) or _internal_state_path(
+            node.get("file_path")
+        ):
+            continue
+        if node.get("type") == "file":
+            # File-level hits are not symbols; planning seeds must name
+            # real code symbols or the module topic degrades to filenames.
+            continue
+        name = node.get("name")
         if isinstance(name, str) and name and name not in symbols:
             symbols.append(name)
     return sorted(symbols)
 
 
+_INTERNAL_STATE_ROOT = ".knowledge"
+
+
+def _internal_state_path(path: object) -> bool:
+    """Knowledge Compiler state is never repository evidence.
+
+    The upstream indexer has no exclusion flag and incrementally picks
+    up ``.knowledge/`` once a later build runs in an already-indexed
+    tree, so every read side filters it defensively.
+    """
+
+    if not isinstance(path, str):
+        return False
+    return path == _INTERNAL_STATE_ROOT or path.startswith(
+        _INTERNAL_STATE_ROOT + "/"
+    )
+
+
+def _filter_internal_items(items: Any) -> list[Any]:
+    if not isinstance(items, list):
+        return []
+    return [
+        item
+        for item in items
+        if not _internal_state_path(
+            item.get("file_path") if isinstance(item, dict) else None
+        )
+    ]
+
+
 def normalize_explore(payload: dict[str, Any]) -> dict[str, Any]:
     return {
-        "entry_points": payload.get("entry_points") or [],
-        "relationships": payload.get("relationships") or [],
+        "entry_points": _filter_internal_items(payload.get("entry_points")),
+        "relationships": [
+            relationship
+            for relationship in (payload.get("relationships") or [])
+            if isinstance(relationship, dict)
+            and not _internal_state_path(
+                relationship.get("source_file")
+            )
+            and not _internal_state_path(relationship.get("target_file"))
+        ],
     }
 
 
@@ -158,13 +204,47 @@ class CodeWikiEvidenceProvider:
             raise ValueError("provider snapshot commit differs from repository")
         return repo
 
+    _SYMBOL_PROBE_TERMS = 8
+
+    def _survey_symbols(self, files: list[str]) -> list[str]:
+        """Enumerate symbols without a wildcard (real CLI answers '*' empty).
+
+        Probe `graph search` with stems of the repository's own source
+        files (a stem usually matches its defining module's symbols) and
+        merge the hits deterministically.
+        """
+
+        stems: list[str] = []
+        for member in sorted(files):
+            path = PurePosixPath(member)
+            if path.suffix not in (".py", ".ts", ".tsx", ".js", ".java", ".go", ".rs"):
+                continue
+            stem = path.stem
+            if (
+                stem.startswith("__init__")
+                or not stem
+                or not any(character.isalpha() for character in stem)
+                or stem in stems
+            ):
+                continue
+            stems.append(stem)
+        symbols: list[str] = []
+        for stem in stems[: self._SYMBOL_PROBE_TERMS]:
+            hits = self._run(
+                [
+                    "codewiki", "graph", "search", stem,
+                    "--repo", str(self._root), "--json",
+                ]
+            )
+            for name in normalize_search(hits if isinstance(hits, list) else []):
+                if name not in symbols:
+                    symbols.append(name)
+        return sorted(symbols)
+
     def inspect(self, repo: RepositorySnapshot) -> RepositorySurvey:
         validated = self._validate(repo)
         scan = self._run(["codewiki", "repos", "scan", str(self._root), "--json"])
         normalized = normalize_scan(scan or {}, self._root.name)
-        search = self._run(
-            ["codewiki", "graph", "search", "*", "--repo", str(self._root), "--json"]
-        )
         explore = normalize_explore(
             self._run(
                 [
@@ -175,12 +255,13 @@ class CodeWikiEvidenceProvider:
             or {}
         )
         communities = self._communities(explore["relationships"])
+        symbols = self._survey_symbols(normalized["files"])
         return RepositorySurvey(
             repository_id=validated.repository_id,
             snapshot_id=validated.snapshot_id,
             files=tuple(normalized["files"]),
             languages=tuple(normalized["languages"]),
-            symbols=tuple(normalize_search(search if isinstance(search, list) else [])),
+            symbols=tuple(symbols),
             graph_communities=communities,
             configuration_facts={"provider": "codewiki"},
         )
@@ -214,19 +295,33 @@ class CodeWikiEvidenceProvider:
         )
         entries = self._select_entries(explore["entry_points"], target)
         evidence: list[EvidenceItem] = []
+        readable = 0
         for entry in entries:
             item = self._read_evidence(validated, entry)
-            if item is not None:
-                evidence.append(item)
+            if item is None:
+                continue
+            readable += 1
+            # The budget is a ceiling the provider enforces on itself:
+            # keep the deterministic head of the ordered selection rather
+            # than failing the whole target when a broad topic matches
+            # many symbols.
+            if len(evidence) >= budget.max_items:
+                break
+            projected = "".join(part.excerpt for part in evidence) + item.excerpt
+            if len(projected) > budget.max_characters:
+                continue
+            if len(projected.split()) > budget.max_tokens:
+                continue
+            evidence.append(item)
+        if readable and not evidence:
+            # Zero matches legitimately yields an empty pack (the worker
+            # layer reports InsufficientEvidence); evidence that exists
+            # but cannot fit the configured budget is a configuration
+            # error and fails closed here.
+            raise ValueError(
+                "selected evidence does not fit the configured budget"
+            )
         graph_facts = self._graph_facts(explore["relationships"], target)
-        if len(evidence) > budget.max_items:
-            raise ValueError("evidence item budget exceeded")
-        model_visible = "".join(item.excerpt for item in evidence)
-        if len(model_visible) > budget.max_characters:
-            raise ValueError("evidence character budget exceeded")
-        token_count = sum(len(item.excerpt.split()) for item in evidence)
-        if token_count > budget.max_tokens:
-            raise ValueError("evidence token budget exceeded")
         self._evidence_cache = {item.id: item for item in evidence}
         return EvidencePack(
             repository=validated,
@@ -332,6 +427,16 @@ class CodeWikiEvidenceProvider:
         self, entry_points: list[dict[str, Any]], target: PlanTarget
     ) -> list[dict[str, Any]]:
         self._last_target = target
+        seed_names: set[str] = set()
+        for seed in target.evidence_seeds:
+            seed_names.add(seed)
+            if "." in seed:
+                seed_names.add(seed.split(".")[-1])
+        seed_paths = {
+            PurePosixPath(seed).as_posix()
+            for seed in target.evidence_seeds
+            if "/" in seed
+        }
         selected: dict[str, dict[str, Any]] = {}
         for entry in entry_points:
             name = entry.get("name")
@@ -339,9 +444,14 @@ class CodeWikiEvidenceProvider:
             start, end = entry.get("start_line"), entry.get("end_line")
             if not isinstance(name, str) or not isinstance(path, str):
                 continue
-            if name not in target.evidence_seeds and name not in (
-                part.split(".")[-1] for part in target.evidence_seeds
-            ):
+            path_name = PurePosixPath(path).name
+            entry_path = PurePosixPath(path).as_posix()
+            matches = (
+                name in seed_names
+                or path_name in seed_names
+                or entry_path in seed_paths
+            )
+            if not matches:
                 continue
             if not isinstance(start, int) or not isinstance(end, int):
                 continue
@@ -359,6 +469,8 @@ class CodeWikiEvidenceProvider:
     ) -> EvidenceItem | None:
         path = entry.get("file_path")
         if not isinstance(path, str):
+            return None
+        if _internal_state_path(path):
             return None
         parsed = PurePosixPath(path)
         if (

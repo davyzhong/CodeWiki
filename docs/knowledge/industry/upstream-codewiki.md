@@ -61,7 +61,7 @@ Repository → RepoScanner → tree-sitter AST → Code Graph（符号/调用/�
    - 最小复现：requests/models.py ddmin 压至 258 行语法完整文件（`materials/origin/codewiki-segfault-repro-258.py`）；触发是结构性的（import 块 + TYPE_CHECKING + Final + `@overload/@staticmethod` 栈的整体），手写小片段不触发。
    - Issue 已发布（用户确认）：https://github.com/PorunC/CodeWiki/issues/2（草稿存档 `materials/origin/2026-09-16-codewiki-segfault-issue-draft.md`）。处置：发 issue 或等 0.7+；升级前必须重测（重跑 Phase 0 spike 流程），无假设升级。
 2. **公开面 CLI 合同在非 fixture 仓库成立**：84 文件合成仓库上 `repos add`/`analyze`/`repos scan`/`graph search`/`graph explore` 全链路真实跑通（索引 1.4s、inspect 1.3s、规划 5 目标）。
-3. **接入层已知缺口**：真实 `graph explore` 输出经归一化后 entry_points 与规划目标 topic 匹配为空，5 目标全部 insufficient_evidence（诚实终态）。fixture runner 的归一化形状与真实输出存在差异；修复属 live 冒烟阶段联调工作（需真实 LLM worker 一起调）。
+3. **接入层缺口（2026-09-16 已修复，三层根因）**：① `graph search/explore "*"` 在真实 CLI 上是无效查询（fixture 伪造了通配行为）——inspect 改为按源文件名词探测 search（≤8 词，跳过 `__init__*` 前缀），并过滤 file 型节点（file 命中不是符号）；② `.knowledge/` 在同仓库第二次构建后被上游增量索引收入（上游无排除参数）——explore/search/证据读取三处读侧防御过滤；③ 预算语义分层：零匹配 → 空包（worker 判 insufficient）、有匹配但一项装不下 → raise（配置错误 fail-closed）、多匹配超额 → 按确定性序截断到预算内。修复后干净索引上半 live 达成 partial（flow/rule 2 对象 verified、7 页编译、FTS 索引）；module 目标残余失败是 DemoWorker 假件的证据 id 翻译局限（属真实 LLM worker 联调范围）。
 
 升级到 0.7+ 前：公开面合同必须重新实测（重跑 Phase 0 spike 流程），无假设升级。
 

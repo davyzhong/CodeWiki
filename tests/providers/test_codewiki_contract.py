@@ -402,3 +402,72 @@ def test_provider_hint_failure_translates_into_typed_error() -> None:
     with pytest.raises(Exception) as affected_error:
         provider.affected(repository(), _modified_changes())
     assert type(affected_error.value).__name__ == "ProviderHintError"
+
+
+def test_normalize_explore_drops_knowledge_state_entries() -> None:
+    from knowledge_compiler.providers.codewiki import normalize_explore
+
+    payload = {
+        "entry_points": [
+            {
+                "name": "observed-snapshot.yaml",
+                "file_path": ".knowledge/state/observed-snapshot.yaml",
+                "start_line": 1,
+                "end_line": 4,
+            },
+            {
+                "name": "CheckoutService",
+                "file_path": "src/shop/checkout.py",
+                "start_line": 4,
+                "end_line": 11,
+            },
+        ],
+        "relationships": [
+            {"source_file": ".knowledge/plan.yaml", "target_file": "src/shop/api.py"},
+            {"source_file": "src/shop/api.py", "target_file": "src/shop/checkout.py"},
+        ],
+    }
+    normalized = normalize_explore(payload)
+    assert [entry["name"] for entry in normalized["entry_points"]] == [
+        "CheckoutService"
+    ]
+    assert len(normalized["relationships"]) == 1
+
+
+def test_normalize_search_skips_file_nodes_and_state_paths() -> None:
+    from knowledge_compiler.providers.codewiki import normalize_search
+
+    payload = [
+        {"node": {"name": "checkout.py", "type": "file", "file_path": "src/shop/checkout.py"}},
+        {"node": {"name": "plan.yaml", "type": "file", "file_path": ".knowledge/plan.yaml"}},
+        {"node": {"name": "CheckoutService", "type": "class", "file_path": "src/shop/checkout.py"}},
+    ]
+    assert normalize_search(payload) == ["CheckoutService"]
+
+
+def test_select_entries_matches_seed_paths() -> None:
+    provider = make_provider()
+    from knowledge_compiler.contracts.planning import PlanTarget
+
+    path_target = PlanTarget(
+        id="module.shop.checkout",
+        topic="checkout",
+        evidence_seeds=("src/shop/checkout.py",),
+    )
+    explore = json.loads((NORMALIZED / "graph_explore.json").read_text())
+    entries = explore["json_value"]["entry_points"]
+    selected = provider._select_entries(entries, path_target)
+    assert selected
+    assert {entry["file_path"] for entry in selected} == {"src/shop/checkout.py"}
+
+
+def test_build_pack_truncates_to_budget_instead_of_failing_broad_matches() -> None:
+    provider = make_provider()
+    from knowledge_compiler.contracts.evidence import EvidenceBudget
+
+    pack = provider.build_pack(
+        repository(),
+        target(),
+        EvidenceBudget(max_items=1, max_characters=4000, max_tokens=512),
+    )
+    assert len(pack.evidence) == 1
