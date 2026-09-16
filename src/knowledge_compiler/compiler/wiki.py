@@ -133,6 +133,7 @@ def compile_repository_wiki(
         search_index,
         objects,
         packs,
+        overlays,
         insufficient,
     )
 
@@ -730,6 +731,18 @@ font-size:.78em;border:1px solid var(--border)}
 .cov-insufficient-count{color:var(--red);font-size:.9em;margin-left:2px}
 .insufficient-row td{opacity:.72}
 .muted-cell{color:var(--muted)}
+.overlay-badge{display:inline-block;margin-left:8px;padding:0 8px;
+border-radius:999px;font-size:.72em;border:1px solid var(--accent);
+color:var(--accent);white-space:nowrap;vertical-align:middle}
+.status-chips{margin-top:-4px;margin-bottom:2px}
+@media (max-width:900px){
+body{display:block}
+nav{width:auto;height:auto;max-height:45vh;position:static;
+border-right:none;border-bottom:1px solid var(--border)}
+main{padding:16px;max-width:none}
+.catalog-table{display:block;overflow-x:auto}
+.site-nav{flex-wrap:wrap}
+}
 """
 
 
@@ -1165,20 +1178,30 @@ document.getElementById('ask-input').addEventListener('input',function(e){
 
 _SITE_CATALOG_JS = """
 var TYPE='all';
+var STATUS='all';
 function applyFilters(){
  var q=(document.getElementById('catalog-search').value||'').toLowerCase();
  document.querySelectorAll('#catalog-body tr').forEach(function(tr){
   var t=tr.getAttribute('data-type');
+  var s=tr.getAttribute('data-status')||'verified';
   var hay=tr.getAttribute('data-text')||'';
   var typeOK=TYPE==='all'||t===TYPE;
+  var statusOK=STATUS==='all'||s===STATUS;
   var textOK=!q||hay.indexOf(q)>=0;
-  tr.style.display=(typeOK&&textOK)?'':'none';
+  tr.style.display=(typeOK&&statusOK&&textOK)?'':'none';
  });
 }
 function setType(t){
  TYPE=t;
- document.querySelectorAll('.chip').forEach(function(c){
-  c.classList.toggle('active',c.getAttribute('data-type')===t);
+ document.querySelectorAll('[data-type]').forEach(function(c){
+  if(c.classList.contains('chip')){c.classList.toggle('active',c.getAttribute('data-type')===t);}
+ });
+ applyFilters();
+}
+function setStatus(s){
+ STATUS=s;
+ document.querySelectorAll('[data-status]').forEach(function(c){
+  if(c.classList.contains('chip')){c.classList.toggle('active',c.getAttribute('data-status')===s);}
  });
  applyFilters();
 }
@@ -1217,6 +1240,31 @@ function sortTable(col){
 """
 
 
+def _overlay_badge(overlays: dict[str, object] | None, object_id: str) -> str:
+    overlay = (overlays or {}).get(object_id)
+    if overlay is None:
+        return ""
+    count = len(overlay.sections) + len(overlay.notes)
+    if not count:
+        return ""
+    return (
+        f'<span class="overlay-badge" title="protected human overlay">'
+        f"human ✎{count}</span>"
+    )
+
+
+_STATUS_CHIPS_HTML = (
+    '<button class="chip active" data-status="all"'
+    " onclick=\"setStatus('all')\">any status</button>"
+    '<button class="chip" data-status="verified"'
+    " onclick=\"setStatus('verified')\">verified</button>"
+    '<button class="chip" data-status="stale"'
+    " onclick=\"setStatus('stale')\">stale</button>"
+    '<button class="chip" data-status="insufficient_evidence"'
+    " onclick=\"setStatus('insufficient_evidence')\">insufficient</button>"
+)
+
+
 def _site_page_html(
     root_name: str,
     relative: str,
@@ -1226,6 +1274,7 @@ def _site_page_html(
     freshness: str,
     body: str,
     page_toc: str,
+    overlay_count: int = 0,
 ) -> bytes:
     return (
         "<!doctype html>\n"
@@ -1240,6 +1289,12 @@ def _site_page_html(
         '<button id="theme-toggle" title="Toggle theme">◐</button></nav>\n'
         "<main>\n"
         f"<h2>{_h(relative)}</h2>\n"
+        + (
+            f'<span class="overlay-badge">human knowledge: '
+            f"{overlay_count} overlay entries</span>\n"
+            if overlay_count
+            else ""
+        )
         + (f'<nav class="toc">{page_toc}</nav>\n' if page_toc else "")
         + f"{body}\n</main>\n"
         f"<script>{_THEME_TOGGLE_JS}</script>\n</body>\n</html>\n"
@@ -1253,6 +1308,7 @@ def _site_index_html(
     orphans: tuple[str, ...],
     coverage_html: str,
     chips_html: str,
+    status_chips_html: str,
     catalog_body: str,
     payload: str,
     claims_payload: str,
@@ -1297,6 +1353,7 @@ def _site_index_html(
         '<input id="catalog-search" type="search"'
         ' placeholder="Filter catalog">\n'
         f'<div class="chips">{chips_html}</div>\n'
+        f'<div class="chips status-chips">{status_chips_html}</div>\n'
         '<table class="catalog-table"><thead><tr>'
         "<th>Knowledge ID</th><th>Type</th><th>Status</th>"
         "<th>Claims</th><th>Evidence</th></tr></thead>"
@@ -1323,6 +1380,7 @@ def _site_pages(
     search_index: list[dict[str, str]],
     objects: dict[str, object],
     packs: dict[str, object],
+    overlays: dict[str, object] | None = None,
     insufficient: dict[str, tuple[int, list[str]]] | None = None,
 ) -> dict[str, bytes]:
     """Compile the multi-page static site with relative-path linking."""
@@ -1336,6 +1394,12 @@ def _site_pages(
         depth = html_relative.count("/")
         home = "../" * depth + "index.html"
         site_body = re.sub(r"\(([^)#]+?)\.md\)", r"(\1.html)", body)
+        overlay_count = 0
+        if "/" in relative and relative.endswith(".md"):
+            page_object_id = relative.split("/", 1)[1][: -len(".md")]
+            overlay = (overlays or {}).get(page_object_id)
+            if overlay is not None:
+                overlay_count = len(overlay.sections) + len(overlay.notes)
         pages_out[html_relative] = _site_page_html(
             root.name,
             relative,
@@ -1345,6 +1409,7 @@ def _site_pages(
             freshness,
             site_body,
             page_toc,
+            overlay_count,
         )
         ask_index.append(
             {
@@ -1376,9 +1441,16 @@ def _site_pages(
         )
         rows.append(
             f'<tr data-type="{_h(canonical.type)}"'
+            f' data-status="{_h(status)}"'
             f' data-text="{_h(object_id.lower() + " " + canonical.type)}">'
             f'<td data-sort="{_h(object_id)}"><a href="{href}">'
-            f"{_h(object_id)}</a></td>"
+            f"{_h(object_id)}</a>"
+            + (
+                _overlay_badge(overlays, object_id)
+                if overlays is not None
+                else ""
+            )
+            + "</td>"
             f'<td data-sort="{_h(canonical.type)}">{_h(canonical.type)}</td>'
             f'<td data-sort="{_h(status)}">'
             f'<span class="status-pill {status_class}">{_h(status)}</span></td>'
@@ -1394,6 +1466,7 @@ def _site_pages(
                 continue
             rows.append(
                 f'<tr class="insufficient-row" data-type="{_h(type_name)}"'
+                f' data-status="insufficient_evidence"'
                 f' data-text="{_h(target_id.lower() + " " + type_name)}">'
                 f'<td data-sort="{_h(target_id)}" class="muted-cell">'
                 f"{_h(target_id)}</td>"
@@ -1416,6 +1489,7 @@ def _site_pages(
         orphans,
         _coverage_html(objects, insufficient),
         _chips_html(chip_counts),
+        _STATUS_CHIPS_HTML,
         "".join(rows),
         json.dumps(ask_index, ensure_ascii=False, sort_keys=True),
         json.dumps(claim_entries, ensure_ascii=False, sort_keys=True),

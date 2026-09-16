@@ -509,3 +509,45 @@ def test_insufficient_targets_tolerate_missing_runs(tmp_path: Path) -> None:
     from knowledge_compiler.compiler.wiki import _insufficient_targets
 
     assert _insufficient_targets(tmp_path) == {}
+
+
+def test_catalog_status_chips_and_overlay_badges(tmp_path: Path) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    ids = publish_world(tmp_path)
+    overlay = (
+        tmp_path / ".knowledge/human/architecture" / f"{ids['architecture']}.yaml"
+    )
+    overlay.parent.mkdir(parents=True)
+    overlay.write_text(
+        "schema_version: '0.1'\n"
+        f"object_id: {ids['architecture']}\n"
+        "updated_at: '2026-08-25T12:00:00+08:00'\n"
+        "sections:\n"
+        "  - field: summary\n"
+        "    mode: override\n"
+        "    text: Human operational summary.\n"
+        "    basis: incident review\n"
+        "notes: []\n",
+        encoding="utf-8",
+    )
+    compile_repository_wiki(tmp_path)
+
+    index = (
+        tmp_path / ".knowledge/exports/site/index.html"
+    ).read_text(encoding="utf-8")
+    assert 'data-status="verified"' in index
+    assert "setStatus('insufficient_evidence')" in index
+    assert "overlay-badge" in index
+
+    detail = (
+        tmp_path
+        / ".knowledge/exports/site/architecture"
+        / f"{ids['architecture']}.html"
+    ).read_text(encoding="utf-8")
+    assert "human knowledge: 1 overlay entries" in detail
+
+    single = (
+        tmp_path / ".knowledge/exports/repo-wiki.html"
+    ).read_text(encoding="utf-8")
+    assert "@media (max-width:900px)" in single
