@@ -24,3 +24,7 @@ work/
 .knowledge/exports/
 .codewiki/
 .mimosa/
+
+# codewiki CLI side-effect dirs (it writes these into CWD)
+/data/
+/storage/
