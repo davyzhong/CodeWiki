@@ -1,6 +1,6 @@
 # CodeWiki — 仓库知识编译器
 
-[![tests](https://img.shields.io/badge/tests-782%20passed%20%C2%B71%20skipped-brightgreen)](scripts/verify.sh)
+[![tests](https://img.shields.io/badge/tests-783%20passed%20%C2%B71%20skipped-brightgreen)](scripts/verify.sh)
 [![python](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
 [![version](https://img.shields.io/badge/version-0.1.0.dev0-orange)](pyproject.toml)
 [![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](scripts/verify.sh)
@@ -145,7 +145,7 @@ bash scripts/verify.sh
 ## 项目状态
 
 - **V0.1 主链路全线贯通**：规划 → 证据 → 抽取 → 验证 → 原子发布 → 增量失效/重试/确定性退役 → 三视图编译 → FTS/门禁检索 → CLI + MCP，恢复计划 Gate 1–8 与符合性修复 Task 1–5 全部完成。
-- 离线基线 **782 项测试通过（双遍一致）** + 1 项 opt-in live 冒烟默认跳过。
+- 离线基线 **783 项测试通过（双遍一致）** + 1 项 opt-in live 冒烟默认跳过。
 - **M8 基准已冻结并落地 harness**（[benchmark/](benchmark/README.md)，dry-run 可跑；四项决策见设计文档 §8），真实实验等 API key。
 - 剩余两件事都在等外部输入：真实仓库 + API key 的 live 冒烟（另：上游 codewiki 0.6.5 在真实中型仓库 analyze 段错误，需上游修复或版本升级，见 [upstream 运行知识](docs/knowledge/industry/upstream-codewiki.md)）；M8 实验执行。
 

@@ -196,6 +196,23 @@ sources:
 - **来源**：本次文档重组（2026-09-12）。
 - **状态**：effective。
 
+## D-024 · 展示层三段交付（单文件 / 静态站点 / 本地只读服务）
+
+- **日期**：2026-09-16
+- **决策**：人类视图由同一份页面渲染（`_render_page_bodies` 单源双渲染）编译出三段交付物：`repo-wiki.html` 单文件归档件（零依赖可分享）、`exports/site/` 多页静态站点（相对路径可托管、数据编译时内嵌）、`knowledge serve` 回环只读服务（含 `/api/preview` 端点）。Ask 一律 evidence-only 检索式（serve 环境升级 server-backed，静态托管回落内嵌 Claim 索引），不做生成式回答；全部产物确定性（同输入逐字节一致）且无构建链、无前端框架依赖。
+- **背景**：三轮竞品调研（DeepWiki/dbt docs/coverage.py/OpenAPI/Backstage 等）+ 用户四项决策（2026-09-16）。框架引入被否决的依据是产品约束（确定性/单文件交付/阅读密集组件面），而非沉没成本；若未来做交互密集的管理 UI，应单独立前端项目。
+- **来源**：设计文档 v3（plans/historical/2026-09-16-presentation-layer-design.md）；提交 `3bdc657`…`ed8ece7`。
+- **状态**：effective。
+
+## D-025 · M8 基准四项决策冻结（授权自主定稿）
+
+- **日期**：2026-09-16
+- **决策**：按用户授权（"缺决策信息参考竞对与同行惯例自主决策"）冻结 M8 四项：任务池 click→flask→requests（15 任务 × 3 仓库，按 §2 标准逐条核对）；harness 为 Claude Code headless（后端接口可替换）；token 低档 60k/次 ≈5.4M 总量；v0 两臂（MCP 臂仅当 Treatment-A 出正效应后追加）。预注册判据不因决策方式而放松。
+- **背景**：用户不提供输入时的实验效率路径；修改任一项须走设计文档 Revision History。
+- **来源**：M8 设计文档 v1.0 §8（`5ac851e`）；harness 实现 `f41adc7`。
+- **状态**：effective（实验执行待 API key 与上游修复）。
+
 ## Revision History
 
+- 2026-09-16 追加 D-024/D-025（展示层三段交付、M8 冻结）。
 - 2026-09-12 首次建卷：从规格、转移归档、完成归档、恢复计划、M8 设计中全量提炼 23 条。

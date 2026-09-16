@@ -1,5 +1,5 @@
 ---
-status: active
+status: historical（v3 全部 F1–F10 已于 2026-09-16 交付，as-built 见 D-024 与系统参考；本文保留为设计决策记录）
 created: 2026-09-16
 updated: 2026-09-16
 owner: knowledge-compiler

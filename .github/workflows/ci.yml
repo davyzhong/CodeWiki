@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Compile all sources
+        run: python -m compileall -q src
+      - name: Offline test suite (single pass)
+        run: python -m pytest tests/ -q
+        env:
+          # live smoke auto-skips without these; fail-closed if REQUIRED_LIVE is set
+          REQUIRE_LIVE: ""
+      - name: Documentation link check
+        run: python scripts/check_links.py

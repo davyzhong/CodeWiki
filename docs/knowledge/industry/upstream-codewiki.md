@@ -1,6 +1,6 @@
 ---
 status: maintained
-last-reviewed: 2026-09-12
+last-reviewed: 2026-09-16
 sources:
   - docs/spikes/codewiki-public-surface.md（Phase 0 实测报告，结论 go）
   - tests/fixtures/codewiki/0.6/cli-observations.json（实测观测，可再生 go 判定）

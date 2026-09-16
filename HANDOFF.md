@@ -1,14 +1,14 @@
 # HANDOFF — 会话交接文档
 
 > 交接时间：2026-09-16（会话结束） ｜ HEAD：`0f639b1`（与 `origin/main` 同步，工作树干净）
-> 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**782 passed + 1 opt-in live skipped**，compileall / diff-check / pip-audit 绿；live SKIP 属预期）
+> 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**783 passed + 1 opt-in live skipped**，compileall / diff-check / pip-audit 绿；live SKIP 属预期）
 > 新会话第一步：`git fetch origin && git status --short --branch` 核对是否有并行推进，再读本文与 [docs/README.md](docs/README.md)。
 
 ---
 
 ## 一、当前任务状态（本会话做了什么）
 
-本会话（2026-09-16）是**展示层 + M8 准备**会话，六条提交线全部完成并推送，`782 tests` 全绿：
+本会话（2026-09-16）是**展示层 + M8 准备**会话，六条提交线全部完成并推送，`783 tests` 全绿：
 
 1. **演示与 README 门面**（`adaa907`）：五类型 fixture 构建跑通生产管线（partial，3 verified + 2 诚实 insufficient）、HTML Wiki 打开展示、三张真实截图、README 全面重建（徽章/Mermaid×3/截图/定位表）。
 2. **展示层 v2 设计与实施**（`4b93349` 设计 → `3bdc657` 实施）：三轮竞品调研（DeepWiki/dbt docs/Quartz/TiddlyWiki/coverage.py/OpenAPI/MCP 官方/Backstage）→ 用户四项决策（permalink 走 init config、立即实施、Ask 用 evidence-only、按可托管设计）→ 落地：`web_url` config + evidence permalink、单文件 HTML 大改（双主题/类型过滤/覆盖率条/Ask）、`exports/site/` 多页静态站点、serve 站点服务、MCP 合规三动作（structuredContent/意图化描述/provenance 头）。
@@ -69,7 +69,7 @@
 ```bash
 cd /Users/qiming/workspace/CodeWiki
 git fetch origin && git status --short --branch   # 预期：clean、与远程同步（0f639b1）
-bash scripts/verify.sh                             # 预期：VERIFY: PASS（782+1skip，live SKIP 属预期）
+bash scripts/verify.sh                             # 预期：VERIFY: PASS（783+1skip，live SKIP 属预期）
 ```
 
 然后：读本文 → [README.md](README.md)（门面，五图）→ [docs/README.md](docs/README.md)（文档地图）。若跟进上游崩溃：`docs/knowledge/industry/upstream-codewiki.md` 的半 live 实测节是全部证据；若做展示层演示：按本文 2.2 方法重做（临时产物已随 /tmp 清理）；若有 API key：按第三节解锁路径直接开工。
