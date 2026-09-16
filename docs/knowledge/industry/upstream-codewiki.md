@@ -56,7 +56,10 @@ Repository → RepoScanner → tree-sitter AST → Code Graph（符号/调用/�
 
 ## 2026-09-16 半 live 实测发现（Python 3.13 / codewiki 0.6.5）
 
-1. **真实中型仓库 analyze 原生崩溃**：tenacity、structlog、click、jsonschema、requests 五个公开仓库 `codewiki analyze` 全部段错误（exit 138/139，SIGBUS/SIGSEGV，零输出）；微型 probe fixture（≈10 文件）与 84 文件合成仓库正常。崩溃与代码规模/复杂度相关，**阻塞 live 冒烟与 M8 真实仓库路径**。处置：升级 0.7+ 前必须重测；必要时向上游报 issue（附最小复现）。
+1. **真实中型仓库 analyze 原生崩溃（2026-09-16 已诊断到最小复现）**：tenacity、structlog、click、jsonschema、requests 五个公开仓库 `codewiki analyze` 全部段错误（exit 138/139，零输出）；微型 probe fixture（≈10 文件）与 84 文件合成仓库正常。**阻塞 live 冒烟与 M8 真实仓库路径**。
+   - 诊断结论：单文件直连 `PythonAstParser.parse` 即崩（无 CLI/无 cache/无线程），50 次全新子进程 50/50 崩、信号混合 SIGSEGV×28 + SIGBUS×22——典型 C 层内存未定义行为；强制单 worker 仍崩（排除 worker 线程竞争）；faulthandler 常见崩溃帧 `ast_cache.write:52 → dataclasses.asdict`，但 `AstSymbol` 字段全为纯 Python 类型，指向 tree-sitter 捕获层（py-tree-sitter 0.26.0 + CPython 3.13.15 + macOS arm64 组合）。
+   - 最小复现：requests/models.py ddmin 压至 258 行语法完整文件（`materials/origin/codewiki-segfault-repro-258.py`）；触发是结构性的（import 块 + TYPE_CHECKING + Final + `@overload/@staticmethod` 栈的整体），手写小片段不触发。
+   - Issue 草稿（英文，含证据与复现命令）：`materials/origin/2026-09-16-codewiki-segfault-issue-draft.md`——**发布需用户确认**。处置：发 issue 或等 0.7+；升级前必须重测（重跑 Phase 0 spike 流程），无假设升级。
 2. **公开面 CLI 合同在非 fixture 仓库成立**：84 文件合成仓库上 `repos add`/`analyze`/`repos scan`/`graph search`/`graph explore` 全链路真实跑通（索引 1.4s、inspect 1.3s、规划 5 目标）。
 3. **接入层已知缺口**：真实 `graph explore` 输出经归一化后 entry_points 与规划目标 topic 匹配为空，5 目标全部 insufficient_evidence（诚实终态）。fixture runner 的归一化形状与真实输出存在差异；修复属 live 冒烟阶段联调工作（需真实 LLM worker 一起调）。
 
