@@ -40,7 +40,7 @@ supersedes: 会话内 v1 口头方案（2026-09-16，未落档）
      （逃生舱口）
 ```
 
-三条铁律（源自 [patterns](../../knowledge/industry/patterns.md) P1/P2 与 D-023）：
+三条铁律（源自 [patterns](../../../knowledge/industry/patterns.md) P1/P2 与 D-023）：
 
 1. **前端是渲染器，不是真相源**（OpenAPI 教训）：IR 是合同，HTML 是视图；换渲染器不换事实，任何视图字段 IR 里必须存在。
 2. **渐进增强**：站点无 JS 也能完整阅读（纯 HTML+CSS 锚点导航），JS 只增强搜索/过滤/折叠/图谱——保 grep、保降级、保确定性。
