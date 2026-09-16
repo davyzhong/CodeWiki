@@ -38,14 +38,14 @@
 
 | # | 事项 | 卡在哪 | 解锁后动作 |
 |---|--- |--- |--- |
-| 1 | **上游 codewiki 0.6.5 段错误** | tenacity/structlog/click/jsonschema/requests 五个真实中型仓库 `analyze` 全部 SIGSEGV/SIGBUS（微型与 84 文件合成仓库正常）。**阻塞 live 冒烟与 M8 真实仓库路径** | 向上游报 issue（附最小复现）或等 0.7+；升级前必须重跑 Phase 0 spike 实测（纪律已有）。证据见 [upstream 运行知识](docs/knowledge/industry/upstream-codewiki.md) |
+| 1 | **上游 codewiki 0.6.5 段错误** | tenacity/structlog/click/jsonschema/requests 五个真实中型仓库 `analyze` 全部 SIGSEGV/SIGBUS（微型与 84 文件合成仓库正常）。**阻塞 live 冒烟与 M8 真实仓库路径** | **已报上游 issue：https://github.com/PorunC/CodeWiki/issues/2**；跟进回复或等 0.7+，升级前必须重跑 Phase 0 spike 实测。证据见 [upstream 运行知识](docs/knowledge/industry/upstream-codewiki.md) |
 | 2 | **接入层 entry_points 匹配缺口** | 真实 `graph explore` 输出归一化后与规划 topic 匹配为空 → 目标全落 insufficient_evidence。fixture 归一化与真实输出形状有差异 | live 阶段与真实 LLM worker 一起联调（`providers/codewiki.py` 的 `_select_entries`） |
 | 3 | **live 冒烟** | 等 `KNOWLEDGE_EXTRACTION_MODEL` + API key + codewiki 修复 | 按 [runbooks/2026-09-02-live-smoke.md](docs/runbooks/2026-09-02-live-smoke.md) 走 |
 | 4 | **M8 实验执行** | 等 API key（harness/统计/任务清单全就绪，dry-run 可跑） | 按 [benchmark/README.md](benchmark/README.md) 真实模式跑，产物入 `benchmark/results/`，报告入 docs/materials/ |
 
 ## 四、下一步计划（按优先级）
 
-1. **跟进上游崩溃**（不花钱）：整理最小复现（真实仓库 shallow clone + `codewiki analyze` exit 139），向上游报 issue；同时用合成仓库继续可做的验证。
+1. **跟进上游 issue 回复**（PorunC/CodeWiki#2，2026-09-16 已发布，含 258 行最小复现）；同时用合成仓库继续可做的验证。
 2. **有 key 后**：先修 entry_points 匹配缺口（联调）→ live 冒烟 → M8 实验执行（预注册判定勿事后改）。
 3. **M8 之后**：V0.1.x（Git URL/clone 缓存/私有凭证）、V0.2（多仓库）——见规格 §21，不提前实现。
 4. **文档持续维护**（轻量）：知识文档修正追加 Revision History；新计划进 `active/`；重大决策追加 decision-log 编号；测试计数以 `verify.sh` 尾行为准。
