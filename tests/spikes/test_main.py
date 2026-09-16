@@ -5,8 +5,13 @@ from knowledge_compiler.spikes.main import app
 
 
 def test_cli_exposes_run_subcommand() -> None:
+    import re
+
     assert "run" in get_command(app).commands
     result = CliRunner().invoke(app, ["run", "--help"])
 
     assert result.exit_code == 0
-    assert "--repo-template" in result.stdout
+    # Rich wraps help text to the terminal width; collapse whitespace so
+    # the assertion holds on CI's narrow terminals.
+    flattened = re.sub(r"\s+", "", result.stdout)
+    assert "--repo-template" in flattened
