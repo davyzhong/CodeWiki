@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -11,18 +10,20 @@ from knowledge_compiler.cli import app
 Runner = CliRunner()
 
 
-def _flatten(text: str) -> str:
-    # Rich help wraps option names to the terminal width; collapse all
-    # whitespace so assertions do not depend on CI's narrow terminals.
-    return re.sub(r"\s+", "", text)
-
-
 def test_realslice_help() -> None:
-    result = Runner.invoke(
-        app, ["realslice", "--help"], env={"COLUMNS": "220"}
-    )
+    # Assert against command metadata, not rendered help: rich's help
+    # layout varies with terminal width and library version, while the
+    # option set is the actual contract.
+    from typer.main import get_command
+
+    result = Runner.invoke(app, ["realslice", "--help"])
     assert result.exit_code == 0
-    assert "repository-root" in _flatten(result.output)
+    params = {
+        param.name
+        for param in get_command(app).commands["realslice"].params
+    }
+    assert "repository_root" in params
+    assert "output_root" in params
 
 
 def test_realslice_requires_model_configuration(tmp_path: Path, monkeypatch=None) -> None:
