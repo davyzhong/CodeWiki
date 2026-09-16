@@ -717,7 +717,9 @@ overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .catalog-table{width:100%;border-collapse:collapse;font-size:.88em;
 display:table;margin:14px 0}
 .catalog-table th{cursor:pointer;user-select:none;white-space:nowrap}
-.catalog-table th:hover{color:var(--accent)}
+.catalog-table th button{all:unset;cursor:pointer;width:100%;
+display:inline-block;font:inherit;color:inherit}
+.catalog-table th:hover, .catalog-table th button:focus-visible{color:var(--accent)}
 .catalog-table td,.catalog-table th{border:1px solid var(--border);
 padding:6px 12px;text-align:left}
 .catalog-table a{color:var(--accent);text-decoration:none;word-break:break-all}
@@ -835,10 +837,11 @@ def _coverage_html(
 
 def _chips_html(type_counts: dict[str, int]) -> str:
     return (
-        '<button class="chip active" data-type="all"'
+        '<button class="chip active" data-type="all" aria-pressed="true"'
         " onclick=\"setType('all')\">all</button>"
         + "".join(
             f'<button class="chip" data-type="{_h(type_name)}"'
+            f' aria-pressed="false"'
             f" onclick=\"setType('{_h(type_name)}')\">{_h(type_name)}"
             f" ({type_counts[type_name]})</button>"
             for type_name in _TYPE_ORDER
@@ -924,7 +927,7 @@ def _site_history_html(
         '<nav class="site-nav"><a href="index.html">← catalog</a>'
         f'<span class="meta">{_h(root_name)} · generation {_h(active)}'
         f" · commit {_h(commit)}</span>"
-        '<button id="theme-toggle" title="Toggle theme">◐</button></nav>\n'
+        '<button id="theme-toggle" title="Toggle theme" aria-label="Toggle color theme">◐</button></nav>\n'
         "<main>\n<h1>Generation timeline</h1>\n"
         '<p class="ask-hint">Runs in execution order. Object-level diff '
         "only: claim-level history is not persisted, so changes between "
@@ -1097,7 +1100,9 @@ function applyFilters(){
 function setType(t){
  TYPE=t;
  document.querySelectorAll('.chip').forEach(function(c){
-  c.classList.toggle('active',c.getAttribute('data-type')===t);
+  var on=c.getAttribute('data-type')===t;
+  c.classList.toggle('active',on);
+  c.setAttribute('aria-pressed',on?'true':'false');
  });
  applyFilters();
 }
@@ -1193,13 +1198,14 @@ btn.addEventListener('click',function(){
         f"<title>{_h(root.name)} knowledge wiki</title>\n"
         f"<style>{_WIKI_STYLE}</style>\n</head>\n<body>\n"
         f"<nav><div class='brand'><h3>{_h(root.name)}</h3>"
-        '<button id="theme-toggle" title="Toggle theme">◐</button></div>\n'
+        '<button id="theme-toggle" title="Toggle theme" aria-label="Toggle color theme">◐</button></div>\n'
         f'<p class="meta">generation: {_h(active)}<br>freshness: {_h(freshness)}<br>'
         f"commit: {_h(commit)}</p>\n"
         '<div class="coverage">\n'
         f"{coverage_html}\n"
         "</div>\n"
-        '<input id="search" type="search" placeholder="Search wiki">\n'
+        '<input id="search" type="search" aria-label="Search wiki"'
+        ' placeholder="Search wiki">\n'
         f'<div class="chips">{chips_html}</div>\n'
         f'<div id="catalog">{catalog}</div></nav>\n'
         "<main>\n"
@@ -1207,9 +1213,10 @@ btn.addEventListener('click',function(){
         "<h2>Ask the knowledge base</h2>\n"
         '<p class="ask-hint">evidence-only — retrieval over verified'
         " knowledge; no generative answers.</p>\n"
-        '<input id="ask-input" type="search"'
+        '<input id="ask-input" type="search" aria-label="Ask the'
+        ' knowledge base"'
         ' placeholder="e.g. when is inventory reserved?">\n'
-        '<div id="ask-results"></div>\n'
+        '<div id="ask-results" aria-live="polite"></div>\n'
         "</section>\n"
         + (
             '<p class="stale">Stale objects are present; content may lag the'
@@ -1361,23 +1368,42 @@ function applyFilters(){
 function setType(t){
  TYPE=t;
  document.querySelectorAll('[data-type]').forEach(function(c){
-  if(c.classList.contains('chip')){c.classList.toggle('active',c.getAttribute('data-type')===t);}
+  if(c.classList.contains('chip')){
+   var on=c.getAttribute('data-type')===t;
+   c.classList.toggle('active',on);
+   c.setAttribute('aria-pressed',on?'true':'false');
+  }
  });
  applyFilters();
 }
 function setStatus(s){
  STATUS=s;
  document.querySelectorAll('[data-status]').forEach(function(c){
-  if(c.classList.contains('chip')){c.classList.toggle('active',c.getAttribute('data-status')===s);}
+  if(c.classList.contains('chip')){
+   var on=c.getAttribute('data-status')===s;
+   c.classList.toggle('active',on);
+   c.setAttribute('aria-pressed',on?'true':'false');
+  }
  });
  applyFilters();
 }
 document.getElementById('catalog-search').addEventListener('input',applyFilters);
 var SORT_STATE={col:null,dir:1};
 var ORIGINAL=null;
-document.querySelectorAll('.catalog-table th').forEach(function(th,i){
+var SORT_HEADS=[].slice.call(
+ document.querySelectorAll('.catalog-table th'));
+SORT_HEADS.forEach(function(th,i){
  th.addEventListener('click',function(){sortTable(i);});
 });
+function announceSort(state){
+ SORT_HEADS.forEach(function(th,i){
+  if(state.col===null||i!==state.col){
+   th.removeAttribute('aria-sort');
+  }else{
+   th.setAttribute('aria-sort',state.dir===1?'ascending':'descending');
+  }
+ });
+}
 function sortTable(col){
  var tbody=document.getElementById('catalog-body');
  if(!ORIGINAL){
@@ -1390,6 +1416,7 @@ function sortTable(col){
  if(SORT_STATE.col===null){SORT_STATE={col:col,dir:1,wasFlipped:false};}
  else if(SORT_STATE.dir===1){SORT_STATE.wasFlipped=true;}
  var state=Object.assign({},SORT_STATE);
+ announceSort(state);
  if(state.col===null){
   ORIGINAL.forEach(function(tr){tbody.appendChild(tr);});
   return;
@@ -1515,13 +1542,14 @@ def _overlay_badge(overlays: dict[str, object] | None, object_id: str) -> str:
 
 
 _STATUS_CHIPS_HTML = (
-    '<button class="chip active" data-status="all"'
+    '<button class="chip active" data-status="all" aria-pressed="true"'
     " onclick=\"setStatus('all')\">any status</button>"
-    '<button class="chip" data-status="verified"'
+    '<button class="chip" data-status="verified" aria-pressed="false"'
     " onclick=\"setStatus('verified')\">verified</button>"
-    '<button class="chip" data-status="stale"'
+    '<button class="chip" data-status="stale" aria-pressed="false"'
     " onclick=\"setStatus('stale')\">stale</button>"
     '<button class="chip" data-status="insufficient_evidence"'
+    ' aria-pressed="false"'
     " onclick=\"setStatus('insufficient_evidence')\">insufficient</button>"
 )
 
@@ -1548,7 +1576,7 @@ def _site_page_html(
         f'<nav class="site-nav"><a href="{_h(home)}">← catalog</a>'
         f'<span class="meta">{_h(root_name)} · generation {_h(active)}'
         f" · freshness {_h(freshness)} · commit {_h(commit)}</span>"
-        '<button id="theme-toggle" title="Toggle theme">◐</button></nav>\n'
+        '<button id="theme-toggle" title="Toggle theme" aria-label="Toggle color theme">◐</button></nav>\n'
         "<main>\n"
         f"<h2>{_h(relative)}</h2>\n"
         + (
@@ -1589,7 +1617,7 @@ def _site_index_html(
         '<nav class="site-nav"><span class="meta">'
         f"{_h(root_name)} · generation {_h(active)}"
         f" · freshness {_h(freshness)} · commit {_h(commit)}</span>"
-        '<button id="theme-toggle" title="Toggle theme">◐</button></nav>\n'
+        '<button id="theme-toggle" title="Toggle theme" aria-label="Toggle color theme">◐</button></nav>\n'
         "<main>\n"
         f"<h1>{_h(root_name)} knowledge catalog</h1>\n"
         + (
@@ -1611,18 +1639,23 @@ def _site_index_html(
         + '<section class="ask">\n<h2>Ask the knowledge base</h2>\n'
         '<p class="ask-hint">evidence-only — retrieval over verified'
         " knowledge; no generative answers.</p>\n"
-        '<input id="ask-input" type="search"'
+        '<input id="ask-input" type="search" aria-label="Ask the'
+        ' knowledge base"'
         ' placeholder="e.g. when is inventory reserved?">\n'
-        '<div id="ask-results"></div>\n</section>\n'
+        '<div id="ask-results" aria-live="polite"></div>\n</section>\n'
         '<input id="catalog-search" type="search"'
-        ' placeholder="Filter catalog">\n'
+        ' aria-label="Filter catalog" placeholder="Filter catalog">\n'
         f'<div class="chips">{chips_html}</div>\n'
         f'<div class="chips status-chips">{status_chips_html}</div>\n'
         '<p class="ask-hint"><a href="history.html">Generation timeline'
         " &amp; diff →</a></p>\n"
         '<table class="catalog-table"><thead><tr>'
-        "<th>Knowledge ID</th><th>Type</th><th>Status</th>"
-        "<th>Claims</th><th>Evidence</th></tr></thead>"
+        "<th scope=\"col\"><button>Knowledge ID</button></th>"
+        "<th scope=\"col\"><button>Type</button></th>"
+        "<th scope=\"col\"><button>Status</button></th>"
+        "<th scope=\"col\"><button>Claims</button></th>"
+        "<th scope=\"col\"><button>Evidence</button></th>"
+        "</tr></thead>"
         f'<tbody id="catalog-body">{catalog_body}</tbody></table>\n'
         "</main>\n"
         "<script>var INDEX="

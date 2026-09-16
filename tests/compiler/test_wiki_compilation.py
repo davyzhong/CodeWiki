@@ -610,3 +610,27 @@ def test_detail_page_renders_related_card(tmp_path: Path) -> None:
     ).read_text(encoding="utf-8")
     assert "Related knowledge" in module_page
     assert "<svg" in module_page
+
+
+def test_exported_surfaces_carry_aria_semantics(tmp_path: Path) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    publish_world(tmp_path)
+    compile_repository_wiki(tmp_path)
+    single = (
+        tmp_path / ".knowledge/exports/repo-wiki.html"
+    ).read_text(encoding="utf-8")
+    assert 'id="ask-results" aria-live="polite"' in single
+    assert 'aria-label="Search wiki"' in single
+    assert 'aria-label="Toggle color theme"' in single
+    assert "aria-pressed" in single
+
+    site = (
+        tmp_path / ".knowledge/exports/site/index.html"
+    ).read_text(encoding="utf-8")
+    assert 'aria-pressed="true"' in site
+    assert 'aria-label="Filter catalog"' in site
+    assert 'aria-label="Ask the knowledge base"' in site
+    assert "<th scope=\"col\"><button>" in site
+    assert "announceSort" in site
+    assert "aria-sort" in site
