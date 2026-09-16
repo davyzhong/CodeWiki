@@ -54,8 +54,15 @@ Repository → RepoScanner → tree-sitter AST → Code Graph（符号/调用/�
 4. 提供方 hint 只增强、不替代本地变更检测；
 5. 上游索引失败时：安全失效照常提交，不做语义重生、不谎报发现。
 
+## 2026-09-16 半 live 实测发现（Python 3.13 / codewiki 0.6.5）
+
+1. **真实中型仓库 analyze 原生崩溃**：tenacity、structlog、click、jsonschema、requests 五个公开仓库 `codewiki analyze` 全部段错误（exit 138/139，SIGBUS/SIGSEGV，零输出）；微型 probe fixture（≈10 文件）与 84 文件合成仓库正常。崩溃与代码规模/复杂度相关，**阻塞 live 冒烟与 M8 真实仓库路径**。处置：升级 0.7+ 前必须重测；必要时向上游报 issue（附最小复现）。
+2. **公开面 CLI 合同在非 fixture 仓库成立**：84 文件合成仓库上 `repos add`/`analyze`/`repos scan`/`graph search`/`graph explore` 全链路真实跑通（索引 1.4s、inspect 1.3s、规划 5 目标）。
+3. **接入层已知缺口**：真实 `graph explore` 输出经归一化后 entry_points 与规划目标 topic 匹配为空，5 目标全部 insufficient_evidence（诚实终态）。fixture runner 的归一化形状与真实输出存在差异；修复属 live 冒烟阶段联调工作（需真实 LLM worker 一起调）。
+
 升级到 0.7+ 前：公开面合同必须重新实测（重跑 Phase 0 spike 流程），无假设升级。
 
 ## Revision History
 
+- 2026-09-16 半 live 实测追加：五仓库 analyze 崩溃、CLI 合同在合成仓库成立、entry_points 匹配缺口。
 - 2026-09-12 从 spikes 报告、实测 fixture 与调研笔记提炼建卷。
