@@ -388,3 +388,124 @@ def test_missing_web_url_degrades_to_plain_citations(tmp_path: Path) -> None:
         tmp_path / ".knowledge/views/wiki/sources.md"
     ).read_text(encoding="utf-8")
     assert "blob/" not in sources_md
+
+
+def test_typed_wiki_renders_evidence_citations_when_pack_given() -> None:
+    from types import SimpleNamespace
+
+    from knowledge_compiler.compiler.typed_views import compile_typed_wiki
+
+    outcome = canonicalize("flow")
+    assert outcome.canonical is not None
+    canonical = outcome.canonical
+    claim = canonical.claims[0]
+    item = SimpleNamespace(
+        id=sorted(claim.evidence_ids)[0],
+        path="src/shop/checkout.py",
+        start_line=4,
+        end_line=11,
+        commit="c" * 40,
+    )
+    pack = SimpleNamespace(evidence=[item])
+    page = compile_typed_wiki(
+        canonical,
+        None,
+        pack=pack,
+        web_url="https://github.com/fixture/probe-shop",
+    ).decode("utf-8")
+    assert "- Evidence:" in page
+    assert "https://github.com/fixture/probe-shop/blob/" in page
+
+
+def test_typed_wiki_without_pack_has_no_evidence_lines() -> None:
+    from knowledge_compiler.compiler.typed_views import compile_typed_wiki
+
+    outcome = canonicalize("rule")
+    assert outcome.canonical is not None
+    page = compile_typed_wiki(outcome.canonical).decode("utf-8")
+    assert "- Evidence:" not in page
+
+
+def test_both_surfaces_embed_claim_level_ask_index(tmp_path: Path) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    publish_world(tmp_path)
+    compile_repository_wiki(tmp_path)
+    single = (
+        tmp_path / ".knowledge/exports/repo-wiki.html"
+    ).read_text(encoding="utf-8")
+    assert "var CLAIMS=" in single
+    assert '"statement"' in single
+    assert '"evidence"' in single
+    site = (
+        tmp_path / ".knowledge/exports/site/index.html"
+    ).read_text(encoding="utf-8")
+    assert "var CLAIMS=" in site
+    assert '"href"' in site
+
+
+def test_insufficient_targets_surface_in_catalog_and_coverage(
+    tmp_path: Path,
+) -> None:
+    import json as _json
+
+    from knowledge_compiler.compiler.wiki import (
+        _insufficient_targets,
+        compile_repository_wiki,
+    )
+
+    publish_world(tmp_path)
+    runs_dir = tmp_path / ".knowledge/state/runs/run-insufficient-001"
+    runs_dir.mkdir(parents=True)
+    insufficient_target = {
+        "target_id": "tech-stack.probe-shop.runtime",
+        "object_type": "tech-stack",
+        "topic": "runtime stack",
+        "evidence_seeds": (),
+        "state": "done",
+        "attempt": 1,
+        "repair_attempts": 0,
+        "required": True,
+        "priority": 1,
+        "result": "insufficient_evidence",
+        "published_object_id": None,
+        "request_digest": "sha256:" + "1" * 64,
+        "result_digest": None,
+        "diagnostics": ("no bounded evidence available",),
+        "lease": None,
+    }
+    (runs_dir / "run.json").write_text(
+        _json.dumps(
+            {
+                "run_id": "run-insufficient-001",
+                "repository_id": "fixture/probe-shop",
+                "snapshot_id": "sha256:" + "2" * 64,
+                "executor": "llm",
+                "active": False,
+                "targets": (insufficient_target,),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    counts = _insufficient_targets(tmp_path)
+    assert counts == {
+        "tech-stack": (1, ["tech-stack.probe-shop.runtime"])
+    }
+
+    compile_repository_wiki(tmp_path)
+    site = (
+        tmp_path / ".knowledge/exports/site/index.html"
+    ).read_text(encoding="utf-8")
+    assert "insufficient-row" in site
+    assert "tech-stack.probe-shop.runtime" in site
+    single = (
+        tmp_path / ".knowledge/exports/repo-wiki.html"
+    ).read_text(encoding="utf-8")
+    assert "cov-insufficient-count" in single
+
+
+def test_insufficient_targets_tolerate_missing_runs(tmp_path: Path) -> None:
+    from knowledge_compiler.compiler.wiki import _insufficient_targets
+
+    assert _insufficient_targets(tmp_path) == {}

@@ -110,6 +110,7 @@ def compile_repository_wiki(
 
     diagram_svgs = _diagram_svgs(objects)
     rendered, search_index = _render_page_bodies(pages, diagram_svgs)
+    insufficient = _insufficient_targets(root)
     html_bytes = _standalone_html(
         root,
         active,
@@ -120,9 +121,19 @@ def compile_repository_wiki(
         objects,
         packs,
         overlays,
+        web_url,
+        insufficient,
     )
     site_pages = _site_pages(
-        root, active, stale_ids, orphans, rendered, search_index, objects, packs
+        root,
+        active,
+        stale_ids,
+        orphans,
+        rendered,
+        search_index,
+        objects,
+        packs,
+        insufficient,
     )
 
     knowledge_root = root / ".knowledge"
@@ -235,7 +246,9 @@ def _object_page(
         # A stale module or one without a persisted Evidence Pack still
         # deserves a readable page; the generic renderer never invents
         # claims and the stale banner is prepended below.
-        body = compile_typed_wiki(canonical, overlay)
+        body = compile_typed_wiki(
+            canonical, overlay, pack=pack, web_url=web_url
+        )
     validity = canonical.validity
     if validity.status != "stale":
         return body
@@ -543,23 +556,68 @@ def _page_type(relative: str) -> str:
     return "overview"
 
 
-def _coverage_rows(objects: dict[str, object]) -> list[tuple[str, int, int]]:
-    """Per-type published/stale counts, honest about empty types."""
+def _insufficient_targets(
+    root: Path,
+) -> dict[str, tuple[int, list[str]]]:
+    """Per-type insufficient_evidence terminal targets of the active run.
 
-    counts: dict[str, list[int]] = {
-        type_name: [0, 0] for type_name in _TYPE_ORDER
-    }
-    for canonical in objects.values():
-        if canonical.type not in counts:
-            continue
-        if canonical.validity.status == "stale":
-            counts[canonical.type][1] += 1
-        else:
-            counts[canonical.type][0] += 1
-    return [
-        (type_name, published, stale)
-        for type_name, (published, stale) in counts.items()
+    The compile must never fail because run state is unreadable: the
+    honesty layer degrades to empty counts instead.
+    """
+
+    runs_root = root / ".knowledge/state/runs"
+    if not runs_root.is_dir():
+        return {}
+    try:
+        from knowledge_compiler.orchestrator.contracts import TerminalResult
+        from knowledge_compiler.orchestrator.store import RunStore
+
+        records = RunStore(runs_root)._list_runs()
+        record = next(
+            (item for item in records if item.active),
+            records[-1] if records else None,
+        )
+        if record is None:
+            return {}
+        counts: dict[str, tuple[int, list[str]]] = {}
+        for target in record.targets:
+            if target.result is not TerminalResult.INSUFFICIENT_EVIDENCE:
+                continue
+            type_name = target.target_id.split(".", 1)[0]
+            count, ids = counts.get(type_name, (0, []))
+            counts[type_name] = (count + 1, ids + [target.target_id])
+        for type_name, (_count, ids) in counts.items():
+            ids.sort()
+        return counts
+    except Exception:
+        return {}
+
+
+def _coverage_rows(
+    objects: dict[str, object],
+    insufficient: dict[str, tuple[int, list[str]]] | None = None,
+) -> list[tuple[str, int, int, int]]:
+    """Per-type published/stale/insufficient counts, honest about gaps."""
+
+    insufficient = insufficient or {}
+    rows: list[tuple[str, int, int, int]] = [
+        (type_name, 0, 0, insufficient.get(type_name, (0, []))[0])
+        for type_name in _TYPE_ORDER
     ]
+    index = {type_name: position for position, (type_name, *_rest) in enumerate(rows)}
+    for canonical in objects.values():
+        if canonical.type not in index:
+            continue
+        type_name, published, stale, lacking = rows[index[canonical.type]]
+        if canonical.validity.status == "stale":
+            rows[index[canonical.type]] = (
+                type_name, published, stale + 1, lacking,
+            )
+        else:
+            rows[index[canonical.type]] = (
+                type_name, published + 1, stale, lacking,
+            )
+    return rows
 
 
 _WIKI_STYLE = """
@@ -646,6 +704,8 @@ padding:8px 12px;margin:6px 0}
 .ask-hit .snippet b{background:color-mix(in srgb,var(--yellow) 30%,var(--bg));
 color:var(--fg);font-weight:600;border-radius:3px;padding:0 2px}
 .ask-empty{color:var(--muted);font-size:.88em;margin:6px 0}
+.ask-claim .claim-statement{margin:6px 0 2px}
+.claim-meta{color:var(--muted);font-size:.78em;word-break:break-all}
 body.ask-mode main section:not(.ask){display:none}
 .site-nav{display:flex;align-items:center;gap:14px;padding:10px 22px;
 border-bottom:1px solid var(--border);background:var(--sidebar);
@@ -665,6 +725,11 @@ padding:6px 12px;text-align:left}
 font-size:.78em;border:1px solid var(--border)}
 .status-verified{color:var(--green);border-color:var(--green)}
 .status-stale{color:var(--yellow);border-color:var(--yellow)}
+.status-insufficient{color:var(--red);border-color:var(--red);opacity:.85}
+.cov-insufficient{background:color-mix(in srgb,var(--red) 45%,var(--sidebar))}
+.cov-insufficient-count{color:var(--red);font-size:.9em;margin-left:2px}
+.insufficient-row td{opacity:.72}
+.muted-cell{color:var(--muted)}
 """
 
 
@@ -699,29 +764,51 @@ def _render_page_bodies(
     return bodies, search_index
 
 
-def _coverage_html(objects: dict[str, object]) -> str:
+def _coverage_html(
+    objects: dict[str, object],
+    insufficient: dict[str, tuple[int, list[str]]] | None = None,
+) -> str:
     """Honest per-type coverage bars shared by both export surfaces."""
 
+    rows = _coverage_rows(objects, insufficient)
     coverage_max = max(
-        (published + stale for _t, published, stale in _coverage_rows(objects)),
+        (published + stale + lacking for _t, published, stale, lacking in rows),
         default=1,
     )
-    return "\n".join(
-        f'<div class="cov-row" title="{_h(type_name)}: '
-        f"{published} published, {stale} stale"
-        f'"><span class="cov-label">{_h(type_name)}</span>'
-        + (
-            f'<span class="cov-bar"><i class="cov-ok" style="width:'
-            f'{(published / coverage_max) * 100:.1f}%"></i><i class="cov-stale"'
-            f' style="width:{(stale / coverage_max) * 100:.1f}%"></i></span>'
-            f'<span class="cov-count">{published + stale}</span>'
-            if published or stale
-            else '<span class="cov-bar cov-empty"></span>'
-            '<span class="cov-count">none</span>'
+
+    def _render(row: tuple[str, int, int, int]) -> str:
+        type_name, published, stale, lacking = row
+        title = (
+            f"{_h(type_name)}: {published} published, {stale} stale"
+            + (f", {lacking} insufficient evidence" if lacking else "")
         )
-        + "</div>"
-        for type_name, published, stale in _coverage_rows(objects)
-    )
+        count = str(published + stale)
+        if lacking:
+            count += f'<span class="cov-insufficient-count">+{lacking}</span>'
+        if published or stale:
+            bar = (
+                f'<span class="cov-bar"><i class="cov-ok" style="width:'
+                f'{(published / coverage_max) * 100:.1f}%"></i>'
+                f'<i class="cov-stale" style="width:'
+                f'{(stale / coverage_max) * 100:.1f}%"></i>'
+                f'<i class="cov-insufficient" style="width:'
+                f'{(lacking / coverage_max) * 100:.1f}%"></i></span>'
+            )
+        elif lacking:
+            bar = (
+                f'<span class="cov-bar"><i class="cov-insufficient"'
+                f' style="width:100%"></i></span>'
+            )
+        else:
+            bar = '<span class="cov-bar cov-empty"></span>'
+            count = "none"
+        return (
+            f'<div class="cov-row" title="{title}">'
+            f'<span class="cov-label">{_h(type_name)}</span>'
+            f"{bar}<span class=\"cov-count\">{count}</span></div>"
+        )
+
+    return "\n".join(_render(row) for row in rows)
 
 
 def _chips_html(type_counts: dict[str, int]) -> str:
@@ -759,6 +846,48 @@ def _diagram_svgs(objects: dict[str, object]) -> dict[str, bytes]:
     return diagram_svgs
 
 
+def _claim_index(
+    objects: dict[str, object],
+    packs: dict[str, object],
+    web_url: str | None,
+    rendered: dict[str, tuple[str, str, str]],
+) -> list[dict[str, object]]:
+    """Claim-granular search entries powering the evidence-only Ask."""
+
+    entries: list[dict[str, object]] = []
+    for object_id, canonical in sorted(objects.items()):
+        pack = packs.get(object_id)
+        evidence_by_id = (
+            {item.id: item for item in pack.evidence} if pack else {}
+        )
+        page_relative = f"{_TYPE_DIRECTORIES[canonical.type]}/{object_id}.md"
+        if page_relative not in rendered:
+            continue
+        anchor = rendered[page_relative][0]
+        for claim in canonical.claims:
+            evidence: list[dict[str, str]] = []
+            for evidence_id in sorted(claim.evidence_ids):
+                item = evidence_by_id.get(evidence_id)
+                if item is None:
+                    continue
+                label = f"{item.path}:{item.start_line}-{item.end_line}"
+                url = _evidence_permalink(web_url, item)
+                evidence.append(
+                    {"label": label, "url": url} if url else {"label": label}
+                )
+            entries.append(
+                {
+                    "claim": claim.id,
+                    "statement": claim.statement,
+                    "object": object_id,
+                    "type": canonical.type,
+                    "anchor": anchor,
+                    "evidence": evidence,
+                }
+            )
+    return entries
+
+
 def _standalone_html(
     root: Path,
     active: str,
@@ -769,8 +898,10 @@ def _standalone_html(
     objects: dict[str, object],
     packs: dict[str, object],
     overlays: dict[str, object],
+    web_url: str | None = None,
+    insufficient: dict[str, tuple[int, list[str]]] | None = None,
 ) -> bytes:
-    del packs, overlays
+    del overlays
     freshness = "current" if not stale_ids else "stale-content"
     sections: list[str] = []
     for relative in sorted(rendered):
@@ -788,9 +919,14 @@ def _standalone_html(
         for relative in sorted(rendered)
     )
     payload = json.dumps(search_index, ensure_ascii=False, sort_keys=True)
+    claims_payload = json.dumps(
+        _claim_index(objects, packs, web_url, rendered),
+        ensure_ascii=False,
+        sort_keys=True,
+    )
     commit = _representative_commit(objects)
 
-    coverage_html = _coverage_html(objects)
+    coverage_html = _coverage_html(objects, insufficient)
     chip_counts: dict[str, int] = {type_name: 0 for type_name in _TYPE_ORDER}
     for item in search_index:
         if item["type"] in chip_counts:
@@ -799,7 +935,13 @@ def _standalone_html(
 
     script = """
 var INDEX=__PAYLOAD__;
+var CLAIMS=__CLAIMS_PAYLOAD__;
 var TYPE='all';
+function esc(s){
+ return String(s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+ });
+}
 function applyFilters(){
  var q=(document.getElementById('search').value||'').toLowerCase();
  document.querySelectorAll('main section').forEach(function(s){
@@ -845,20 +987,39 @@ function renderAsk(q){
   document.body.classList.remove('ask-mode');
   box.innerHTML='';applyFilters();return;
  }
+ document.body.classList.add('ask-mode');
+ var claimHits=CLAIMS.map(function(c){
+  var hay=(c.claim+' '+c.statement+' '+c.object+' '+c.type).toLowerCase();
+  var score=terms.reduce(function(n,t){return n+(hay.indexOf(t)>=0?1:0);},0);
+  return score===terms.length?c:null;
+ }).filter(Boolean);
+ if(claimHits.length){
+  box.innerHTML=claimHits.map(function(c){
+   var ev=c.evidence.map(function(e){
+    return e.url?'<a href="'+esc(e.url)+'" target="_blank" rel="noopener">'
+     +esc(e.label)+'</a>':esc(e.label);
+   }).join(', ');
+   return '<div class="ask-hit ask-claim"><a href="#page-'+esc(c.anchor)
+    +'" onclick="clearAsk()">'+esc(c.object)+'</a>'
+    +'<p class="claim-statement">'+esc(c.statement)+'</p>'
+    +'<p class="claim-meta">'+esc(c.claim)
+    +(ev?' · evidence: '+ev:'')+'</p></div>';
+  }).join('');
+  return;
+ }
  var hits=INDEX.map(function(item){
   var hay=(item.title+' '+item.text).toLowerCase();
   var score=terms.reduce(function(n,t){return n+(hay.indexOf(t)>=0?1:0);},0);
   return score===terms.length?item:null;
  }).filter(Boolean);
- document.body.classList.add('ask-mode');
  if(!hits.length){
   box.innerHTML='<p class="ask-empty">知识库未覆盖此问题（evidence-only：'
    +'只检索已验证知识，不做生成式回答）。</p>';
   return;
  }
  box.innerHTML=hits.map(function(item){
-  return '<div class="ask-hit"><a href="#page-'+item.id+
-   '" onclick="clearAsk()">'+item.title+'</a><p class="snippet">'+
+  return '<div class="ask-hit"><a href="#page-'+esc(item.id)+
+   '" onclick="clearAsk()">'+esc(item.title)+'</a><p class="snippet">'+
    snippet(item,terms[0])+'</p></div>';
  }).join('');
 }
@@ -883,7 +1044,7 @@ btn.addEventListener('click',function(){
  document.documentElement.setAttribute('data-theme',next);
  try{localStorage.setItem('wiki-theme',next);}catch(err){}
 });
-""".replace("__PAYLOAD__", payload)
+""".replace("__PAYLOAD__", payload).replace("__CLAIMS_PAYLOAD__", claims_payload)
 
     return (
         "<!doctype html>\n"
@@ -944,6 +1105,11 @@ btn.addEventListener('click',function(){
 """
 
 _SITE_ASK_JS = """
+function esc(s){
+ return String(s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+ });
+}
 function snippet(item,q){
  var text=item.text;var lower=text.toLowerCase();var at=lower.indexOf(q);
  if(at<0){return text.slice(0,160);}
@@ -958,6 +1124,25 @@ function renderAsk(q){
  var box=document.getElementById('ask-results');
  var terms=q.toLowerCase().split(/\\s+/).filter(Boolean);
  if(!terms.length){box.innerHTML='';return;}
+ var claimHits=CLAIMS.map(function(c){
+  var hay=(c.claim+' '+c.statement+' '+c.object+' '+c.type).toLowerCase();
+  var score=terms.reduce(function(n,t){return n+(hay.indexOf(t)>=0?1:0);},0);
+  return score===terms.length?c:null;
+ }).filter(Boolean);
+ if(claimHits.length){
+  box.innerHTML=claimHits.map(function(c){
+   var ev=(c.evidence||[]).map(function(e){
+    return e.url?'<a href="'+esc(e.url)+'" target="_blank" rel="noopener">'
+     +esc(e.label)+'</a>':esc(e.label);
+   }).join(', ');
+   return '<div class="ask-hit ask-claim"><a href="'+esc(c.href)+'">'
+    +esc(c.object)+'</a>'
+    +'<p class="claim-statement">'+esc(c.statement)+'</p>'
+    +'<p class="claim-meta">'+esc(c.claim)
+    +(ev?' · evidence: '+ev:'')+'</p></div>';
+  }).join('');
+  return;
+ }
  var hits=INDEX.map(function(item){
   var hay=(item.title+' '+item.text).toLowerCase();
   var score=terms.reduce(function(n,t){return n+(hay.indexOf(t)>=0?1:0);},0);
@@ -969,7 +1154,7 @@ function renderAsk(q){
   return;
  }
  box.innerHTML=hits.map(function(item){
-  return '<div class="ask-hit"><a href="'+item.href+'">'+item.title+
+  return '<div class="ask-hit"><a href="'+esc(item.href)+'">'+esc(item.title)+
    '</a><p class="snippet">'+snippet(item,terms[0])+'</p></div>';
  }).join('');
 }
@@ -1070,6 +1255,7 @@ def _site_index_html(
     chips_html: str,
     catalog_body: str,
     payload: str,
+    claims_payload: str,
     commit: str,
 ) -> bytes:
     freshness = "current" if not stale_ids else "stale-content"
@@ -1118,6 +1304,8 @@ def _site_index_html(
         "</main>\n"
         "<script>var INDEX="
         + payload
+        + ";var CLAIMS="
+        + claims_payload
         + ";</script>\n"
         f"<script>{_SITE_ASK_JS}</script>\n"
         f"<script>{_SITE_CATALOG_JS}</script>\n"
@@ -1135,10 +1323,10 @@ def _site_pages(
     search_index: list[dict[str, str]],
     objects: dict[str, object],
     packs: dict[str, object],
+    insufficient: dict[str, tuple[int, list[str]]] | None = None,
 ) -> dict[str, bytes]:
     """Compile the multi-page static site with relative-path linking."""
 
-    del packs
     commit = _representative_commit(objects)
     freshness = "current" if not stale_ids else "stale-content"
     pages_out: dict[str, bytes] = {}
@@ -1199,15 +1387,38 @@ def _site_pages(
             f'<td data-sort="{len(evidence_ids)}" style="text-align:right">'
             f"{len(evidence_ids)}</td></tr>"
         )
+    for type_name in _TYPE_ORDER:
+        count, lacking_ids = (insufficient or {}).get(type_name, (0, []))
+        for target_id in lacking_ids:
+            if target_id in objects:
+                continue
+            rows.append(
+                f'<tr class="insufficient-row" data-type="{_h(type_name)}"'
+                f' data-text="{_h(target_id.lower() + " " + type_name)}">'
+                f'<td data-sort="{_h(target_id)}" class="muted-cell">'
+                f"{_h(target_id)}</td>"
+                f'<td data-sort="{_h(type_name)}">{_h(type_name)}</td>'
+                '<td data-sort="insufficient_evidence">'
+                '<span class="status-pill status-insufficient">'
+                "insufficient_evidence</span></td>"
+                '<td data-sort="0" style="text-align:right">—</td>'
+                '<td data-sort="0" style="text-align:right">—</td></tr>'
+            )
+    claim_entries = _claim_index(objects, packs, None, rendered)
+    for entry in claim_entries:
+        entry["href"] = (
+            f"{_TYPE_DIRECTORIES[entry['type']]}/{entry['object']}.html"
+        )
     pages_out["index.html"] = _site_index_html(
         root.name,
         active,
         stale_ids,
         orphans,
-        _coverage_html(objects),
+        _coverage_html(objects, insufficient),
         _chips_html(chip_counts),
         "".join(rows),
         json.dumps(ask_index, ensure_ascii=False, sort_keys=True),
+        json.dumps(claim_entries, ensure_ascii=False, sort_keys=True),
         commit,
     )
     return pages_out
