@@ -1,6 +1,6 @@
 # CodeWiki — 仓库知识编译器
 
-[![tests](https://img.shields.io/badge/tests-752%20passed%20%C2%B71%20skipped-brightgreen)](scripts/verify.sh)
+[![tests](https://img.shields.io/badge/tests-765%20passed%20%C2%B71%20skipped-brightgreen)](scripts/verify.sh)
 [![python](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
 [![version](https://img.shields.io/badge/version-0.1.0.dev0-orange)](pyproject.toml)
 [![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](scripts/verify.sh)
@@ -53,25 +53,29 @@ flowchart LR
 
 ## 它产出的东西（真实截图）
 
-下面三张截图来自一次真实的五类型构建（fixture 仓库 + 生产管线完整跑通，非设计稿）。注意左下角 `architecture` 诚实地写着 *No architecture knowledge is published*——证据不足时系统拒绝编造，这是产品行为而不是演示事故：
+下面截图来自一次真实的五类型构建（fixture 仓库 + 生产管线完整跑通，非设计稿）。注意覆盖率条里 `architecture` 与 `tech-stack` 诚实显示 `none`——证据不足时系统拒绝编造，这是产品行为而不是演示事故：
 
 <p align="center">
-  <img src="docs/assets/wiki-overview.png" width="840" alt="Repo Wiki 总览页：目录、generation 三戳、诚实空态">
+  <img src="docs/assets/wiki-overview.png" width="840" alt="Repo Wiki 总览页：覆盖率条、类型过滤、目录、Ask 面板、诚实空态">
 </p>
 
-模块页展示 Scope 表（仓库/分支/commit 锚定）、职责列表，以及**每条 Claim 的证据折叠块**——展开即可看到代码摘录与哈希：
+模块页展示 Scope 表（仓库/分支/commit 锚定）、职责列表，以及**每条 Claim 的证据折叠块**——证据引用带 permalink（`init --web-url` 配置后一键跳到 GitHub/GitLab 源码行）：
 
 <p align="center">
-  <img src="docs/assets/wiki-module.png" width="840" alt="模块知识页：Scope 表、Claims 与证据折叠块">
+  <img src="docs/assets/wiki-module.png" width="840" alt="模块知识页：Scope 表、Claims 与证据折叠块、evidence permalink">
 </p>
 
 源索引页反向回答"这段代码被哪些知识引用"——证据绑定是双向可追溯的：
 
 <p align="center">
-  <img src="docs/assets/wiki-sources.png" width="840" alt="源索引页：代码行区间与引用它的知识对象">
+  <img src="docs/assets/wiki-sources.png" width="840" alt="源索引页：代码行区间 permalink 与引用它的知识对象">
 </p>
 
-单文件 HTML 带目录与全文搜索，`knowledge open` 一键打开，`knowledge serve` 起仅回环的只读服务。
+`compile` 同时产出一个**可托管的多页静态站点**（`exports/site/`，目录表支持搜索/过滤/列头排序，Ask 是 evidence-only 检索——只返回命中 Claim 与证据锚点，不做生成式回答）；`knowledge serve` 从站点目录起本地只读服务，`knowledge open` 打开的单文件 HTML 支持 dark mode 与全文搜索：
+
+<p align="center">
+  <img src="docs/assets/site-catalog.png" width="840" alt="静态站点目录页：对象目录表、覆盖率、Ask(evidence-only)">
+</p>
 
 ## 构建管线
 
@@ -115,7 +119,7 @@ stateDiagram-v2
 pip install -e ".[dev]"              # Python 3.12+；生产依赖仅 4 个包
 
 # 在目标 git 仓库根目录（工作树必须干净）：
-knowledge init --language zh          # 初始化 .knowledge/
+knowledge init --language zh --web-url https://github.com/org/repo   # 初始化 .knowledge/（--web-url 启用证据 permalink）
 knowledge build --executor llm        # 主构建（LLM 走 LiteLLM，Agent 走队列协议）
 knowledge compile                     # 确定性 Wiki/HTML + 重建 FTS 索引
 knowledge context "任务描述"           # 预算化任务上下文（verified-only，门禁 fail-closed）
@@ -141,7 +145,7 @@ bash scripts/verify.sh
 ## 项目状态
 
 - **V0.1 主链路全线贯通**：规划 → 证据 → 抽取 → 验证 → 原子发布 → 增量失效/重试/确定性退役 → 三视图编译 → FTS/门禁检索 → CLI + MCP，恢复计划 Gate 1–8 与符合性修复 Task 1–5 全部完成。
-- 离线基线 **752 项测试通过（双遍一致）** + 1 项 opt-in live 冒烟默认跳过。
+- 离线基线 **765 项测试通过（双遍一致）** + 1 项 opt-in live 冒烟默认跳过。
 - 剩余两件事都在等外部输入：真实仓库 + API key 的 live 冒烟；M8 A/B 基准的四项设计决策冻结。
 
 ## 文档导航

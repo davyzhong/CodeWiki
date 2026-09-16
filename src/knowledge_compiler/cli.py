@@ -19,7 +19,7 @@ _MANAGED_IGNORE_ENTRIES = (
 )
 
 
-def _default_config(language: str) -> KnowledgeConfig:
+def _default_config(language: str, web_url: str | None = None) -> KnowledgeConfig:
     return KnowledgeConfig.model_validate(
         {
             "schema_version": "0.1",
@@ -33,6 +33,7 @@ def _default_config(language: str) -> KnowledgeConfig:
             "exclusions": [],
             "scope_limits": {"max_files": 10000, "max_bytes": 52428800},
             "default_context_budget": 6000,
+            "web_url": web_url,
         }
     )
 
@@ -657,6 +658,13 @@ def _main() -> None:
 @app.command()
 def init(
     language: Annotated[str, typer.Option(help="Output language zh|en")],
+    web_url: Annotated[
+        str | None,
+        typer.Option(
+            help="Repository web root for evidence permalinks"
+            " (e.g. https://github.com/org/repo)",
+        ),
+    ] = None,
     repository_root: Annotated[
         Path, typer.Option(help="Repository root (defaults to cwd)")
     ] = Path("."),
@@ -685,7 +693,7 @@ def init(
         typer.echo(f"knowledge already initialized ({language})")
     else:
         knowledge.mkdir(parents=True, exist_ok=True)
-        write_config(config_path, _default_config(language))
+        write_config(config_path, _default_config(language, web_url))
         typer.echo(f"initialized {config_path}")
 
     _update_gitignore(root)

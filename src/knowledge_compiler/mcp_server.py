@@ -35,13 +35,17 @@ _OBJECT_ARGUMENT = {
 _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "knowledge_repo_overview": {
         "description": (
-            "Read the verified knowledge overview: generation stamps, "
-            "object counts by type, and attributed human overlays."
+            "Call first in a session: read the verified knowledge overview "
+            "(generation stamps, object counts by type, attributed human "
+            "overlays) to learn what this repository's knowledge covers."
         ),
         "inputSchema": {"type": "object", "properties": {}},
     },
     "knowledge_search": {
-        "description": "Search verified knowledge objects by text.",
+        "description": (
+            "Find which verified knowledge objects talk about a topic "
+            "before reading code; every hit is Claim-backed."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -84,8 +88,9 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     },
     "knowledge_context_for_task": {
         "description": (
-            "Compile budgeted task context from verified knowledge; "
-            "include_stale is a visibly marked diagnostic mode."
+            "Before starting a coding task, get the budgeted verified "
+            "context pack for it; include_stale is a visibly marked "
+            "diagnostic mode."
         ),
         "inputSchema": {
             "type": "object",
@@ -241,7 +246,12 @@ def _dispatch(
         return {
             "jsonrpc": "2.0",
             "id": request_id,
-            "result": {"content": content},
+            "result": {
+                "content": content,
+                # MCP 2025-06-18: structured results SHOULD also carry the
+                # serialized JSON in a text block for older clients.
+                "structuredContent": result.payload,
+            },
         }
     return {
         "jsonrpc": "2.0",
@@ -300,6 +310,26 @@ def _verified(objects: dict[str, object]) -> dict[str, object]:
     }
 
 
+def _provenance(
+    manifest: dict, objects: dict[str, object]
+) -> dict[str, Any]:
+    """Provenance header every consuming agent can verify freshness with."""
+
+    commits = sorted(
+        {
+            canonical.scope.commit
+            for canonical in objects.values()
+            if canonical.scope.commit
+        }
+    )
+    return {
+        "generation": manifest.get("active_generation"),
+        "agent_views_generation": manifest.get("agent_views_generation"),
+        "commit": commits[0] if commits else None,
+        "freshness": "gated-current",
+    }
+
+
 def _overview(root: Path, snapshot: object | None) -> _ToolResult:
     _gate(root, snapshot)
     objects, _packs, overlays, manifest = _load(root)
@@ -308,6 +338,7 @@ def _overview(root: Path, snapshot: object | None) -> _ToolResult:
     for canonical in verified.values():
         counts[canonical.type] = counts.get(canonical.type, 0) + 1
     payload = {
+        "provenance": _provenance(manifest, verified),
         "active_generation": manifest.get("active_generation"),
         "agent_views_generation": manifest.get("agent_views_generation"),
         "wiki_generation": manifest.get("wiki_generation"),
@@ -358,6 +389,7 @@ def _search(
     )[:limit]
     return _ToolResult(
         {
+            "provenance": _provenance(_manifest, verified),
             "results": [
                 {
                     "object_id": object_id,
@@ -390,6 +422,7 @@ def _get_object(
         )
     overlay = overlays.get(object_id)
     payload: dict[str, Any] = {
+        "provenance": _provenance(_manifest, objects),
         "object_id": object_id,
         "type": canonical.type,
         "title": _as_data(canonical.title),
@@ -459,6 +492,7 @@ def _get_related(
     ]
     return _ToolResult(
         {
+            "provenance": _provenance(_manifest, verified),
             "object_id": object_id,
             "relations": [
                 {"predicate": _as_data(predicate), "target": target}
@@ -507,6 +541,7 @@ def _get_evidence(
         )
     return _ToolResult(
         {
+            "provenance": _provenance(_manifest, _objects),
             "evidence": found,
             "unknown_evidence_ids": [
                 evidence_id
@@ -540,7 +575,19 @@ def _context_for_task(
         )
     except ContextRetrievalError as error:
         raise ToolError(str(error)) from error
-    return _ToolResult({"task": task}, markdown=markdown)
+    manifest_path = root / ".knowledge/manifest.yaml"
+    manifest = (
+        yaml.safe_load(manifest_path.read_bytes())
+        if manifest_path.is_file()
+        else {}
+    )
+    return _ToolResult(
+        {
+            "task": task,
+            "provenance": _provenance(manifest, {}),
+        },
+        markdown=markdown,
+    )
 
 
 def _status(root: Path, arguments: dict[str, Any]) -> _ToolResult:

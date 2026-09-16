@@ -197,3 +197,37 @@ def test_preflight_reports_validation_profile_reuse(tmp_path: Path) -> None:
         profiles={"extraction_profile": "extraction-v1", "validation_profile": None},
     )
     assert result["validation_profile_mode"] == "reuses-extraction-profile"
+
+
+@pytest.mark.parametrize(
+    "url",
+    (
+        "https://github.com/org/repo",
+        "http://gitea.internal:3000/org/repo/",
+    ),
+)
+def test_web_url_accepts_bare_http_roots(url: str) -> None:
+    payload = base_payload() | {"web_url": url}
+    config = KnowledgeConfig.model_validate(payload)
+    assert config.web_url == url.rstrip("/")
+
+
+@pytest.mark.parametrize(
+    "url",
+    (
+        "https://user:pass@example.com/org/repo",
+        "https://github.com/org/repo?token=x",
+        "https://github.com/org/repo#frag",
+        "git@github.com:org/repo.git",
+        "not-a-url",
+    ),
+)
+def test_web_url_rejects_credentials_queries_and_non_http(url: str) -> None:
+    payload = base_payload() | {"web_url": url}
+    with pytest.raises(ValueError, match="web_url"):
+        KnowledgeConfig.model_validate(payload)
+
+
+def test_web_url_is_optional_and_defaults_to_none() -> None:
+    config = KnowledgeConfig.model_validate(base_payload())
+    assert config.web_url is None

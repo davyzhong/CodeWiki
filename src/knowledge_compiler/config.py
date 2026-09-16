@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import urllib.parse
 from pathlib import Path, PurePosixPath
 from typing import Literal
 
@@ -46,6 +47,21 @@ class KnowledgeConfig(BaseModel):
     exclusions: tuple[str, ...] = ()
     scope_limits: ScopeLimits
     default_context_budget: int = Field(strict=True, gt=0)
+    web_url: str | None = None
+
+    @field_validator("web_url")
+    @classmethod
+    def validate_web_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parsed = urllib.parse.urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError(f"web_url must be an http(s) URL: {value}")
+        if "@" in parsed.netloc:
+            raise ValueError(f"web_url must not carry credentials: {value}")
+        if parsed.query or parsed.fragment:
+            raise ValueError(f"web_url must be a bare repository root: {value}")
+        return value.rstrip("/")
 
     @field_validator("exclusions")
     @classmethod

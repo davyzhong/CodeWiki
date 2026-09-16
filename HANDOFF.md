@@ -1,19 +1,25 @@
 # HANDOFF — 会话交接文档
 
-> 交接时间：2026-09-16 ｜ HEAD：`adaa907`（与 `origin/main` 同步，工作树干净）
-> 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**752 passed + 1 opt-in live skipped**，compileall / diff-check / pip-audit 绿；live SKIP 属预期）
+> 交接时间：2026-09-16（同日第二次更新：展示层 v2 已实施） ｜ HEAD：见 `git log -1`（展示层实施提交）
+> 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**765 passed + 1 opt-in live skipped**，compileall / diff-check / pip-audit 绿；live SKIP 属预期）
 > 新会话第一步：`git fetch origin && git status --short --branch` 核对是否有并行推进，再读本文与 [docs/README.md](docs/README.md)。
 
 ---
 
 ## 一、当前任务状态（本会话做了什么）
 
-本会话（2026-09-16）是一次**演示与门面会话**：把"项目能产出什么可视化交付物"做实并展示给用户，然后重建 README。没有改任何产品代码。按时间顺序四件事：
+本会话（2026-09-16）两次大交付：**①演示与 README 门面**（五类型 fixture 构建 + 三张真实截图 + README 重建，`adaa907`）；**②展示层 v2 设计与实施**：
 
-1. **五类型演示构建跑通生产管线**：真实 git fixture 仓库（probe 仓库 + git init + remote 指向 fixture URL）+ `plan_full_refresh` 生成五类型目标 + 自写 `DemoWorker` → **BUILD STATUS partial**（module/flow/rule 3 对象 verified；architecture/tech-stack 因证据包为空诚实落 `insufficient_evidence`——这正是产品语义的活展示）。产物完整：8 页 Wiki、HTML 导出、FTS 索引 3 对象。
-2. **HTML Wiki 已打开给用户**（`knowledge compile` 产出的单文件 HTML，目录 + 全文搜索 + 证据折叠块）。
-3. **三张真实截图入库** `docs/assets/`：wiki-overview / wiki-module / wiki-sources（Chrome headless @2x 高清，均来自上面那次真实构建）。
-4. **README 全面重建并推送**（提交 `adaa907`，4 文件 +141/−24）：徽章行、三张 Mermaid 图（三层分离 / 构建管线 / 生命周期状态机）、三张截图、定位表、快速上手、验证闭环、文档导航。24 个相对链接零坏链。
+1. **三轮调研**（本地知识库 + DeepWiki/dbt docs/Quartz/TiddlyWiki/coverage.py/OpenAPI/MCP 官方/Backstage）→ 设计文档 [plans/active/2026-09-16-presentation-layer-design.md](docs/superpowers/plans/active/2026-09-16-presentation-layer-design.md)（`4b93349`）。
+2. **用户四项决策**：permalink 走 init config；展示层立即实施（缺决策时参考竞品自主定）；Ask 用 evidence-only 检索式；按可托管设计。
+3. **实施落地**（全部完成，765 tests 绿）：
+   - config 新增 `web_url`（http(s) 裸根、拒 userinfo/query；`init --web-url`）
+   - evidence permalink：`_evidence_permalink` → module/sources 页 `{web_url}/blob/{commit}/{path}#L{s}-L{e}`
+   - 单文件 HTML 大改：CSS 变量双主题+手动切换、类型过滤 chips、五类型覆盖率条（诚实 none 态）、Ask(evidence-only) 视图（客户端检索+snippet+诚实空态）、GFM 表格渲染、`.md→.html` 链接改写
+   - `exports/site/` 多页静态站点（index 目录表：搜索/过滤/列头排序；每对象详情页；相对路径可托管）+ `_render_page_bodies` 单源双渲染防漂移
+   - serve 升级：site 目录静态服务（`.html` 白名单 + 路径穿越/symlink 防护），无 site 时回退单文件
+   - MCP 合规：`structuredContent` 双返回、三个工具描述意图化、全部工具 payload 加 `provenance` 头（generation/commit/freshness）
+4. README 更新（四张新截图含 site-catalog、计数 765、--web-url 快速上手）。
 
 ## 二、已完成的内容
 
@@ -64,14 +70,15 @@ V0.1 **技术链全部完成**（M1–M7、恢复计划 Gate 1–8、符合性�
 7. **迁移目录前必须扫代码引用**：`rg "docs/" src tests scripts` 提前捕获硬编码路径（曾有 Skill 字节一致测试硬编码 `docs/project-materials/`）。
 8. **相对链接深度要跑检查器**：用"解析全部 md 相对链接→验证目标存在"脚本收敛零坏链（README 24 链已验）；归档（`materials/archives/`）按冻结历史豁免。
 9. **Edit 工具偶发匹配失败**（字节一致仍报 not found）：重新 Read 刷新文件状态后即可成功；macOS 无 `cat -A`，用 `cat -et`。
-10. **项目不用 emoji commit 风格**：纯文本 conventional commits（`docs: …`/`feat: …`），正文 72 字符内换行；推送前 `verify.sh` 必须绿（main-only，无分支）。
+10. **测试计数以 verify.sh 实测为准（当天重演）**：`pytest tests/` 与 verify.sh 套件范围不同（765 vs 753）；文档计数永远抄 verify.sh 尾行。
+11. **项目不用 emoji commit 风格**：纯文本 conventional commits（`docs: …`/`feat: …`），正文 72 字符内换行；推送前 `verify.sh` 必须绿（main-only，无分支）。
 
 ## 六、下个会话快速上手
 
 ```bash
 cd /Users/qiming/workspace/CodeWiki
 git fetch origin && git status --short --branch   # 预期：clean、与远程同步（adaa907）
-bash scripts/verify.sh                             # 预期：VERIFY: PASS（752+1skip，live SKIP 属预期）
+bash scripts/verify.sh                             # 预期：VERIFY: PASS（765+1skip，live SKIP 属预期）
 ```
 
-然后：读本文 → [README.md](README.md)（新门面，含三图三截图）→ [docs/README.md](docs/README.md)（文档地图）。若用户带来了环境/决策，按第三节解锁路径直接开工；若需要重新演示或重新截图，按第二节 2.1/2.2 的方法重做（临时产物已随 /tmp 清理）。
+然后：读本文 → [README.md](README.md)（新门面，含三图三截图）→ [docs/README.md](docs/README.md)（文档地图）。若用户带来了环境/决策，按第三节解锁路径直接开工；若需要重新演示或重新截图，按第二节 2.1/2.2 的方法重做（临时产物已随 /tmp 清理）；演示仓库 config 已含 web_url=fixture URL，重跑 demo 脚本后需重新写入 config 再 compile 才有 permalink。

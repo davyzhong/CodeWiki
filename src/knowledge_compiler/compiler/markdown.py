@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import re
+import urllib.parse
 from collections.abc import Iterable
 
 from knowledge_compiler.compiler.yaml import _validate_inputs
@@ -42,10 +43,34 @@ def _code(value: str) -> str:
     return f"{fence}{content}{fence}"
 
 
+def _evidence_permalink(web_url: str | None, item: EvidenceItem) -> str | None:
+    """Build a GitHub/GitLab-style permalink for a bounded evidence item."""
+
+    if not web_url or not item.commit:
+        return None
+    path = urllib.parse.quote(item.path.lstrip("/"), safe="/")
+    return (
+        f"{web_url}/blob/{item.commit}/{path}"
+        f"#L{item.start_line}-L{item.end_line}"
+    )
+
+
+def _citation(
+    evidence_id: str,
+    evidence_by_id: dict[str, EvidenceItem],
+    web_url: str | None,
+) -> str:
+    item = evidence_by_id[evidence_id]
+    label = _code(f"{item.path}:{item.start_line}-{item.end_line}")
+    url = _evidence_permalink(web_url, item)
+    return f"[{label}]({url})" if url else label
+
+
 def _claim_evidence(
     claim_ids: Iterable[str],
     claims_by_id: dict[str, object],
     evidence_by_id: dict[str, EvidenceItem],
+    web_url: str | None = None,
 ) -> tuple[str, str]:
     normalized_claim_ids = tuple(sorted(claim_ids))
     evidence_ids = sorted(
@@ -57,11 +82,7 @@ def _claim_evidence(
     )
     claim_text = ", ".join(_code(claim_id) for claim_id in normalized_claim_ids)
     citations = ", ".join(
-        _code(
-            f"{evidence_by_id[evidence_id].path}:"
-            f"{evidence_by_id[evidence_id].start_line}-"
-            f"{evidence_by_id[evidence_id].end_line}"
-        )
+        _citation(evidence_id, evidence_by_id, web_url)
         for evidence_id in evidence_ids
     )
     return claim_text, citations
@@ -72,9 +93,10 @@ def _pointers(
     claims_by_id: dict[str, object],
     evidence_by_id: dict[str, EvidenceItem],
     indent: str = "",
+    web_url: str | None = None,
 ) -> list[str]:
     claims, citations = _claim_evidence(
-        claim_ids, claims_by_id, evidence_by_id
+        claim_ids, claims_by_id, evidence_by_id, web_url
     )
     return [
         f"{indent}- Claims: {claims}",
@@ -93,6 +115,8 @@ def compile_module_card(
     module: ModuleKnowledge,
     evidence_pack: EvidencePack,
     overlay: HumanOverlay | None = None,
+    *,
+    web_url: str | None = None,
 ) -> bytes:
     """Compile a compact, Claim-backed Markdown module card."""
 
@@ -112,7 +136,7 @@ def compile_module_card(
         [
             _text(canonical.summary.text),
             "",
-            *_pointers(canonical.summary.claim_ids, claims, evidence),
+            *_pointers(canonical.summary.claim_ids, claims, evidence, web_url=web_url),
         ],
         overlay=overlay,
         field="summary",
@@ -121,7 +145,9 @@ def compile_module_card(
     responsibilities: list[str] = []
     for item in canonical.responsibilities:
         responsibilities.append(f"- {_text(item.text)}")
-        responsibilities.extend(_pointers(item.claim_ids, claims, evidence, "  "))
+        responsibilities.extend(
+            _pointers(item.claim_ids, claims, evidence, "  ", web_url=web_url)
+        )
     lines.extend(["", "## Responsibilities", ""])
     lines.extend(render_overlay_field(
         responsibilities,
@@ -132,7 +158,9 @@ def compile_module_card(
     interfaces: list[str] = []
     for item in canonical.public_interfaces:
         interfaces.append(f"- {_code(item.name)} — {_text(item.description)}")
-        interfaces.extend(_pointers(item.claim_ids, claims, evidence, "  "))
+        interfaces.extend(
+            _pointers(item.claim_ids, claims, evidence, "  ", web_url=web_url)
+        )
     lines.extend(["", "## Public interfaces", ""])
     lines.extend(render_overlay_field(
         interfaces,
@@ -143,7 +171,9 @@ def compile_module_card(
     dependencies: list[str] = []
     for item in canonical.dependencies:
         dependencies.append(f"- {_code(item.target)} — {_text(item.description)}")
-        dependencies.extend(_pointers(item.claim_ids, claims, evidence, "  "))
+        dependencies.extend(
+            _pointers(item.claim_ids, claims, evidence, "  ", web_url=web_url)
+        )
     lines.extend(["", "## Dependencies", ""])
     lines.extend(render_overlay_field(
         dependencies,
@@ -154,7 +184,9 @@ def compile_module_card(
     relations: list[str] = []
     for item in canonical.relations:
         relations.append(f"- {_text(item.predicate)} → {_text(item.target)}")
-        relations.extend(_pointers(item.claim_ids, claims, evidence, "  "))
+        relations.extend(
+            _pointers(item.claim_ids, claims, evidence, "  ", web_url=web_url)
+        )
     lines.extend(["", "## Relations", ""])
     lines.extend(render_overlay_field(
         relations,
@@ -170,6 +202,8 @@ def compile_module_wiki(
     module: ModuleKnowledge,
     evidence_pack: EvidencePack,
     overlay: HumanOverlay | None = None,
+    *,
+    web_url: str | None = None,
 ) -> bytes:
     """Compile a detailed, Claim-backed Markdown module wiki page."""
 
@@ -200,7 +234,7 @@ def compile_module_wiki(
         [
             _text(canonical.summary.text),
             "",
-            *_pointers(canonical.summary.claim_ids, claims, evidence),
+            *_pointers(canonical.summary.claim_ids, claims, evidence, web_url=web_url),
         ],
         overlay=overlay,
         field="summary",
@@ -212,7 +246,7 @@ def compile_module_wiki(
             [
                 f"### {_text(item.text)}",
                 "",
-                *_pointers(item.claim_ids, claims, evidence),
+                *_pointers(item.claim_ids, claims, evidence, web_url=web_url),
                 "",
             ]
         )
@@ -231,7 +265,7 @@ def compile_module_wiki(
                 "",
                 _text(item.description),
                 "",
-                *_pointers(item.claim_ids, claims, evidence),
+                *_pointers(item.claim_ids, claims, evidence, web_url=web_url),
                 "",
             ]
         )
@@ -250,7 +284,7 @@ def compile_module_wiki(
                 "",
                 _text(item.description),
                 "",
-                *_pointers(item.claim_ids, claims, evidence),
+                *_pointers(item.claim_ids, claims, evidence, web_url=web_url),
                 "",
             ]
         )
@@ -267,7 +301,7 @@ def compile_module_wiki(
             [
                 f"### {_text(item.predicate)} → {_text(item.target)}",
                 "",
-                *_pointers(item.claim_ids, claims, evidence),
+                *_pointers(item.claim_ids, claims, evidence, web_url=web_url),
                 "",
             ]
         )
@@ -280,7 +314,9 @@ def compile_module_wiki(
     ))
     lines.extend(["## Verified claims", ""])
     for claim in canonical.claims:
-        _, citations = _claim_evidence((claim.id,), claims, evidence)
+        _, citations = _claim_evidence(
+            (claim.id,), claims, evidence, web_url=web_url
+        )
         lines.extend(
             [
                 f"### {_code(claim.id)}",

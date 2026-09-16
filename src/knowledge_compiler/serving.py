@@ -5,14 +5,40 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-_ALLOWED_PATHS = ("/", "/index.html", "/repo-wiki.html")
+_ALLOWED_ROOT_PATHS = ("/", "/index.html")
+
+_CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+}
 
 
 class ServeError(RuntimeError):
     """Raised when the local knowledge server cannot start safely."""
 
 
-def _make_handler(payload: bytes) -> type[BaseHTTPRequestHandler]:
+def _site_file(site_root: Path, request_path: str) -> Path | None:
+    """Resolve a request path to a regular file inside the site root.
+
+    Only ``.html`` files are served; traversal, symlinks, and any file
+    outside the compiled site directory are rejected with 404.
+    """
+
+    relative = request_path.lstrip("/")
+    if not relative or not relative.endswith(".html"):
+        return None
+    candidate = (site_root / relative).resolve()
+    if candidate.suffix not in _CONTENT_TYPES:
+        return None
+    if not candidate.is_relative_to(site_root):
+        return None
+    if candidate.is_symlink() or not candidate.is_file():
+        return None
+    return candidate
+
+
+def _make_handler(
+    payload: bytes, site_root: Path | None = None
+) -> type[BaseHTTPRequestHandler]:
     class WikiHandler(BaseHTTPRequestHandler):
         server_version = "KnowledgeServe/0.1"
         sys_version = ""
@@ -25,20 +51,31 @@ def _make_handler(payload: bytes) -> type[BaseHTTPRequestHandler]:
 
         def _serve(self, *, head_only: bool) -> None:
             path = urlsplit(self.path).path
-            if path not in _ALLOWED_PATHS:
+            body: bytes | None = None
+            content_type = "text/html; charset=utf-8"
+            if path in _ALLOWED_ROOT_PATHS and site_root is not None:
+                candidate = _site_file(site_root, "index.html")
+                if candidate is not None:
+                    body = candidate.read_bytes()
+            elif path in _ALLOWED_ROOT_PATHS:
+                body = (
+                    b"<!doctype html>\n"
+                    b"<meta http-equiv=\"refresh\""
+                    b" content=\"0; url=/repo-wiki.html\">\n"
+                )
+            elif path == "/repo-wiki.html":
+                body = payload
+            elif site_root is not None:
+                candidate = _site_file(site_root, path)
+                if candidate is not None:
+                    body = candidate.read_bytes()
+            if body is None:
                 self.send_response(404)
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return
-            body = (
-                b"<!doctype html>\n"
-                b"<meta http-equiv=\"refresh\""
-                b" content=\"0; url=/repo-wiki.html\">\n"
-                if path in ("/", "/index.html")
-                else payload
-            )
             self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
@@ -58,9 +95,10 @@ def create_wiki_server(
 ) -> HTTPServer:
     """Create a local-only, read-only server for the compiled Wiki.
 
-    Exactly one document is served; every other path is a 404. The
-    socket binds to loopback by default so the Wiki never leaks to the
-    network.
+    The server prefers the compiled multi-page site under
+    ``.knowledge/exports/site`` when present and falls back to the
+    standalone single-file export otherwise. Only loopback binding is
+    allowed so the Wiki never leaks to the network.
     """
 
     root = Path(repository_root).resolve()
@@ -71,8 +109,11 @@ def create_wiki_server(
         raise ServeError("compiled HTML Wiki is not a regular file")
     if host not in {"127.0.0.1", "localhost", "::1"}:
         raise ServeError("the knowledge server only binds to loopback")
+    site_root = (root / ".knowledge/exports/site").resolve()
+    if not (site_root / "index.html").is_file() or site_root.is_symlink():
+        site_root = None
     payload = html_path.read_bytes()
-    return HTTPServer((host, port), _make_handler(payload))
+    return HTTPServer((host, port), _make_handler(payload, site_root))
 
 
 __all__ = ["ServeError", "create_wiki_server"]

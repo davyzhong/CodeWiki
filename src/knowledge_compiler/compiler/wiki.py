@@ -4,6 +4,7 @@ import html as _html
 import json
 import os
 import re
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,7 +14,11 @@ from knowledge_compiler.compiler.human import (
     render_overlay_field,
     render_overlay_notes,
 )
-from knowledge_compiler.compiler.markdown import _code, _text
+from knowledge_compiler.compiler.markdown import (
+    _code,
+    _evidence_permalink,
+    _text,
+)
 from knowledge_compiler.compiler.mermaid import (
     compile_architecture_graph,
     compile_flow_sequence,
@@ -84,6 +89,7 @@ def compile_repository_wiki(
             if canonical.validity.status == "stale"
         )
     )
+    web_url = _load_web_url(root)
 
     pages: dict[str, bytes] = {}
     for object_id, canonical in sorted(objects.items()):
@@ -93,16 +99,30 @@ def compile_repository_wiki(
                 packs.get(object_id),
                 overlays.get(object_id),
                 root,
+                web_url,
             )
         )
     pages["index.md"] = _index_page(root, objects, active, stale_ids, orphans)
     pages["architecture.md"] = _architecture_page(objects, overlays)
     pages["rules.md"] = _rules_page(objects, overlays)
     pages["tech-stack.md"] = _tech_stack_page(objects, overlays)
-    pages["sources.md"] = _sources_page(root, objects, packs)
+    pages["sources.md"] = _sources_page(root, objects, packs, web_url)
 
+    diagram_svgs = _diagram_svgs(objects)
+    rendered, search_index = _render_page_bodies(pages, diagram_svgs)
     html_bytes = _standalone_html(
-        root, active, stale_ids, orphans, pages, objects, packs, overlays
+        root,
+        active,
+        stale_ids,
+        orphans,
+        rendered,
+        search_index,
+        objects,
+        packs,
+        overlays,
+    )
+    site_pages = _site_pages(
+        root, active, stale_ids, orphans, rendered, search_index, objects, packs
     )
 
     knowledge_root = root / ".knowledge"
@@ -114,6 +134,12 @@ def compile_repository_wiki(
         html_path = knowledge_root / "exports/repo-wiki.html"
         html_path.parent.mkdir(parents=True, exist_ok=True)
         html_path.write_bytes(html_bytes)
+        site_root = knowledge_root / "exports/site"
+        shutil.rmtree(site_root, ignore_errors=True)
+        for relative, data in sorted(site_pages.items()):
+            destination = site_root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(data)
         _stamp_wiki_generation(manifest_path, manifest, active)
     except OSError as error:
         raise WikiCompilationError(f"wiki output write failed: {error}") from error
@@ -175,11 +201,27 @@ def _discover_objects(root: Path) -> dict[str, object]:
     return objects
 
 
+def _load_web_url(root: Path) -> str | None:
+    """Read the optional repository web root for evidence permalinks.
+
+    A missing or invalid config must not break Wiki compilation: the
+    views degrade to plain citations without links.
+    """
+
+    from knowledge_compiler.config import load_config
+
+    try:
+        return load_config(root / ".knowledge/config.yaml").web_url
+    except (OSError, ValueError):
+        return None
+
+
 def _object_page(
     canonical: object,
     pack: object | None,
     overlay: object | None,
     root: Path,
+    web_url: str | None = None,
 ) -> bytes:
     from knowledge_compiler.compiler.markdown import compile_module_wiki
 
@@ -188,7 +230,7 @@ def _object_page(
         and pack is not None
         and canonical.validity.status == "verified"
     ):
-        body = compile_module_wiki(canonical, pack, overlay)
+        body = compile_module_wiki(canonical, pack, overlay, web_url=web_url)
     else:
         # A stale module or one without a persisted Evidence Pack still
         # deserves a readable page; the generic renderer never invents
@@ -403,6 +445,7 @@ def _sources_page(
     root: Path,
     objects: dict[str, object],
     packs: dict[str, object],
+    web_url: str | None = None,
 ) -> bytes:
     del root
     lines = ["# Source index", ""]
@@ -425,8 +468,12 @@ def _sources_page(
         ):
             symbol = f" · {_code(item.symbol)}" if item.symbol else ""
             cited = ", ".join(sorted(citations.get(item.id, ()))) or "uncited"
+            location = f"L{item.start_line}-L{item.end_line}"
+            permalink = _evidence_permalink(web_url, item)
+            if permalink:
+                location = f"[{location}]({permalink})"
             lines.append(
-                f"- L{item.start_line}-L{item.end_line}{symbol} · "
+                f"- {location}{symbol} · "
                 f"commit {_code(item.commit[:12])} · cited by {_text(cited)}"
             )
         lines.append("")
@@ -478,16 +525,222 @@ def _h(value: object) -> str:
     return _html.escape(str(value), quote=True)
 
 
-def _standalone_html(
-    root: Path,
-    active: str,
-    stale_ids: tuple[str, ...],
-    orphans: tuple[str, ...],
-    pages: dict[str, bytes],
-    objects: dict[str, object],
-    packs: dict[str, object],
-    overlays: dict[str, object],
-) -> bytes:
+_TYPE_ORDER = ("architecture", "module", "flow", "rule", "tech-stack")
+
+_PAGE_TYPE_DIRECTORIES = {value: key for key, value in _TYPE_DIRECTORIES.items()}
+
+
+def _page_type(relative: str) -> str:
+    head = relative.split("/", 1)[0]
+    if head in _PAGE_TYPE_DIRECTORIES:
+        return _PAGE_TYPE_DIRECTORIES[head]
+    if relative == "architecture.md":
+        return "architecture"
+    if relative == "rules.md":
+        return "rule"
+    if relative == "tech-stack.md":
+        return "tech-stack"
+    return "overview"
+
+
+def _coverage_rows(objects: dict[str, object]) -> list[tuple[str, int, int]]:
+    """Per-type published/stale counts, honest about empty types."""
+
+    counts: dict[str, list[int]] = {
+        type_name: [0, 0] for type_name in _TYPE_ORDER
+    }
+    for canonical in objects.values():
+        if canonical.type not in counts:
+            continue
+        if canonical.validity.status == "stale":
+            counts[canonical.type][1] += 1
+        else:
+            counts[canonical.type][0] += 1
+    return [
+        (type_name, published, stale)
+        for type_name, (published, stale) in counts.items()
+    ]
+
+
+_WIKI_STYLE = """
+:root{--bg:#ffffff;--fg:#1f2328;--muted:#59636e;--border:#d1d9e0;--sidebar:#f6f8fa;
+--accent:#0969da;--green:#1a7f37;--yellow:#9a6700;--red:#cf222e;--code-bg:#f6f8fa;
+--ok-bar:#1a7f37;--stale-bar:#bf8700}
+[data-theme=dark]{--bg:#0d1117;--fg:#e6edf3;--muted:#8b949e;--border:#3d444d;
+--sidebar:#161b22;--accent:#4493f8;--green:#3fb950;--yellow:#d29922;--red:#f85149;
+--code-bg:#161b22;--ok-bar:#3fb950;--stale-bar:#d29922}
+@media (prefers-color-scheme: dark){
+:root:not([data-theme=light]):not([data-theme=dark]){--bg:#0d1117;--fg:#e6edf3;
+--muted:#8b949e;--border:#3d444d;--sidebar:#161b22;--accent:#4493f8;--green:#3fb950;
+--yellow:#d29922;--red:#f85149;--code-bg:#161b22;--ok-bar:#3fb950;--stale-bar:#d29922}}
+*{box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,
+sans-serif;margin:0;display:flex;background:var(--bg);color:var(--fg);line-height:1.6}
+nav{width:270px;flex-shrink:0;background:var(--sidebar);border-right:1px solid
+var(--border);padding:16px;position:sticky;top:0;height:100vh;overflow:auto}
+nav h3{margin:0 0 4px;font-size:1.05em}
+.brand{display:flex;align-items:center;justify-content:space-between}
+#theme-toggle{border:1px solid var(--border);background:var(--bg);color:var(--fg);
+border-radius:6px;cursor:pointer;padding:2px 8px;font-size:.9em}
+.meta{color:var(--muted);font-size:.78em;margin:4px 0 12px;word-break:break-all}
+.coverage{border:1px solid var(--border);border-radius:6px;padding:8px 10px;
+margin-bottom:12px;background:var(--bg)}
+.cov-row{display:flex;align-items:center;gap:8px;font-size:.78em;margin:3px 0}
+.cov-label{width:86px;color:var(--muted);flex-shrink:0}
+.cov-bar{flex:1;height:7px;border-radius:4px;background:var(--sidebar);
+position:relative;overflow:hidden;display:block}
+.cov-bar i{position:absolute;top:0;height:100%}
+.cov-ok{background:var(--ok-bar)}
+.cov-stale{background:var(--stale-bar)}
+.cov-empty{background:repeating-linear-gradient(45deg,transparent,transparent 3px,
+var(--border) 3px,var(--border) 6px)}
+.cov-count{width:34px;text-align:right;color:var(--muted);flex-shrink:0}
+#search{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;
+background:var(--bg);color:var(--fg);margin-bottom:8px;font-size:.85em}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.chip{border:1px solid var(--border);background:var(--bg);color:var(--muted);
+border-radius:999px;padding:1px 9px;font-size:.75em;cursor:pointer}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+#catalog a{display:block;padding:2px 0;font-size:.84em;color:var(--accent);
+text-decoration:none;word-break:break-all}
+#catalog a:hover{text-decoration:underline}
+main{flex:1;padding:28px 36px;max-width:960px;margin:0 auto;min-width:0}
+main h2{font-size:1.15em;color:var(--muted);border-bottom:1px solid var(--border);
+padding-bottom:6px;margin-top:0}
+.stale{background:color-mix(in srgb,var(--yellow) 12%,var(--bg));
+border-left:4px solid var(--yellow);padding:8px 12px;border-radius:0 6px 6px 0}
+.toc{border-left:3px solid var(--border);padding-left:10px;margin:8px 0 16px}
+.toc a{display:inline-block;margin-right:10px;font-size:.9em}
+h3[id],h4[id]{scroll-margin-top:8px}
+pre{background:var(--code-bg);padding:10px;overflow:auto;border-radius:6px;
+border:1px solid var(--border);font-size:.85em}
+code{background:var(--code-bg);border-radius:4px;padding:1px 5px;font-size:.9em}
+pre code{padding:0;background:none;border:none}
+table{border-collapse:collapse;margin:10px 0;font-size:.9em;display:block;
+overflow:auto;max-width:100%}
+th,td{border:1px solid var(--border);padding:5px 12px;text-align:left}
+th{background:var(--sidebar)}
+blockquote{border-left:3px solid var(--border);margin:8px 0;padding:2px 14px;
+color:var(--muted)}
+details{margin:4px 0}
+details.evidence{border:1px solid var(--border);border-radius:6px;
+padding:4px 10px;margin:8px 0;background:var(--bg)}
+details.evidence summary{cursor:pointer;color:var(--muted);font-size:.88em;
+user-select:none}
+details.evidence summary:hover{color:var(--accent)}
+.diagram{border:1px solid var(--border);border-radius:6px;margin:8px 0;
+padding:8px;overflow:auto;background:var(--bg)}
+a{color:var(--accent)}
+.ask{border:1px solid var(--border);border-radius:8px;padding:14px 18px;
+margin-bottom:22px;background:var(--sidebar)}
+.ask h2{border:none;margin:0 0 2px;color:var(--fg)}
+.ask-hint{color:var(--muted);font-size:.8em;margin:0 0 8px}
+#ask-input{width:100%;max-width:640px;padding:7px 12px;border:1px solid
+var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-size:.92em}
+#ask-results{margin-top:10px}
+.ask-hit{border:1px solid var(--border);border-radius:6px;background:var(--bg);
+padding:8px 12px;margin:6px 0}
+.ask-hit a{font-weight:600;text-decoration:none;word-break:break-all}
+.ask-hit a:hover{text-decoration:underline}
+.ask-hit p{margin:4px 0 0;color:var(--muted);font-size:.85em}
+.ask-hit .snippet b{background:color-mix(in srgb,var(--yellow) 30%,var(--bg));
+color:var(--fg);font-weight:600;border-radius:3px;padding:0 2px}
+.ask-empty{color:var(--muted);font-size:.88em;margin:6px 0}
+body.ask-mode main section:not(.ask){display:none}
+.site-nav{display:flex;align-items:center;gap:14px;padding:10px 22px;
+border-bottom:1px solid var(--border);background:var(--sidebar);
+position:sticky;top:0;z-index:5}
+.site-nav a{color:var(--accent);text-decoration:none;font-size:.9em}
+.site-nav .meta{color:var(--muted);font-size:.78em;flex:1;
+overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.catalog-table{width:100%;border-collapse:collapse;font-size:.88em;
+display:table;margin:14px 0}
+.catalog-table th{cursor:pointer;user-select:none;white-space:nowrap}
+.catalog-table th:hover{color:var(--accent)}
+.catalog-table td,.catalog-table th{border:1px solid var(--border);
+padding:6px 12px;text-align:left}
+.catalog-table a{color:var(--accent);text-decoration:none;word-break:break-all}
+.catalog-table a:hover{text-decoration:underline}
+.status-pill{display:inline-block;border-radius:999px;padding:0 9px;
+font-size:.78em;border:1px solid var(--border)}
+.status-verified{color:var(--green);border-color:var(--green)}
+.status-stale{color:var(--yellow);border-color:var(--yellow)}
+"""
+
+
+def _render_page_bodies(
+    pages: dict[str, bytes], diagram_svgs: dict[str, bytes]
+) -> tuple[dict[str, tuple[str, str, str]], list[dict[str, str]]]:
+    """Render every Markdown page once for both export surfaces.
+
+    Returns per-page ``(anchor, body_html, toc_html)`` plus the shared
+    search index; the standalone file and the site directory reuse the
+    same bytes so the two views cannot drift apart.
+    """
+
+    bodies: dict[str, tuple[str, str, str]] = {}
+    search_index: list[dict[str, str]] = []
+    for relative in sorted(pages):
+        markdown = pages[relative].decode("utf-8")
+        anchor = re.sub(r"[^a-z0-9]+", "-", relative.lower()).strip("-")
+        body, page_toc = _markdown_to_html(
+            markdown, diagram_svgs, page_anchor=anchor
+        )
+        bodies[relative] = (anchor, body, page_toc)
+        text = re.sub(r"<[^>]+>", " ", body)
+        search_index.append(
+            {
+                "id": anchor,
+                "title": relative,
+                "type": _page_type(relative),
+                "text": re.sub(r"\s+", " ", text).strip()[:4000],
+            }
+        )
+    return bodies, search_index
+
+
+def _coverage_html(objects: dict[str, object]) -> str:
+    """Honest per-type coverage bars shared by both export surfaces."""
+
+    coverage_max = max(
+        (published + stale for _t, published, stale in _coverage_rows(objects)),
+        default=1,
+    )
+    return "\n".join(
+        f'<div class="cov-row" title="{_h(type_name)}: '
+        f"{published} published, {stale} stale"
+        f'"><span class="cov-label">{_h(type_name)}</span>'
+        + (
+            f'<span class="cov-bar"><i class="cov-ok" style="width:'
+            f'{(published / coverage_max) * 100:.1f}%"></i><i class="cov-stale"'
+            f' style="width:{(stale / coverage_max) * 100:.1f}%"></i></span>'
+            f'<span class="cov-count">{published + stale}</span>'
+            if published or stale
+            else '<span class="cov-bar cov-empty"></span>'
+            '<span class="cov-count">none</span>'
+        )
+        + "</div>"
+        for type_name, published, stale in _coverage_rows(objects)
+    )
+
+
+def _chips_html(type_counts: dict[str, int]) -> str:
+    return (
+        '<button class="chip active" data-type="all"'
+        " onclick=\"setType('all')\">all</button>"
+        + "".join(
+            f'<button class="chip" data-type="{_h(type_name)}"'
+            f" onclick=\"setType('{_h(type_name)}')\">{_h(type_name)}"
+            f" ({type_counts[type_name]})</button>"
+            for type_name in _TYPE_ORDER
+            if type_name in type_counts
+        )
+    )
+
+
+def _diagram_svgs(objects: dict[str, object]) -> dict[str, bytes]:
+    """Pre-render Mermaid sources to inline SVG for both surfaces."""
+
     from knowledge_compiler.compiler.mermaid import (
         render_architecture_graph_svg,
         render_flow_sequence_svg,
@@ -503,64 +756,161 @@ def _standalone_html(
             diagram_svgs[
                 compile_flow_sequence(canonical).decode("utf-8").rstrip("\n")
             ] = render_flow_sequence_svg(canonical)
+    return diagram_svgs
+
+
+def _standalone_html(
+    root: Path,
+    active: str,
+    stale_ids: tuple[str, ...],
+    orphans: tuple[str, ...],
+    rendered: dict[str, tuple[str, str, str]],
+    search_index: list[dict[str, str]],
+    objects: dict[str, object],
+    packs: dict[str, object],
+    overlays: dict[str, object],
+) -> bytes:
     del packs, overlays
     freshness = "current" if not stale_ids else "stale-content"
     sections: list[str] = []
-    search_index: list[dict[str, str]] = []
-    for relative in sorted(pages):
-        markdown = pages[relative].decode("utf-8")
-        anchor = re.sub(r"[^a-z0-9]+", "-", relative.lower()).strip("-")
-        body, page_toc = _markdown_to_html(
-            markdown, diagram_svgs, page_anchor=anchor
-        )
+    for relative in sorted(rendered):
+        anchor, body, page_toc = rendered[relative]
         sections.append(
-            f'<section id="page-{_h(anchor)}" data-page="{_h(relative)}">'
+            f'<section id="page-{_h(anchor)}" data-page="{_h(relative)}"'
+            f' data-type="{_h(_page_type(relative))}">'
             f"<h2>{_h(relative)}</h2>\n"
             + (f'<nav class="toc">{page_toc}</nav>\n' if page_toc else "")
             + f"{body}</section>"
         )
-        text = re.sub(r"<[^>]+>", " ", body)
-        search_index.append(
-            {
-                "id": anchor,
-                "title": relative,
-                "text": re.sub(r"\s+", " ", text).strip()[:4000],
-            }
-        )
     catalog = "\n".join(
-        f'<a href="#page-{re.sub(r"[^a-z0-9]+", "-", relative.lower()).strip("-")}">'
+        f'<a href="#page-{rendered[relative][0]}">'
         f"{_h(relative)}</a>"
-        for relative in sorted(pages)
+        for relative in sorted(rendered)
     )
     payload = json.dumps(search_index, ensure_ascii=False, sort_keys=True)
     commit = _representative_commit(objects)
+
+    coverage_html = _coverage_html(objects)
+    chip_counts: dict[str, int] = {type_name: 0 for type_name in _TYPE_ORDER}
+    for item in search_index:
+        if item["type"] in chip_counts:
+            chip_counts[item["type"]] += 1
+    chips_html = _chips_html(chip_counts)
+
+    script = """
+var INDEX=__PAYLOAD__;
+var TYPE='all';
+function applyFilters(){
+ var q=(document.getElementById('search').value||'').toLowerCase();
+ document.querySelectorAll('main section').forEach(function(s){
+  if(s.classList.contains('ask'))return;
+  var id=s.id.replace('page-','');
+  var t=s.getAttribute('data-type')||'overview';
+  var item=INDEX.filter(function(i){return i.id===id;})[0];
+  var textOK=!q||!item||item.text.toLowerCase().indexOf(q)>=0||
+   item.title.toLowerCase().indexOf(q)>=0;
+  var typeOK=TYPE==='all'||t===TYPE;
+  s.style.display=(textOK&&typeOK)?'':'none';
+ });
+}
+function setType(t){
+ TYPE=t;
+ document.querySelectorAll('.chip').forEach(function(c){
+  c.classList.toggle('active',c.getAttribute('data-type')===t);
+ });
+ applyFilters();
+}
+document.getElementById('search').addEventListener('input',applyFilters);
+document.querySelectorAll('#catalog a').forEach(function(a){
+ a.addEventListener('click',function(){
+  if(TYPE!=='all'){setType('all');}
+  var input=document.getElementById('search');
+  if(input.value){input.value='';applyFilters();}
+ });
+});
+function snippet(item,q){
+ var text=item.text;var lower=text.toLowerCase();var at=lower.indexOf(q);
+ if(at<0){return text.slice(0,160);}
+ var start=Math.max(0,at-60);
+ var body=text.slice(start,Math.min(text.length,at+q.length+120));
+ var head=start>0?'…':'';
+ var tail=at+q.length+120<text.length?'…':'';
+ return head+body.replace(new RegExp(q.replace(
+  /[.*+?^${}()|[\\]\\\\]/g,'\\\\$&'),'gi'),function(m){return '<b>'+m+'</b>';})+tail;
+}
+function renderAsk(q){
+ var box=document.getElementById('ask-results');
+ var terms=q.toLowerCase().split(/\\s+/).filter(Boolean);
+ if(!terms.length){
+  document.body.classList.remove('ask-mode');
+  box.innerHTML='';applyFilters();return;
+ }
+ var hits=INDEX.map(function(item){
+  var hay=(item.title+' '+item.text).toLowerCase();
+  var score=terms.reduce(function(n,t){return n+(hay.indexOf(t)>=0?1:0);},0);
+  return score===terms.length?item:null;
+ }).filter(Boolean);
+ document.body.classList.add('ask-mode');
+ if(!hits.length){
+  box.innerHTML='<p class="ask-empty">知识库未覆盖此问题（evidence-only：'
+   +'只检索已验证知识，不做生成式回答）。</p>';
+  return;
+ }
+ box.innerHTML=hits.map(function(item){
+  return '<div class="ask-hit"><a href="#page-'+item.id+
+   '" onclick="clearAsk()">'+item.title+'</a><p class="snippet">'+
+   snippet(item,terms[0])+'</p></div>';
+ }).join('');
+}
+function clearAsk(){
+ var input=document.getElementById('ask-input');
+ if(input){input.value='';}
+ document.body.classList.remove('ask-mode');
+ document.getElementById('ask-results').innerHTML='';
+ applyFilters();
+}
+document.getElementById('ask-input').addEventListener('input',function(e){
+ renderAsk(e.target.value);
+});
+var btn=document.getElementById('theme-toggle');
+var stored=null;
+try{stored=localStorage.getItem('wiki-theme');}catch(err){}
+if(stored){document.documentElement.setAttribute('data-theme',stored);}
+btn.addEventListener('click',function(){
+ var cur=document.documentElement.getAttribute('data-theme');
+ var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
+ var next=(cur==='dark'||(!cur&&prefersDark))?'light':'dark';
+ document.documentElement.setAttribute('data-theme',next);
+ try{localStorage.setItem('wiki-theme',next);}catch(err){}
+});
+""".replace("__PAYLOAD__", payload)
+
     return (
         "<!doctype html>\n"
         '<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        '<meta name="color-scheme" content="light dark">\n'
         f"<title>{_h(root.name)} knowledge wiki</title>\n"
-        "<style>\n"
-        "body{font-family:sans-serif;margin:0;display:flex}\n"
-        "nav{width:240px;background:#f6f8fa;padding:16px;position:sticky;top:0;"
-        "height:100vh;overflow:auto;box-sizing:border-box}\n"
-        "nav a{display:block;padding:2px 0}\n"
-        "main{flex:1;padding:24px;max-width:900px}\n"
-        ".stale{background:#fff3cd;border-left:4px solid #d97706;padding:8px 12px}\n"
-        "details{margin:4px 0}\n"
-        "details.evidence{border:1px solid #d0d7de;border-radius:6px;"
-        "padding:4px 8px;margin:8px 0}\n"
-        ".toc{border-left:3px solid #d0d7de;padding-left:10px;margin:8px 0 16px}\n"
-        ".toc a{display:inline-block;margin-right:10px;font-size:0.9em}\n"
-        "h3[id],h4[id]{scroll-margin-top:8px}\n"
-        "pre{background:#f6f8fa;padding:8px;overflow:auto}\n"
-        ".diagram{border:1px solid #d0d7de;border-radius:6px;margin:8px 0}\n"
-        "</style>\n</head>\n<body>\n"
-        f"<nav><h3>{_h(root.name)}</h3>\n"
-        f"<p>generation: {_h(active)}<br>freshness: {_h(freshness)}<br>"
+        f"<style>{_WIKI_STYLE}</style>\n</head>\n<body>\n"
+        f"<nav><div class='brand'><h3>{_h(root.name)}</h3>"
+        '<button id="theme-toggle" title="Toggle theme">◐</button></div>\n'
+        f'<p class="meta">generation: {_h(active)}<br>freshness: {_h(freshness)}<br>'
         f"commit: {_h(commit)}</p>\n"
-        '<input id="search" type="search" placeholder="Search wiki"'
-        ' oninput="filter()">\n'
+        '<div class="coverage">\n'
+        f"{coverage_html}\n"
+        "</div>\n"
+        '<input id="search" type="search" placeholder="Search wiki">\n'
+        f'<div class="chips">{chips_html}</div>\n'
         f'<div id="catalog">{catalog}</div></nav>\n'
         "<main>\n"
+        '<section id="page-ask-view" class="ask">\n'
+        "<h2>Ask the knowledge base</h2>\n"
+        '<p class="ask-hint">evidence-only — retrieval over verified'
+        " knowledge; no generative answers.</p>\n"
+        '<input id="ask-input" type="search"'
+        ' placeholder="e.g. when is inventory reserved?">\n'
+        '<div id="ask-results"></div>\n'
+        "</section>\n"
         + (
             '<p class="stale">Stale objects are present; content may lag the'
             " repository. Run knowledge update.</p>\n"
@@ -575,18 +925,292 @@ def _standalone_html(
             else ""
         )
         + "\n".join(sections)
-        + "\n</main>\n<script>\nvar INDEX="
-        + payload
-        + ";\n"
-        "function filter(){var q=document.getElementById('search').value."
-        "toLowerCase();var seen={};INDEX.forEach(function(item){"
-        "seen[item.id]=!q||item.text.toLowerCase().indexOf(q)>=0||"
-        "item.title.toLowerCase().indexOf(q)>=0;});"
-        "document.querySelectorAll('main section').forEach(function(s){"
-        "var id=s.id.replace('page-','');"
-        "s.style.display=seen[id]===false?'none':'';});}\n"
-        "</script>\n</body>\n</html>\n"
+        + f"\n</main>\n<script>{script}</script>\n</body>\n</html>\n"
     ).encode("utf-8")
+
+
+_THEME_TOGGLE_JS = """
+var btn=document.getElementById('theme-toggle');
+var stored=null;
+try{stored=localStorage.getItem('wiki-theme');}catch(err){}
+if(stored){document.documentElement.setAttribute('data-theme',stored);}
+btn.addEventListener('click',function(){
+ var cur=document.documentElement.getAttribute('data-theme');
+ var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
+ var next=(cur==='dark'||(!cur&&prefersDark))?'light':'dark';
+ document.documentElement.setAttribute('data-theme',next);
+ try{localStorage.setItem('wiki-theme',next);}catch(err){}
+});
+"""
+
+_SITE_ASK_JS = """
+function snippet(item,q){
+ var text=item.text;var lower=text.toLowerCase();var at=lower.indexOf(q);
+ if(at<0){return text.slice(0,160);}
+ var start=Math.max(0,at-60);
+ var body=text.slice(start,Math.min(text.length,at+q.length+120));
+ var head=start>0?'…':'';
+ var tail=at+q.length+120<text.length?'…':'';
+ return head+body.replace(new RegExp(q.replace(
+  /[.*+?^${}()|[\\]\\\\]/g,'\\\\$&'),'gi'),function(m){return '<b>'+m+'</b>';})+tail;
+}
+function renderAsk(q){
+ var box=document.getElementById('ask-results');
+ var terms=q.toLowerCase().split(/\\s+/).filter(Boolean);
+ if(!terms.length){box.innerHTML='';return;}
+ var hits=INDEX.map(function(item){
+  var hay=(item.title+' '+item.text).toLowerCase();
+  var score=terms.reduce(function(n,t){return n+(hay.indexOf(t)>=0?1:0);},0);
+  return score===terms.length?item:null;
+ }).filter(Boolean);
+ if(!hits.length){
+  box.innerHTML='<p class="ask-empty">知识库未覆盖此问题（evidence-only：'
+   +'只检索已验证知识，不做生成式回答）。</p>';
+  return;
+ }
+ box.innerHTML=hits.map(function(item){
+  return '<div class="ask-hit"><a href="'+item.href+'">'+item.title+
+   '</a><p class="snippet">'+snippet(item,terms[0])+'</p></div>';
+ }).join('');
+}
+document.getElementById('ask-input').addEventListener('input',function(e){
+ renderAsk(e.target.value);
+});
+"""
+
+_SITE_CATALOG_JS = """
+var TYPE='all';
+function applyFilters(){
+ var q=(document.getElementById('catalog-search').value||'').toLowerCase();
+ document.querySelectorAll('#catalog-body tr').forEach(function(tr){
+  var t=tr.getAttribute('data-type');
+  var hay=tr.getAttribute('data-text')||'';
+  var typeOK=TYPE==='all'||t===TYPE;
+  var textOK=!q||hay.indexOf(q)>=0;
+  tr.style.display=(typeOK&&textOK)?'':'none';
+ });
+}
+function setType(t){
+ TYPE=t;
+ document.querySelectorAll('.chip').forEach(function(c){
+  c.classList.toggle('active',c.getAttribute('data-type')===t);
+ });
+ applyFilters();
+}
+document.getElementById('catalog-search').addEventListener('input',applyFilters);
+var SORT_STATE={col:null,dir:1};
+var ORIGINAL=null;
+document.querySelectorAll('.catalog-table th').forEach(function(th,i){
+ th.addEventListener('click',function(){sortTable(i);});
+});
+function sortTable(col){
+ var tbody=document.getElementById('catalog-body');
+ if(!ORIGINAL){
+  ORIGINAL=[].slice.call(tbody.rows);
+ }
+ if(SORT_STATE.col===col){
+  SORT_STATE.dir*=-1;
+  if(SORT_STATE.dir===-1&&SORT_STATE.wasFlipped){SORT_STATE={col:null,dir:1};}
+ }
+ if(SORT_STATE.col===null){SORT_STATE={col:col,dir:1,wasFlipped:false};}
+ else if(SORT_STATE.dir===1){SORT_STATE.wasFlipped=true;}
+ var state=Object.assign({},SORT_STATE);
+ if(state.col===null){
+  ORIGINAL.forEach(function(tr){tbody.appendChild(tr);});
+  return;
+ }
+ var rows=[].slice.call(tbody.rows);
+ rows.sort(function(a,b){
+  var av=a.cells[state.col].getAttribute('data-sort')||'';
+  var bv=b.cells[state.col].getAttribute('data-sort')||'';
+  var an=parseFloat(av);var bn=parseFloat(bv);
+  var cmp=(isNaN(an)||isNaN(bv))?av.localeCompare(bv):an-bn;
+  return cmp*state.dir;
+ });
+ rows.forEach(function(tr){tbody.appendChild(tr);});
+}
+"""
+
+
+def _site_page_html(
+    root_name: str,
+    relative: str,
+    home: str,
+    active: str,
+    commit: str,
+    freshness: str,
+    body: str,
+    page_toc: str,
+) -> bytes:
+    return (
+        "<!doctype html>\n"
+        '<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        '<meta name="color-scheme" content="light dark">\n'
+        f"<title>{_h(root_name)} · {_h(relative)}</title>\n"
+        f"<style>{_WIKI_STYLE}</style>\n</head>\n<body>\n"
+        f'<nav class="site-nav"><a href="{_h(home)}">← catalog</a>'
+        f'<span class="meta">{_h(root_name)} · generation {_h(active)}'
+        f" · freshness {_h(freshness)} · commit {_h(commit)}</span>"
+        '<button id="theme-toggle" title="Toggle theme">◐</button></nav>\n'
+        "<main>\n"
+        f"<h2>{_h(relative)}</h2>\n"
+        + (f'<nav class="toc">{page_toc}</nav>\n' if page_toc else "")
+        + f"{body}\n</main>\n"
+        f"<script>{_THEME_TOGGLE_JS}</script>\n</body>\n</html>\n"
+    ).encode("utf-8")
+
+
+def _site_index_html(
+    root_name: str,
+    active: str,
+    stale_ids: tuple[str, ...],
+    orphans: tuple[str, ...],
+    coverage_html: str,
+    chips_html: str,
+    catalog_body: str,
+    payload: str,
+    commit: str,
+) -> bytes:
+    freshness = "current" if not stale_ids else "stale-content"
+    return (
+        "<!doctype html>\n"
+        '<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        '<meta name="color-scheme" content="light dark">\n'
+        f"<title>{_h(root_name)} knowledge catalog</title>\n"
+        f"<style>{_WIKI_STYLE}</style>\n</head>\n<body>\n"
+        '<nav class="site-nav"><span class="meta">'
+        f"{_h(root_name)} · generation {_h(active)}"
+        f" · freshness {_h(freshness)} · commit {_h(commit)}</span>"
+        '<button id="theme-toggle" title="Toggle theme">◐</button></nav>\n'
+        "<main>\n"
+        f"<h1>{_h(root_name)} knowledge catalog</h1>\n"
+        + (
+            '<p class="stale">Stale objects are present; content may lag the'
+            " repository. Run knowledge update.</p>\n"
+            if stale_ids
+            else ""
+        )
+        + (
+            '<p class="stale">Orphaned human knowledge: '
+            + _h(", ".join(orphans))
+            + "</p>\n"
+            if orphans
+            else ""
+        )
+        + '<div class="coverage">\n'
+        + coverage_html
+        + "\n</div>\n"
+        + '<section class="ask">\n<h2>Ask the knowledge base</h2>\n'
+        '<p class="ask-hint">evidence-only — retrieval over verified'
+        " knowledge; no generative answers.</p>\n"
+        '<input id="ask-input" type="search"'
+        ' placeholder="e.g. when is inventory reserved?">\n'
+        '<div id="ask-results"></div>\n</section>\n'
+        '<input id="catalog-search" type="search"'
+        ' placeholder="Filter catalog">\n'
+        f'<div class="chips">{chips_html}</div>\n'
+        '<table class="catalog-table"><thead><tr>'
+        "<th>Knowledge ID</th><th>Type</th><th>Status</th>"
+        "<th>Claims</th><th>Evidence</th></tr></thead>"
+        f'<tbody id="catalog-body">{catalog_body}</tbody></table>\n'
+        "</main>\n"
+        "<script>var INDEX="
+        + payload
+        + ";</script>\n"
+        f"<script>{_SITE_ASK_JS}</script>\n"
+        f"<script>{_SITE_CATALOG_JS}</script>\n"
+        f"<script>{_THEME_TOGGLE_JS}</script>\n"
+        "</body>\n</html>\n"
+    ).encode("utf-8")
+
+
+def _site_pages(
+    root: Path,
+    active: str,
+    stale_ids: tuple[str, ...],
+    orphans: tuple[str, ...],
+    rendered: dict[str, tuple[str, str, str]],
+    search_index: list[dict[str, str]],
+    objects: dict[str, object],
+    packs: dict[str, object],
+) -> dict[str, bytes]:
+    """Compile the multi-page static site with relative-path linking."""
+
+    del packs
+    commit = _representative_commit(objects)
+    freshness = "current" if not stale_ids else "stale-content"
+    pages_out: dict[str, bytes] = {}
+    ask_index: list[dict[str, str]] = []
+    for relative, (anchor, body, page_toc) in sorted(rendered.items()):
+        html_relative = relative[: -len(".md")] + ".html"
+        depth = html_relative.count("/")
+        home = "../" * depth + "index.html"
+        site_body = re.sub(r"\(([^)#]+?)\.md\)", r"(\1.html)", body)
+        pages_out[html_relative] = _site_page_html(
+            root.name,
+            relative,
+            home,
+            active,
+            commit,
+            freshness,
+            site_body,
+            page_toc,
+        )
+        ask_index.append(
+            {
+                "title": relative,
+                "href": html_relative,
+                "type": _page_type(relative),
+                "text": next(
+                    item["text"] for item in search_index if item["id"] == anchor
+                ),
+            }
+        )
+
+    chip_counts: dict[str, int] = {type_name: 0 for type_name in _TYPE_ORDER}
+    for item in search_index:
+        if item["type"] in chip_counts:
+            chip_counts[item["type"]] += 1
+
+    rows: list[str] = []
+    for object_id, canonical in sorted(objects.items()):
+        evidence_ids = {
+            evidence_id
+            for claim in canonical.claims
+            for evidence_id in claim.evidence_ids
+        }
+        status = canonical.validity.status
+        status_class = "status-verified" if status == "verified" else ""
+        href = (
+            f"{_TYPE_DIRECTORIES[canonical.type]}/{_h(object_id)}.html"
+        )
+        rows.append(
+            f'<tr data-type="{_h(canonical.type)}"'
+            f' data-text="{_h(object_id.lower() + " " + canonical.type)}">'
+            f'<td data-sort="{_h(object_id)}"><a href="{href}">'
+            f"{_h(object_id)}</a></td>"
+            f'<td data-sort="{_h(canonical.type)}">{_h(canonical.type)}</td>'
+            f'<td data-sort="{_h(status)}">'
+            f'<span class="status-pill {status_class}">{_h(status)}</span></td>'
+            f'<td data-sort="{len(canonical.claims)}" style="text-align:right">'
+            f"{len(canonical.claims)}</td>"
+            f'<td data-sort="{len(evidence_ids)}" style="text-align:right">'
+            f"{len(evidence_ids)}</td></tr>"
+        )
+    pages_out["index.html"] = _site_index_html(
+        root.name,
+        active,
+        stale_ids,
+        orphans,
+        _coverage_html(objects),
+        _chips_html(chip_counts),
+        "".join(rows),
+        json.dumps(ask_index, ensure_ascii=False, sort_keys=True),
+        commit,
+    )
+    return pages_out
 
 
 def _representative_commit(objects: dict[str, object]) -> str:
@@ -638,6 +1262,44 @@ def _markdown_to_html(
     code_language = ""
     in_details = 0
     evidence_label_seen = False
+    table_lines: list[str] | None = None
+
+    _TABLE_SEPARATOR = re.compile(
+        r"^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$"
+    )
+
+    def _table_cells(row: str) -> list[str]:
+        cells = re.split(r"(?<!\\)\|", row.strip().strip("|"))
+        return [cell.strip().replace(r"\|", "|") for cell in cells]
+
+    def flush_table():
+        nonlocal table_lines
+        if not table_lines:
+            table_lines = None
+            return
+        rows = table_lines
+        table_lines = None
+        if len(rows) >= 2 and _TABLE_SEPARATOR.match(rows[1].strip()):
+            header = _table_cells(rows[0])
+            rendered = [
+                "<table><thead><tr>"
+                + "".join(f"<th>{_inline_html(cell)}</th>" for cell in header)
+                + "</tr></thead><tbody>"
+            ]
+            for row in rows[2:]:
+                rendered.append(
+                    "<tr>"
+                    + "".join(
+                        f"<td>{_inline_html(cell)}</td>"
+                        for cell in _table_cells(row)
+                    )
+                    + "</tr>"
+                )
+            rendered.append("</tbody></table>")
+            html_lines.append("".join(rendered))
+        else:
+            for row in rows:
+                html_lines.append(f"<p>{_inline_html(row)}</p>")
 
     def flush_paragraph():
         nonlocal evidence_label_seen
@@ -707,6 +1369,7 @@ def _markdown_to_html(
             flush_paragraph()
             flush_list()
             flush_quote()
+            flush_table()
             code_lines = []
             code_language = ""
             continue
@@ -714,6 +1377,7 @@ def _markdown_to_html(
             flush_paragraph()
             flush_list()
             flush_quote()
+            flush_table()
             code_lines = []
             code_language = stripped[3:].strip()
             continue
@@ -721,7 +1385,17 @@ def _markdown_to_html(
             flush_paragraph()
             flush_list()
             flush_quote()
+            flush_table()
             continue
+        if table_lines is not None or stripped.startswith("|"):
+            flush_paragraph()
+            flush_list()
+            flush_quote()
+            if table_lines is None:
+                table_lines = []
+            table_lines.append(stripped)
+            continue
+        flush_table()
         heading = re.match(r"^(#{1,6})\s+(.*)$", stripped)
         if heading:
             flush_paragraph()
@@ -766,7 +1440,6 @@ def _markdown_to_html(
             flush_paragraph()
             flush_quote()
             list_items.append(f"<li>{_inline_html(item.group(1))}</li>")
-            close_list = True
             continue
         flush_list()
         flush_quote()
@@ -774,6 +1447,7 @@ def _markdown_to_html(
     flush_paragraph()
     flush_list()
     flush_quote()
+    flush_table()
     if code_lines is not None:
         raise WikiCompilationError("unterminated fenced code block")
     toc = "".join(

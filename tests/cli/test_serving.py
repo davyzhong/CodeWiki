@@ -48,16 +48,50 @@ def test_serves_only_the_compiled_wiki_on_loopback(tmp_path: Path) -> None:
     try:
         index = _request(server, "/")
         assert index.status == 200
-        assert b"repo-wiki.html" in index.read()
+        assert b"knowledge catalog" in index.read()
+
+        detail = _request(
+            server, "/architecture/architecture.knowledge.html"
+        )
+        if detail.status == 200:
+            assert b"<!doctype html>" in detail.read().lower()
 
         wiki = _request(server, "/repo-wiki.html")
         assert wiki.status == 200
         assert b"<!doctype html>" in wiki.read().lower()
 
-        for path in ("/../manifest.yaml", "/objects", "/config.yaml"):
+        for path in (
+            "/../manifest.yaml",
+            "/objects",
+            "/config.yaml",
+            "/../../etc/hosts",
+            "/site/../manifest.yaml",
+        ):
             blocked = _request(server, path)
             assert blocked.status == 404
             blocked.read()
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_falls_back_to_single_file_when_site_missing(tmp_path: Path) -> None:
+    import shutil
+
+    compiled_store(tmp_path)
+    shutil.rmtree(tmp_path / ".knowledge/exports/site")
+    server = create_wiki_server(tmp_path, port=0)
+    server.timeout = 0.2
+    runner = threading.Thread(target=server.serve_forever, daemon=True)
+    runner.start()
+    try:
+        index = _request(server, "/")
+        assert index.status == 200
+        assert b"repo-wiki.html" in index.read()
+
+        site_page = _request(server, "/sources.html")
+        assert site_page.status == 404
+        site_page.read()
     finally:
         server.shutdown()
         server.server_close()

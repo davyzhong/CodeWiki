@@ -296,3 +296,95 @@ def test_html_export_is_deterministic(tmp_path: Path) -> None:
     first = html_path.read_bytes()
     compile_repository_wiki(tmp_path)
     assert html_path.read_bytes() == first
+
+
+def test_compile_writes_multi_page_site_directory(tmp_path: Path) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    ids = publish_world(tmp_path)
+    result = compile_repository_wiki(tmp_path)
+    site = tmp_path / ".knowledge/exports/site"
+
+    index = (site / "index.html").read_text(encoding="utf-8")
+    assert "knowledge catalog" in index
+    module_page = (
+        site / "modules" / f"{ids['module']}.html"
+    ).read_text(encoding="utf-8")
+    assert "<!doctype html>" in module_page
+    assert 'href="../index.html"' in module_page
+    # Markdown links are rewritten to sibling HTML pages.
+    assert ".md)" not in module_page.split("</style>", 1)[1]
+    sources_page = (site / "sources.html").read_text(encoding="utf-8")
+    assert "Source index" in sources_page
+    # Both surfaces exist after one compile.
+    assert result.html_path.is_file()
+
+
+def test_site_and_html_are_deterministic_across_runs(tmp_path: Path) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    publish_world(tmp_path)
+    compile_repository_wiki(tmp_path)
+
+    def snapshot() -> dict[str, bytes]:
+        site = tmp_path / ".knowledge/exports/site"
+        return {
+            str(path.relative_to(site)): path.read_bytes()
+            for path in sorted(site.rglob("*.html"))
+        }
+
+    first = snapshot()
+    compile_repository_wiki(tmp_path)
+    assert snapshot() == first
+
+
+def test_web_url_config_adds_evidence_permalinks(tmp_path: Path) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+    from knowledge_compiler.config import KnowledgeConfig, write_config
+
+    module, pack = _verified_inputs()
+    commit = pack.evidence[0].commit
+    path = pack.evidence[0].path
+    write_config(
+        tmp_path / ".knowledge/config.yaml",
+        KnowledgeConfig.model_validate(
+            {
+                "schema_version": "0.1",
+                "repository_provider": "local-git",
+                "evidence_provider": "codewiki",
+                "language": "zh",
+                "worker_profiles": {
+                    "extraction_profile": "extraction-v1",
+                    "validation_profile": None,
+                },
+                "exclusions": [],
+                "scope_limits": {"max_files": 10000, "max_bytes": 52428800},
+                "default_context_budget": 6000,
+                "web_url": "https://github.com/fixture/probe-shop",
+            }
+        ),
+    )
+    publish_world(tmp_path)
+    compile_repository_wiki(tmp_path)
+
+    expected = (
+        f"(https://github.com/fixture/probe-shop/blob/{commit}/{path}"
+    )
+    modules_dir = tmp_path / ".knowledge/views/wiki/modules"
+    module_md = next(modules_dir.glob("*.md"))
+    assert expected in module_md.read_text(encoding="utf-8")
+    sources_md = (
+        tmp_path / ".knowledge/views/wiki/sources.md"
+    ).read_text(encoding="utf-8")
+    assert expected in sources_md
+
+
+def test_missing_web_url_degrades_to_plain_citations(tmp_path: Path) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    publish_world(tmp_path)
+    compile_repository_wiki(tmp_path)
+    sources_md = (
+        tmp_path / ".knowledge/views/wiki/sources.md"
+    ).read_text(encoding="utf-8")
+    assert "blob/" not in sources_md
