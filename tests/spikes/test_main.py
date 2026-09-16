@@ -8,10 +8,12 @@ def test_cli_exposes_run_subcommand() -> None:
     import re
 
     assert "run" in get_command(app).commands
-    result = CliRunner().invoke(app, ["run", "--help"])
+    result = CliRunner().invoke(
+        app, ["run", "--help"], env={"COLUMNS": "220"}
+    )
 
     assert result.exit_code == 0
-    # Rich wraps help text to the terminal width; collapse whitespace so
-    # the assertion holds on CI's narrow terminals.
+    # Rich wraps/truncates help to the terminal width; force a wide
+    # render and collapse whitespace so CI terminals cannot break this.
     flattened = re.sub(r"\s+", "", result.stdout)
     assert "--repo-template" in flattened

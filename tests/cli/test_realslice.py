@@ -18,7 +18,9 @@ def _flatten(text: str) -> str:
 
 
 def test_realslice_help() -> None:
-    result = Runner.invoke(app, ["realslice", "--help"])
+    result = Runner.invoke(
+        app, ["realslice", "--help"], env={"COLUMNS": "220"}
+    )
     assert result.exit_code == 0
     assert "repository-root" in _flatten(result.output)
 
