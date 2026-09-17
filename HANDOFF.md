@@ -1,10 +1,23 @@
 # HANDOFF — 会话交接文档
 
-> 交接时间：2026-09-16（会话结束，当日第三次更新） ｜ HEAD：`4da9bbb`（与 `origin/main` 同步，工作树干净，CI 绿）
+> 交接时间：2026-09-17（Local Beta 设计与 M9–M14 计划定稿） ｜ 计划基线：`bed00c2`（本文更新提交随后推送 `origin/main`）
 > 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**787 passed + 1 opt-in live skipped**；live SKIP 属预期）
 > 新会话第一步：`git fetch origin && git status --short --branch` 核对并行推进，再读本文与 [CLAUDE.md](CLAUDE.md)（会话入口）/ [docs/README.md](docs/README.md)（文档地图）。
 
 ---
+
+## 零、2026-09-17 新基线（优先于下方历史交接）
+
+用户已正式批准下一阶段设计：**个人开发者、本地单节点、零服务器依赖；真实可信度验证与 Beta 体验并行；按可信垂直切片推进，不设工期。** Web、CLI、MCP 共享一套应用服务；`.knowledge/` 中的 Canonical Knowledge / Evidence / Human Overlay 仍是唯一权威，App SQLite、FTS、页面和未来可能的向量均为可重建投影。
+
+本次已完成：
+
+1. 批准设计归档：[Local Beta 产品规格](docs/superpowers/specs/2026-09-17-local-beta-product-design.md) + [完整 HTML](docs/design/2026-09-17-local-beta-design.html)。
+2. 执行计划入库：[总计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) + M9–M14 六份子计划，共 48 个 Task、259 个可勾选步骤，覆盖功能、解析、架构、界面、Web/CLI/MCP、测试、真实仓库和发布验收。
+3. 决策日志新增 D-026（本地单节点形态）与 D-027（重大设计同步 README/文档铁律）；`AGENTS.md` 已将 D-027 写成所有后续 Agent 的项目工作流要求。
+4. README 和 docs 总索引已链接正式规格与计划；行业横评、完整设计图和详细路线继续保留。
+
+**实现尚未开始。下一执行入口是 M9 Task 1**，严格按 [M9 计划](docs/superpowers/plans/active/2026-09-17-m9-local-product-foundation.md) 从失败测试开始。下方关于“全部事项等外部输入”的旧判断已被本节取代：M9–M13 可以离线推进；上游崩溃改由 M10 的进程隔离与降级 Provider 主动解决，不再只是等待。
 
 ## 一、当前任务状态（上次交接 `042b8a1` 之后做了什么）
 
@@ -38,7 +51,7 @@
 
 - 最小复现文件 `docs/materials/origin/codewiki-segfault-repro-258.py`；issue 草稿（含双 faulthandler 栈与 50 次信号统计）`docs/materials/origin/2026-09-16-codewiki-segfault-issue-draft.md`（status: published）；诊断结论在 [upstream-codewiki.md](docs/knowledge/industry/upstream-codewiki.md)。
 
-## 三、卡住的问题（全部等外部输入，无技术阻塞）
+## 三、历史外部依赖（不再阻塞 M9 启动）
 
 | # | 事项 | 等什么 | 解锁后动作 |
 |---|--- |--- |--- |
@@ -46,12 +59,12 @@
 | 2 | **live 冒烟** | `KNOWLEDGE_EXTRACTION_MODEL` + API key + codewiki 修复 | 按 [runbooks/2026-09-02-live-smoke.md](docs/runbooks/2026-09-02-live-smoke.md)；module 目标的 DemoWorker 残余失败在此阶段由真实 LLM worker 接管 |
 | 3 | **M8 实验执行** | API key（harness/dry-run 全就绪，[benchmark/README.md](benchmark/README.md)） | 真实模式跑；预注册判据勿事后改 |
 
-## 四、下一步计划（按优先级）
+## 四、下一步计划（以 Local Beta 总计划为准）
 
-1. **等输入型**：issue #2 跟进；API key 到位后 live 冒烟 → M8 执行（顺序勿倒）。
-2. **可选增强**（无输入依赖、低优先）：demo DemoWorker 的证据 id 翻译升级为真实 pack 形状（sha256: id 直接透传），让演示构建 module 也 verified；知识库 system/behavior-reference 补展示层新命令面（--web-url、site 结构）。
-3. **M8 之后**：V0.1.x / V0.2（见规格 §21，不提前实现）。
-4. **文档维护**：知识文档修正追加 Revision History；计数以 verify.sh 尾行为准（当前 787）。
+1. **立即执行 M9**：本地产品基座——包契约、AppPaths/App DB、repository service、共享 status/diagnostics、FastAPI、`knowledge app`、React onboarding、clean-wheel smoke。
+2. **随后 M10–M13**：可靠解析 → 建库任务闭环 → 知识阅读 Beta → Ask/Agent 三端一致；每个里程碑退出前更新 README/docs/HANDOFF 并留真实仓验证。
+3. **M14**：技术前置全部通过后执行冻结 M8、性能/故障矩阵、安装升级和 Beta 发布。API key 只在此处和需要真实模型的 live 证据中成为外部输入。
+4. **上游 issue #2**：继续跟进，但不得以等待上游代替 M10 的崩溃隔离、稳定错误与降级证据方案。
 
 ## 五、踩过的坑（给下一个会话/Agent 的实操警告）
 
@@ -71,9 +84,9 @@
 
 ```bash
 cd /Users/qiming/workspace/CodeWiki
-git fetch origin && git status --short --branch   # 预期：clean、与远程同步（4da9bbb）
+git fetch origin && git status --short --branch   # 预期：clean、main 与 origin/main 同步
 bash scripts/verify.sh                             # 预期：VERIFY: PASS（787+1skip，live SKIP 属预期）
 gh issue view 2 --repo PorunC/CodeWiki             # 可选：查上游 issue 是否有回复
 ```
 
-然后：读本文 → [CLAUDE.md](CLAUDE.md) → [README.md](README.md)。若带来了 API key：先确认 codewiki 崩溃是否已被上游修复（issue #2），再走 live 冒烟 runbook；若继续离线工作：第四节第 2 条是仅剩的无输入任务。半 live/演示复现方法见 git 历史版本 `042b8a1` 的 HANDOFF §2.2（DemoWorker 三手法与截图探针法）。
+然后：读本文 → [Local Beta 总计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) → [M9 详细计划](docs/superpowers/plans/active/2026-09-17-m9-local-product-foundation.md)，从 M9 Task 1 开始。API key 不再是启动下一阶段开发的前置条件。
