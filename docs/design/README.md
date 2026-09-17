@@ -10,7 +10,7 @@
 | 4 | [里程碑编排](2026-09-17-04-roadmap-shape.html) | 选择“可信垂直切片” |
 | 5 | [本地 Beta 设计定稿](2026-09-17-local-beta-design.html) | 项目体检、竞品横评、目标架构、产品旅程、M9–M14 与范围边界 |
 
-最终有效方向以第 5 份画布和项目根目录 [README](../../README.md) 为准。前三份中的团队平台、中心化服务等选项属于讨论过程，并非当前承诺。
+最终有效方向以第 5 份画布、[Local Beta 产品规格](../superpowers/specs/2026-09-17-local-beta-product-design.md)和项目根目录 [README](../../README.md) 为准。前三份中的团队平台、中心化服务等选项属于讨论过程，并非当前承诺。执行入口为 [Local Beta 总实施计划](../superpowers/plans/active/2026-09-17-local-beta-master-plan.md)。
 
 ## 静态预览
 
