@@ -18,6 +18,7 @@ superpowers/ 等（工作流层） ≈ Views    从知识库出发的工作产�
 | 查行业格局 / 竞品 / 上游 CodeWiki | [knowledge/industry/](knowledge/industry/README.md) |
 | 学习本项目的方法论 | [knowledge/methods/](knowledge/methods/README.md)（知识工程、证据优先设计、基准方法） |
 | 查系统当前行为（CLI/退出码/MCP/门禁） | [knowledge/system/](knowledge/system/README.md) |
+| 查看下一轮产品设计画布 | [design/](design/README.md)（决策过程、完整 HTML、静态预览） |
 | 读权威设计规格（V0.1 合同） | [V0.1 设计规格](superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md) |
 | 执行构建/更新/验证操作 | 根 [README 快速上手](../README.md) + [runbooks/](runbooks/) + `bash scripts/verify.sh` |
 | 查某个里程碑怎么做的 | [plans/historical/](superpowers/plans/historical/) + [materials/archives/](materials/archives/) |
@@ -33,6 +34,7 @@ superpowers/ 等（工作流层） ≈ Views    从知识库出发的工作产�
 | [knowledge/industry/](knowledge/industry/README.md) | 知识 | active | 行业格局、设计模式、Qoder 深度分析、上游 CodeWiki |
 | [knowledge/methods/](knowledge/methods/README.md) | 知识 | active | 知识工程沉淀、证据优先设计、基准方法论 |
 | [knowledge/system/](knowledge/system/README.md) | 知识 | active | as-built 架构、运行时行为参考、安全模型 |
+| [design/](design/README.md) | 设计画布 | draft | 2026-09-17 下一轮方向决策、完整 HTML 与静态预览；待正式规格/计划承接 |
 | [superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md](superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md) | 规格 | active | V0.1 权威设计合同（含 §5.10/§6.5 人工层、§11.1 已记录偏差） |
 | [superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md](superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md) | 计划 | draft | M8 A/B 基准设计，待用户冻结 §8 四项决策 |
 | [runbooks/2026-09-02-live-smoke.md](runbooks/2026-09-02-live-smoke.md) | 手册 | active | live 冒烟操作（opt-in 验收项） |

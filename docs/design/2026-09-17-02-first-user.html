@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CodeWiki 首批用户选择</title>
+  <style>
+    :root{--ink:#16231f;--muted:#66736e;--paper:#f3f0e7;--card:#fffdf8;--line:#d8d2c5;--green:#176047;--blue:#285c8b;--amber:#ad681c}
+    *{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#edf2e8 0,#f3f0e7 50%,#eee9dc 100%);color:var(--ink);font-family:Inter,"PingFang SC","Microsoft YaHei",sans-serif}
+    main{width:min(1120px,calc(100% - 36px));margin:auto;padding:44px 0 70px}.eyebrow{color:var(--green);font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+    h1{font:700 clamp(34px,5vw,58px)/1.05 Georgia,"Noto Serif SC",serif;margin:10px 0 12px;max-width:850px}.lead{font-size:18px;line-height:1.7;color:var(--muted);max-width:840px}
+    .decision{display:flex;gap:12px;align-items:center;margin:28px 0 36px;padding:16px 18px;border:1px solid #bad2c4;background:#f4fff8;border-radius:14px}.decision b{color:var(--green)}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{cursor:pointer;position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;min-height:360px;box-shadow:0 16px 48px rgba(24,39,33,.1);transition:.2s}.card:hover{transform:translateY(-3px)}
+    input{position:absolute;opacity:0}.card:has(input:checked){outline:3px solid var(--green);background:#f7fff9}.tag{display:inline-block;padding:6px 9px;border-radius:99px;background:#e7e4dc;color:var(--muted);font-size:12px;font-weight:700}.rec{background:#dcefe4;color:var(--green)}
+    h2{font-size:23px;margin:17px 0 8px}.who{color:var(--muted);line-height:1.55;min-height:76px}.flow{margin:20px 0 0;padding:0;list-style:none}.flow li{padding:10px 0;border-top:1px solid var(--line);font-size:14px}.flow li:before{content:"→";color:var(--green);font-weight:900;margin-right:8px}
+    .impact{margin-top:22px;padding:14px;border-radius:12px;background:#efede6;font-size:13px;line-height:1.55}.impact b{display:block;margin-bottom:5px}
+    .answer{position:sticky;bottom:14px;margin-top:24px;padding:15px 18px;border-radius:14px;background:var(--ink);color:#fff;display:flex;justify-content:space-between;gap:12px;box-shadow:0 15px 45px rgba(20,35,29,.22)}.answer strong{color:#b9e8cd}
+    @media(max-width:800px){.grid{grid-template-columns:1fr}.who{min-height:0}.answer{flex-direction:column}}
+  </style>
+</head>
+<body><main>
+  <div class="eyebrow">Decision 02 · target user</div>
+  <h1>A+B 已锁定。现在决定谁先真正用起来。</h1>
+  <p class="lead">首批用户不同，产品的“主端面”就不同：是终端里的个人工具、浏览器里的团队知识中心，还是供其他 Agent 调用的基础设施。</p>
+  <div class="decision"><b>已确认：</b><span>真实仓库可信验证 + 面向人的 Beta 体验并行推进</span></div>
+  <section class="grid">
+    <label class="card">
+      <input type="radio" name="persona" value="团队负责人" checked>
+      <span class="tag rec">建议首发</span><h2>1. 团队负责人 / Tech Lead</h2>
+      <div class="who">需要快速理解陌生项目、检查知识是否可信，并把同一套知识交给团队与 Agent。</div>
+      <ul class="flow"><li>连接仓库并查看生成进度</li><li>从架构总览进入关键模块</li><li>审查证据、缺口与过期风险</li><li>分享 Wiki 或导出 Agent Context</li></ul>
+      <div class="impact"><b>主端面</b>浏览器知识中心 + CLI 后台执行 + MCP 输出</div>
+    </label>
+    <label class="card">
+      <input type="radio" name="persona" value="个人开发者">
+      <span class="tag">fastest adoption</span><h2>2. 个人开发者 / Agent 用户</h2>
+      <div class="who">在本地快速构建知识、Ask 代码问题，并把高质量上下文喂给 Codex、Claude Code 等工具。</div>
+      <ul class="flow"><li>一条命令初始化与构建</li><li>终端查看状态与失败原因</li><li>Ask 返回 Claim 与源码证据</li><li>MCP 自动供给任务上下文</li></ul>
+      <div class="impact"><b>主端面</b>CLI + MCP；Web 主要承担阅读和审计</div>
+    </label>
+    <label class="card">
+      <input type="radio" name="persona" value="平台工程团队">
+      <span class="tag">platform route</span><h2>3. 平台工程 / AI Infra</h2>
+      <div class="who">要把多个仓库的可靠知识接入组织级 Agent、开发门户和自动化流程。</div>
+      <ul class="flow"><li>批量接入多仓与权限模型</li><li>队列化构建和增量更新</li><li>API/MCP/事件集成</li><li>质量 SLO、审计与治理</li></ul>
+      <div class="impact"><b>主端面</b>服务 API + 管理控制台 + 组织级连接器</div>
+    </label>
+  </section>
+  <div class="answer"><span>当前选择：<strong id="choice">1. 团队负责人 / Tech Lead</strong></span><span>请回到对话回复 1、2、3，或组合（如 1+2）</span></div>
+</main>
+<script>const m={"团队负责人":"1. 团队负责人 / Tech Lead","个人开发者":"2. 个人开发者 / Agent 用户","平台工程团队":"3. 平台工程 / AI Infra"};document.querySelectorAll('input').forEach(x=>x.onchange=()=>document.querySelector('#choice').textContent=m[x.value]);</script>
+</body></html>

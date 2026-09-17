@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CodeWiki 部署架构选择</title>
+  <style>
+    :root{--ink:#17231f;--muted:#64716c;--paper:#f4f0e7;--card:#fffdf7;--line:#d8d1c4;--green:#155f45;--blue:#225c87;--amber:#ad691b;--red:#a94a3b}
+    *{box-sizing:border-box}body{margin:0;color:var(--ink);background:radial-gradient(circle at 10% 0,#dfece3,transparent 28%),var(--paper);font-family:Inter,"PingFang SC","Microsoft YaHei",sans-serif}
+    main{width:min(1160px,calc(100% - 36px));margin:auto;padding:42px 0 72px}.eyebrow{font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--green);font-weight:800}h1{font:700 clamp(34px,5vw,58px)/1.05 Georgia,"Noto Serif SC",serif;margin:10px 0}.lead{font-size:18px;color:var(--muted);line-height:1.7;max-width:900px}.locked{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 34px}.locked span{padding:7px 10px;border:1px solid #bad2c3;background:#f2fff7;color:var(--green);border-radius:99px;font-size:13px;font-weight:700}
+    .architectures{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{position:relative;cursor:pointer;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 18px 54px rgba(23,35,31,.1);transition:.18s}.card:hover{transform:translateY(-3px)}input{position:absolute;opacity:0}.card:has(input:checked){outline:3px solid var(--green);background:#f7fff9}.tag{display:inline-block;background:#e8e5dc;color:var(--muted);font-size:12px;font-weight:700;border-radius:99px;padding:6px 9px}.recommended{background:#d8eee1;color:var(--green)}h2{font-size:23px;margin:16px 0 6px}.summary{color:var(--muted);line-height:1.55;min-height:70px}
+    .diagram{margin:20px 0;padding:18px 12px;border-radius:13px;background:#f0ede5;text-align:center;min-height:154px;display:flex;flex-direction:column;justify-content:center;gap:8px}.node{padding:9px;border-radius:9px;background:white;border:1px solid var(--line);font-size:13px;font-weight:700}.arrow{color:var(--green);font-weight:900}.row{display:flex;gap:7px;align-items:center}.row .node{flex:1}.pros{padding:0 0 0 18px;line-height:1.7;font-size:14px}.tradeoff{border-top:1px solid var(--line);padding-top:12px;color:var(--red);font-size:13px;line-height:1.55}
+    .principle{margin:34px 0 0;display:grid;grid-template-columns:190px 1fr;gap:18px;padding:20px;border-left:5px solid var(--green);background:#eef8f1}.principle b{font-size:17px}.principle span{color:#45564f;line-height:1.6}.answer{position:sticky;bottom:14px;margin-top:24px;padding:15px 18px;border-radius:14px;background:var(--ink);color:#fff;display:flex;justify-content:space-between;gap:12px;box-shadow:0 16px 46px rgba(23,35,31,.25)}.answer strong{color:#bee9cf}
+    @media(max-width:820px){.architectures{grid-template-columns:1fr}.summary{min-height:0}.principle{grid-template-columns:1fr}.answer{flex-direction:column}}
+  </style>
+</head><body><main>
+  <div class="eyebrow">Decision 03 · deployment architecture</div>
+  <h1>个人开发者 + 平台团队，需要哪一种共同底座？</h1>
+  <p class="lead">这一选择决定仓库源码是否离开本机、多人共享如何实现，以及下一轮应优先做 CLI、服务 API 还是控制台。</p>
+  <div class="locked"><span>A+B：可信验证 + Beta 体验</span><span>用户 2：个人开发者</span><span>用户 3：平台工程团队</span></div>
+  <section class="architectures">
+    <label class="card"><input type="radio" name="arch" value="纯本地">
+      <span class="tag">privacy maximum</span><h2>A. 纯本地工具</h2><div class="summary">每位开发者本机生成、检索和浏览；平台团队只分发配置与 Skill。</div>
+      <div class="diagram"><div class="node">Repository</div><div class="arrow">↓</div><div class="node">Local Engine + SQLite + Web UI</div><div class="arrow">↓</div><div class="node">CLI / MCP / Static Export</div></div>
+      <ul class="pros"><li>最强隐私与离线能力</li><li>部署简单、当前架构最接近</li><li>单机故障边界清晰</li></ul><div class="tradeoff">代价：跨仓、共享治理、集中质量观测很弱。</div>
+    </label>
+    <label class="card"><input type="radio" name="arch" value="本地引擎加控制面" checked>
+      <span class="tag recommended">建议方案</span><h2>B. 本地引擎 + 可选控制面</h2><div class="summary">源码解析与知识编译默认留在本机；平台服务只接收获准同步的制品、指标和策略。</div>
+      <div class="diagram"><div class="row"><div class="node">Local Engine</div><span class="arrow">⇄</span><div class="node">Self-hosted Control Plane</div></div><div class="arrow">↓ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ↓</div><div class="row"><div class="node">CLI / MCP</div><div class="node">Catalog / Policy / Metrics</div></div></div>
+      <ul class="pros"><li>个人用户零服务依赖</li><li>平台团队可做多仓目录与治理</li><li>明确的同步边界和渐进升级</li></ul><div class="tradeoff">代价：需要设计本地/服务双协议、同步模型和权限边界。</div>
+    </label>
+    <label class="card"><input type="radio" name="arch" value="中心化服务">
+      <span class="tag">operations first</span><h2>C. 中心化知识服务</h2><div class="summary">仓库接入、解析、存储、问答和管理全部在团队服务中运行。</div>
+      <div class="diagram"><div class="node">Git Providers / Repositories</div><div class="arrow">↓</div><div class="node">Central Queue + Workers + Knowledge DB</div><div class="arrow">↓</div><div class="node">Web / API / MCP</div></div>
+      <ul class="pros"><li>多仓统一治理最直接</li><li>权限、SLO 和监控集中</li><li>便于团队级共享和集成</li></ul><div class="tradeoff">代价：运维、租户隔离、源码安全与成本显著上升。</div>
+    </label>
+  </section>
+  <div class="principle"><b>建议的架构原则</b><span>采用 B，但下一轮只实现“单机可完整工作 + 控制面协议可演进”的最小垂直切片；不急于造完整 SaaS。这样既服务个人开发者，也为平台接入保留清晰扩展点。</span></div>
+  <div class="answer"><span>当前选择：<strong id="choice">B. 本地引擎 + 可选控制面</strong></span><span>请回到对话回复 A、B 或 C</span></div>
+</main><script>const m={"纯本地":"A. 纯本地工具","本地引擎加控制面":"B. 本地引擎 + 可选控制面","中心化服务":"C. 中心化知识服务"};document.querySelectorAll('input').forEach(x=>x.onchange=()=>document.querySelector('#choice').textContent=m[x.value]);</script></body></html>
