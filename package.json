@@ -1,0 +1,16 @@
+{
+  "name": "codewiki",
+  "version": "0.1.0",
+  "description": "Local-first repository knowledge compiler for AI coding agents",
+  "private": true,
+  "scripts": {
+    "screenshot": "node scripts/screenshot.js",
+    "screenshot:install": "npx playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
