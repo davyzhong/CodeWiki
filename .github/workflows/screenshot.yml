@@ -34,10 +34,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-
       - name: 📦 安装依赖
-        run: npm ci
+        run: npm install
 
       - name: 🎭 安装 Playwright 浏览器
         run: npx playwright install --with-deps chromium
