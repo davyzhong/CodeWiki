@@ -87,3 +87,19 @@ jobs:
             git add assets/screenshots/*.png
             git commit -m "docs(assets): 更新 README 截图"
             ```
+  readme-link-check:
+    name: README 链接检查 (readme-craft T19)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 检查 README 相对链接
+        run: |
+          set -u
+          status=0
+          links=$(awk '/^```/{f=!f;next} !f' README.md | grep -oE '\]\([^)# ]+\)' | sed -e 's/^](//' -e 's/)$//' | grep -vE '^(https?:|mailto:|#|img\.shields)' | grep -E '^(\./|\.\./|[A-Za-z0-9])' | grep -E '\.(md|png|jpe?g|svg|gif|webp|json|ya?ml|txt)$' | sort -u)
+          for f in $links; do
+            target="${f%%#*}"
+            [ -z "$target" ] && continue
+            [ -e "$target" ] || { echo "BROKEN: $target"; status=1; }
+          done
+          exit $status
