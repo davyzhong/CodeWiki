@@ -28,7 +28,7 @@ tags:
 
 ![License 许可证](https://img.shields.io/github/license/davyzhong/CodeWiki) ![CI workflow 状态](https://img.shields.io/github/actions/workflow/status/davyzhong/CodeWiki/ci.yml) ![GitHub Stars](https://img.shields.io/github/stars/davyzhong/CodeWiki)
 
-[![Tests 测试状态](https://img.shields.io/badge/tests-787%20passed%20%C2%B71%20skipped-brightgreen)](scripts/verify.sh)
+[![Tests 测试状态](https://img.shields.io/github/actions/workflow/status/davyzhong/CodeWiki/ci.yml)](scripts/verify.sh)
 [![Python 版本](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
 [![Version 版本](https://img.shields.io/badge/version-0.1.0.dev0-orange)](pyproject.toml)
 [![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](scripts/verify.sh)

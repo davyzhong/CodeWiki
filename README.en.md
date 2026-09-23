@@ -1,3 +1,5 @@
+> ⚠️ 本翻译最后更新于 2026-09-21，主 README 于 2026-09-23 有多项修复未同步至此；最新内容以 [主文档](./README.md) 为准。
+
 ---
 name: codewiki
 description: Local-first repository knowledge compiler for AI coding agents. Distinguishes Evidence ≠ Knowledge ≠ Context: turns a git repo's verifiable facts into evidence-bound, commit-scoped structured knowledge, then deterministically compiles three views (Wiki / Cards / Task Context) from the same Canonical IR.
