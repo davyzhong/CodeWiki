@@ -14,7 +14,7 @@
 | 问题类型 | 去处 |
 |---|---|
 | 产品是什么 / 成功标准 / 边界 | [product/product-definition](product/product-definition.md) |
-| 为什么当初这样决定 / 有没有先例 | [product/decision-log](product/decision-log.md)（D-001…D-023） |
+| 为什么当初这样决定 / 有没有先例 | [product/decision-log](product/decision-log.md)（D-001…D-028） |
 | 某术语（Claim？generation？overlay？）什么意思 | [product/domain-model](product/domain-model.md) |
 | 行业有哪些竞品 / 怎么分层 | [industry/landscape](industry/landscape.md) |
 | 双视图、fail-closed 这些模式是谁先做的 | [industry/patterns](industry/patterns.md) |

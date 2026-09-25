@@ -1,3 +1,11 @@
+---
+status: approved-not-started
+last-reviewed: 2026-09-25
+scope: local-beta-m9-m14
+sources:
+  - docs/superpowers/specs/2026-09-17-local-beta-product-design.md
+---
+
 # CodeWiki Local Beta Master Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -101,4 +109,3 @@ The Local Beta is releasable only when:
 - M8 results are published whether positive or negative;
 - README contains the shipped capabilities, limitations, screenshots, and benchmark conclusion;
 - `git status --short --branch` is clean and `HEAD == origin/main`.
-

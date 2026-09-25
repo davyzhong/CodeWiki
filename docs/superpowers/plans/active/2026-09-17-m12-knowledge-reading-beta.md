@@ -1,3 +1,12 @@
+---
+status: approved-not-started
+last-reviewed: 2026-09-25
+scope: local-beta-m12
+sources:
+  - docs/superpowers/specs/2026-09-17-local-beta-product-design.md
+  - docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md
+---
+
 # M12 Knowledge Reading Beta Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -130,4 +139,3 @@
 - [ ] Replace README future mockups with clearly labeled shipped screenshots while retaining design history.
 - [ ] Record limitations and apply D-027.
 - [ ] Commit: `docs: close M12 knowledge reading beta` and push `main`.
-

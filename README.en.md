@@ -1,7 +1,7 @@
 ---
 name: codewiki-en
 description: Local-first repository knowledge compiler for AI coding agents. Distinguishes Evidence ≠ Knowledge ≠ Context — turns a git repo's verifiable facts into evidence-bound, commit-scoped structured knowledge, then deterministically compiles Wiki / Cards / Task Context views from one Canonical IR.
-license: MIT (planned)
+license: MIT
 homepage: https://github.com/davyzhong/CodeWiki
 audience: ai-coding-agents, individual developers, tool builders
 intent: knowledge compilation
@@ -442,7 +442,7 @@ The documentation library uses three-layer governance (**raw material → static
 | Layer | Entry | Contents |
 | --- | --- | --- |
 | Knowledge base (facts) | [docs/knowledge/](docs/knowledge/README.md) | [Product definition](docs/knowledge/product/product-definition.md) · [Decision log D-001…](docs/knowledge/product/decision-log.md) · [Domain model](docs/knowledge/product/domain-model.md) · [Industry landscape](docs/knowledge/industry/landscape.md) · [Upstream CodeWiki](docs/knowledge/industry/upstream-codewiki.md) · [Evidence-first design method](docs/knowledge/methods/evidence-first-design.md) · [As-built architecture](docs/knowledge/system/architecture.md) · [Behavior reference](docs/knowledge/system/behavior-reference.md) · [Security model](docs/knowledge/system/security-model.md) |
-| Specs & plans | docs/superpowers/ | [V0.1 design spec (authoritative contract)](docs/superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md) · [M8 A/B benchmark draft](docs/superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md) |
+| Specs & plans | docs/superpowers/ | [V0.1 design spec (authoritative contract)](docs/superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md) · [M8 A/B benchmark (frozen)](docs/superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md) · [Local Beta master plan (not started)](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) |
 | Runbooks | docs/runbooks/ | [Live smoke runbook](docs/runbooks/2026-09-02-live-smoke.md) |
 
 ## Positioning and boundaries

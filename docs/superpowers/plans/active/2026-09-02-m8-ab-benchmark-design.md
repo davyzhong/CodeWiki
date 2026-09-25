@@ -1,3 +1,12 @@
+---
+status: frozen-blocked
+last-reviewed: 2026-09-25
+scope: m8-ab-benchmark
+sources:
+  - docs/superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md
+  - docs/knowledge/methods/benchmark-methodology.md
+---
+
 # M8 A/B Benchmark Design（已冻结 v1.0）
 
 > **状态：frozen（2026-09-16 冻结 §8 四项决策，依据用户授权"缺决策信息参考竞对与同行惯例自主决策"）**。执行前置 = live 冒烟通过 + API key 配置（技术前置与凭据前置分离：harness 与 dry-run 不依赖 key，已先行实现）。

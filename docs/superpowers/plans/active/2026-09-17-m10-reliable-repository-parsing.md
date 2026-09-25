@@ -1,3 +1,12 @@
+---
+status: approved-not-started
+last-reviewed: 2026-09-25
+scope: local-beta-m10
+sources:
+  - docs/superpowers/specs/2026-09-17-local-beta-product-design.md
+  - docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md
+---
+
 # M10 Reliable Repository Parsing Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -129,4 +138,3 @@
 - [ ] Record versions, snapshots, timing, capability matrix, crash evidence, screenshots, and limitations.
 - [ ] Update README shipped status and upstream issue status; apply D-027.
 - [ ] Commit: `docs: close M10 reliable repository parsing` and push `main`.
-

@@ -1,7 +1,7 @@
 ---
 name: codewiki-zh
 description: 面向 Coding Agent 的 local-first 仓库知识编译器。区分 Evidence ≠ Knowledge ≠ Context：把 git 仓库里的可验证事实编译成证据绑定、随提交过期的结构化知识，再从同一份 Canonical IR 确定性编译出 Wiki / Cards / Task Context 三视图。
-license: MIT（计划中）
+license: MIT
 homepage: https://github.com/davyzhong/CodeWiki
 audience: ai-coding-agents, 个人开发者, 工具构建者
 intent: 知识编译
@@ -443,7 +443,7 @@ bash scripts/verify.sh
 | --- | --- | --- |
 | 知识库（事实基础） | [docs/knowledge/](docs/knowledge/README.md) | [产品定义](docs/knowledge/product/product-definition.md) · [决策日志 D-001…](docs/knowledge/product/decision-log.md) · [领域模型](docs/knowledge/product/domain-model.md) · [行业格局](docs/knowledge/industry/landscape.md) · [上游 CodeWiki](docs/knowledge/industry/upstream-codewiki.md) · [证据优先设计方法](docs/knowledge/methods/evidence-first-design.md) · [as-built 架构](docs/knowledge/system/architecture.md) · [行为参考](docs/knowledge/system/behavior-reference.md) · [安全模型](docs/knowledge/system/security-model.md) |
 | 项目治理 | [rules/principles.md](rules/principles.md) | 重大设计同步铁律 · 中期冻结/最终封存完整审计 · [当前封存审计计划](docs/superpowers/plans/active/2026-09-25-project-freeze-closure-audit.md) |
-| 规格与计划 | docs/superpowers/ | [V0.1 设计规格（权威合同）](docs/superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md) · [M8 A/B 基准草案](docs/superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md) |
+| 规格与计划 | docs/superpowers/ | [V0.1 设计规格（权威合同）](docs/superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md) · [M8 A/B 基准（已冻结）](docs/superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md) · [Local Beta 总计划（未开始）](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) |
 | 操作手册 | docs/runbooks/ | [Live 冒烟手册](docs/runbooks/2026-09-02-live-smoke.md) |
 
 ## 定位与边界

@@ -17,7 +17,7 @@ dependencies = [
 dev = [
   "codewiki>=0.6,<0.7",
   "mcp>=1.0,<2",
-  "pytest>=8.3,<9",
+  "pytest>=9.0.3,<10",
   "pytest-cov>=6.0,<7",
 ]
 
@@ -31,4 +31,3 @@ addopts = "-q"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/knowledge_compiler"]
-

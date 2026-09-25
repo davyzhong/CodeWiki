@@ -1,3 +1,12 @@
+---
+status: approved-not-started
+last-reviewed: 2026-09-25
+scope: local-beta-m9
+sources:
+  - docs/superpowers/specs/2026-09-17-local-beta-product-design.md
+  - docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md
+---
+
 # M9 Local Product Foundation Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -148,4 +157,3 @@
 - [ ] Capture the empty/onboarding screenshots and exact outputs in the M9 validation record.
 - [ ] Update README current state and check D-027 surfaces.
 - [ ] Commit: `docs: close M9 local product foundation` and push `main`.
-

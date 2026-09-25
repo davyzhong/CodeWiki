@@ -1,6 +1,6 @@
 ---
 status: maintained
-last-reviewed: 2026-09-12
+last-reviewed: 2026-09-25
 sources:
   - materials/archives/knowledge-compiler-transfer-archive-public.md（第一编决策对话、第二编技术设计）
   - superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md（含 §5.10/§6.5/§11.1 修订）

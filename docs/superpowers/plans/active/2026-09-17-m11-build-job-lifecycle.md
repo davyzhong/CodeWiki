@@ -1,3 +1,12 @@
+---
+status: approved-not-started
+last-reviewed: 2026-09-25
+scope: local-beta-m11
+sources:
+  - docs/superpowers/specs/2026-09-17-local-beta-product-design.md
+  - docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md
+---
+
 # M11 Build Job Lifecycle Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -131,4 +140,3 @@
 - [ ] Run full Python/frontend verification and link checks.
 - [ ] Record screenshots and exact recovery results; update D-027 surfaces.
 - [ ] Commit: `docs: close M11 build job lifecycle` and push `main`.
-

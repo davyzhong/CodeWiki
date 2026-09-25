@@ -1,3 +1,13 @@
+---
+status: approved-not-started
+last-reviewed: 2026-09-25
+scope: local-beta-m14
+sources:
+  - docs/superpowers/specs/2026-09-17-local-beta-product-design.md
+  - docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md
+  - docs/superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md
+---
+
 # M14 Value Proof and Local Beta Release Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -116,4 +126,3 @@
 - [ ] Run `bash scripts/verify.sh`, all frontend/E2E checks, link checks, release criteria, wheel install, and clean-tree checks.
 - [ ] Verify `git status --short --branch` is clean after commit and `git rev-parse HEAD` equals `git ls-remote origin refs/heads/main` after push.
 - [ ] Commit: `release: publish CodeWiki local beta` and push `main`.
-
