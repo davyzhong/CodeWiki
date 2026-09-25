@@ -1,5 +1,7 @@
 # CodeWiki（Knowledge Compiler）
 
+> 项目特定铁律：[`rules/principles.md`](rules/principles.md)（重大设计同步与每次冻结/封存审计）。
+
 面向 Coding Agent 的 local-first 仓库知识编译器：Evidence ≠ Knowledge ≠ Context，git 仓库 → 可验证知识 → 三视图编译。
 
 ## 会话第一步
@@ -30,6 +32,7 @@ bash scripts/verify.sh                             # 唯一验证入口（live �
 
 | 意图 | 位置 |
 | --- | --- |
+| 项目特定原则 / 冻结封存门禁 | `rules/principles.md` |
 | 为什么做/决策全记录 | `docs/knowledge/`（product/industry/methods/system） |
 | V0.1 权威规格 | `docs/superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md` |
 | M8 基准（frozen） | `docs/superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md` |

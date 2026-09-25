@@ -20,6 +20,7 @@ superpowers/ 等（工作流层） ≈ Views    从知识库出发的工作产�
 | 查系统当前行为（CLI/退出码/MCP/门禁） | [knowledge/system/](knowledge/system/README.md) |
 | 查看下一轮产品设计画布 | [design/](design/README.md)（决策过程、完整 HTML、静态预览） |
 | 执行下一轮 Local Beta 计划 | [Local Beta 总计划](superpowers/plans/active/2026-09-17-local-beta-master-plan.md)（M9–M14 依赖、门禁和六份子计划） |
+| 执行中期冻结 / 项目封存审计 | [项目铁律](../rules/principles.md) + [2026-09-25 封存审计计划](superpowers/plans/active/2026-09-25-project-freeze-closure-audit.md) |
 | 读权威设计规格（V0.1 合同） | [V0.1 设计规格](superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md) |
 | 执行构建/更新/验证操作 | 根 [README 快速上手](../README.md) + [runbooks/](runbooks/) + `bash scripts/verify.sh` |
 | 查某个里程碑怎么做的 | [plans/historical/](superpowers/plans/historical/) + [materials/archives/](materials/archives/) |
@@ -38,6 +39,7 @@ superpowers/ 等（工作流层） ≈ Views    从知识库出发的工作产�
 | [design/](design/README.md) | 设计画布 | approved | 2026-09-17 下一轮方向决策、完整 HTML 与静态预览；已由 Local Beta 规格/计划承接 |
 | [superpowers/specs/2026-09-17-local-beta-product-design.md](superpowers/specs/2026-09-17-local-beta-product-design.md) | 规格 | active | 已批准的个人开发者、本地单节点 Local Beta 产品与架构基线 |
 | [superpowers/plans/active/2026-09-17-local-beta-master-plan.md](superpowers/plans/active/2026-09-17-local-beta-master-plan.md) | 总计划 | active | M9–M14 顺序、文件架构、统一契约、全局门禁和发布定义；链接六份详细子计划 |
+| [superpowers/plans/active/2026-09-25-project-freeze-closure-audit.md](superpowers/plans/active/2026-09-25-project-freeze-closure-audit.md) | 封存审计计划 | active | 不扩大产品范围的全量 Review、清理、知识沉淀与关闭判定 |
 | [superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md](superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md) | 规格 | active | V0.1 权威设计合同（含 §5.10/§6.5 人工层、§11.1 已记录偏差） |
 | [superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md](superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md) | 计划 | draft | M8 A/B 基准设计，待用户冻结 §8 四项决策 |
 | [runbooks/2026-09-02-live-smoke.md](runbooks/2026-09-02-live-smoke.md) | 手册 | active | live 冒烟操作（opt-in 验收项） |

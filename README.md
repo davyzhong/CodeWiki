@@ -442,6 +442,7 @@ bash scripts/verify.sh
 | 层 | 入口 | 内容 |
 | --- | --- | --- |
 | 知识库（事实基础） | [docs/knowledge/](docs/knowledge/README.md) | [产品定义](docs/knowledge/product/product-definition.md) · [决策日志 D-001…](docs/knowledge/product/decision-log.md) · [领域模型](docs/knowledge/product/domain-model.md) · [行业格局](docs/knowledge/industry/landscape.md) · [上游 CodeWiki](docs/knowledge/industry/upstream-codewiki.md) · [证据优先设计方法](docs/knowledge/methods/evidence-first-design.md) · [as-built 架构](docs/knowledge/system/architecture.md) · [行为参考](docs/knowledge/system/behavior-reference.md) · [安全模型](docs/knowledge/system/security-model.md) |
+| 项目治理 | [rules/principles.md](rules/principles.md) | 重大设计同步铁律 · 中期冻结/最终封存完整审计 · [当前封存审计计划](docs/superpowers/plans/active/2026-09-25-project-freeze-closure-audit.md) |
 | 规格与计划 | docs/superpowers/ | [V0.1 设计规格（权威合同）](docs/superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md) · [M8 A/B 基准草案](docs/superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md) |
 | 操作手册 | docs/runbooks/ | [Live 冒烟手册](docs/runbooks/2026-09-02-live-smoke.md) |
 
