@@ -1,0 +1,100 @@
+# CodeWiki README 的 agent-reviewed 规则评审
+#
+# 评审对象：./README.md（464 行）
+# 评审时间：2026-09-27
+# 项目类型：library（面向 Coding Agent 的 local-first 仓库知识编译器）
+# 用法：pnpm readme-craft check . --type library --review review.yaml
+#
+# 说明：MIT 开源项目但处于早期阶段，无可溯源的外部用户引用，T11 按 N/A 处理。
+
+specVersion: 3.0.0-alpha.0
+
+reviews:
+  # T01 视觉锤
+  - id: T01
+    score: 4
+    reason: >-
+      首屏提供语言切换与 frontmatter 元数据，
+      并有独立的「📦 它产出的东西（真实截图）」章节展示 Wiki / Cards /
+      Task Context 三视图的真实产物。
+      扣 1 分：README 顶部（frontmatter 之后、第 47 行「下一阶段」之前）
+      缺少一句凝练的 tagline 与产品视觉，标题下直接进入长篇阶段说明，
+      首屏价值主张需要读到第 125 行才出现。
+    evidence: [logo-tagline, hero-visual]
+
+  # T02 三秒价值主张
+  - id: T02
+    score: 5
+    reason: >-
+      frontmatter description 完整给出定位与核心区分：Evidence ≠ Knowledge ≠ Context，
+      并说明机制（把 git 仓库里的可验证事实编译成证据绑定、随提交过期的结构化知识，
+      再从同一份 Canonical IR 确定性编译出三视图）。
+      「核心思想：三层分离」章节进一步展开。
+      做什么、给谁用（面向 Coding Agent）、独特优势（证据绑定 + 确定性编译）三要素完整。
+    evidence: [value-proposition]
+
+  # T04 安装路径
+  - id: T04
+    score: 4
+    reason: >-
+      「快速上手」章节提供构建与运行步骤，并区分 MCP server 等不同使用形态。
+      扣 1 分：作为面向 Agent 的工具，缺少「如何在其他 Agent 工具中接入」
+      的明确说明（如写入哪份配置、软链到哪个目录），
+      目标读者需自行推断接入方式。
+    evidence: [executable-command, supported-platforms]
+
+  # T05 Quickstart
+  - id: T05
+    score: 4
+    reason: >-
+      快速上手给出可执行流程，另有独立的「验证闭环」章节说明如何确认编译正确。
+      扣 1 分：编译产物依赖仓库内容，无开箱即用的示例仓库或在线试用入口，
+      首次验证需自备 git 仓库。
+    evidence: [quickstart-steps]
+
+  # T07 卖点编号
+  - id: T07
+    score: 4
+    reason: >-
+      「为什么需要它」与「核心思想：三层分离」两章共同承载卖点，
+      Evidence / Knowledge / Context 的区分有清晰定义与边界说明。
+      扣 1 分：核心卖点（三层分离、证据绑定、随提交过期）以概念陈述为主，
+      缺少「编译前后对比」这类可量化的收益说明。
+    evidence: [numbered-selling-points]
+
+  # T08 Feature 分组
+  - id: T08
+    score: 5
+    reason: >-
+      按「下一阶段 / 为什么需要 / 核心思想 / 产出物 / 构建管线 / 知识生命周期 /
+      快速上手 / 验证闭环 / 项目状态 / 行业横向比对 / 下一轮里程碑 / 文档导航」
+      组织，独立的「构建管线」与「知识生命周期」章节体现工程深度，
+      「行业横向比对」章节提供差异化视角，分组完整且检索路径清晰。
+    evidence: [feature-groups]
+
+  # T11 引用/背书
+  - id: T11
+    status: na
+    reason: >-
+      项目处于早期阶段（README 含「下一阶段」「下一轮里程碑」等规划性章节），
+      无可溯源的外部用户引用或客户背书。
+      按 N/A 处理，不虚构采用方或效果数据。
+
+  # T14 包容性语言
+  - id: T14
+    score: 5
+    reason: >-
+      全文使用「你」等第二人称与中性群体称谓（个人开发者、工具构建者），
+      无 he/she 默认指代、无性别化或地域化表述；
+      术语（Canonical IR、Evidence / Knowledge / Context）均给出中文定义，
+      符合面向 Coding Agent 与中文开发者的定位。
+    evidence: [inclusive-language-review]
+
+  # T17 默认语言策略
+  - id: T17
+    score: 5
+    reason: >-
+      首屏第 24 行提供语言切换入口 [中文](./README.md) · [English](./README.en.md)，
+      且 README.en.md 为已落盘的真实文件。
+      默认中文与项目工作语言一致，英文入口可立即验证，策略完整可执行。
+    evidence: [default-language-rationale]
