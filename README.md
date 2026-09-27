@@ -446,6 +446,13 @@ bash scripts/verify.sh
 | 规格与计划 | docs/superpowers/ | [V0.1 设计规格（权威合同）](docs/superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md) · [M8 A/B 基准（已冻结）](docs/superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md) · [Local Beta 总计划（未开始）](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) |
 | 操作手册 | docs/runbooks/ | [Live 冒烟手册](docs/runbooks/2026-09-02-live-smoke.md) |
 
+## 🙏 致谢
+
+- **方法论**：本 README 的结构与自检口径遵循 [readme-craft](https://github.com/davyzhong/readme-craft) ——
+  19 条铁律 + 13 条反模式，规则以 `rules.yaml` 为单一事实源，可用 `npx github:davyzhong/readme-craft check .` 复验。
+- **贡献**：欢迎通过 Issue 与 PR 参与，具体流程见下方贡献章节。
+- **赞助**：本项目暂无商业赞助。若希望支持维护，请优先贡献 Issue、PR 或文档改进。
+
 ## 定位与边界
 
 | | 通用 RAG / embedding 检索 | 上游 CodeWiki 0.6.x | 本项目 Knowledge Compiler |
