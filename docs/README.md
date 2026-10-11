@@ -39,7 +39,7 @@ superpowers/ 等（工作流层） ≈ Views    从知识库出发的工作产�
 | [knowledge/system/](knowledge/system/README.md) | 知识 | active | as-built 架构、运行时行为参考、安全模型 |
 | [design/](design/README.md) | 设计画布 | approved | 2026-09-17 下一轮方向决策、完整 HTML 与静态预览；已由 Local Beta 规格/计划承接 |
 | [superpowers/specs/2026-09-17-local-beta-product-design.md](superpowers/specs/2026-09-17-local-beta-product-design.md) | 规格 | active | 已批准的个人开发者、本地单节点 Local Beta 产品与架构基线 |
-| [superpowers/plans/active/2026-09-17-local-beta-master-plan.md](superpowers/plans/active/2026-09-17-local-beta-master-plan.md) | 总计划 | approved-not-started | M9–M14 共 251 个可勾选步骤全部未执行；不得将已批准计划表述为已交付功能 |
+| [superpowers/plans/active/2026-09-17-local-beta-master-plan.md](superpowers/plans/active/2026-09-17-local-beta-master-plan.md) | 总计划 | active | M9 Task 1 已完成；Local Beta 当前 6/251，下一步 M9 Task 2 |
 | [superpowers/plans/active/2026-09-25-project-freeze-closure-audit.md](superpowers/plans/active/2026-09-25-project-freeze-closure-audit.md) | 封存审计计划 | active | 不扩大产品范围的全量 Review、清理、知识沉淀与关闭判定 |
 | [reviews/2026-09-25-project-closure-review.md](reviews/2026-09-25-project-closure-review.md) | 审查 | active | V0.1 有条件可冻结；整个项目不可关闭；M9–M14 为 0/251 |
 | [materials/archives/2026-09-25-project-freeze-manifest.md](materials/archives/2026-09-25-project-freeze-manifest.md) | 归档 | frozen-evidence | 审计证据树、验证快照、恢复说明与提交指针 |

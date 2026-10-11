@@ -1,6 +1,6 @@
 ---
-status: approved-not-started
-last-reviewed: 2026-09-25
+status: active
+last-reviewed: 2026-10-11
 scope: local-beta-m9
 sources:
   - docs/superpowers/specs/2026-09-17-local-beta-product-design.md
@@ -29,12 +29,12 @@ sources:
 - Create: `web/tsconfig.json`
 - Create: `web/vite.config.ts`
 
-- [ ] Write a failing test asserting `knowledge app` is registered, FastAPI/Uvicorn/platformdirs are runtime dependencies, and `knowledge_compiler/app/static/index.html` is wheel package data.
-- [ ] Run `pytest tests/app/test_packaging_contract.py -v`; expect failure for missing app entry point and assets.
-- [ ] Add bounded Python dependencies, package-data configuration, `knowledge-app`/`knowledge app` entry wiring, and pinned frontend scripts: `test`, `build`, `typecheck`, `e2e`.
-- [ ] Run the focused test; expect PASS.
-- [ ] Run `pnpm --dir web install --frozen-lockfile`; expect a reproducible install with no lockfile mutation.
-- [ ] Commit: `build: define local app packaging contract`.
+- [x] Write a failing test asserting `knowledge app` is registered, FastAPI/Uvicorn/platformdirs are runtime dependencies, and `knowledge_compiler/app/static/index.html` is wheel package data.
+- [x] Run `pytest tests/app/test_packaging_contract.py -v`; expect failure for missing app entry point and assets.
+- [x] Add bounded Python dependencies, package-data configuration, `knowledge-app`/`knowledge app` entry wiring, and pinned frontend scripts: `test`, `build`, `typecheck`, `e2e`.
+- [x] Run the focused test; expect PASS.
+- [x] Run `pnpm --dir web install --frozen-lockfile`; expect a reproducible install with no lockfile mutation.
+- [x] Commit: `build: define local app packaging contract`（按全局中文提交规则使用 `build: 固化本地应用打包契约`）。
 
 ### Task 2: Add application paths and versioned app database
 

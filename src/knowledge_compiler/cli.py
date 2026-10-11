@@ -19,6 +19,17 @@ _MANAGED_IGNORE_ENTRIES = (
 )
 
 
+@app.command(name="app")
+def app_command() -> None:
+    """Launch the local CodeWiki application."""
+
+    from knowledge_compiler.app.launcher import main
+
+    exit_code = main()
+    if exit_code:
+        raise typer.Exit(code=exit_code)
+
+
 def _default_config(language: str, web_url: str | None = None) -> KnowledgeConfig:
     return KnowledgeConfig.model_validate(
         {

@@ -15,19 +15,19 @@ sources:
 
 | 判断对象 | 结论 | 原因 |
 |---|---|---|
-| V0.1 技术基线 | **有条件可冻结** | 离线主链、CLI/MCP/静态产物、安全审计与 790 项测试通过；真实 live、M8 价值实验和 CI 锁文件门仍未闭合 |
-| Local Beta M9–M14 | **未开始** | 六份已批准计划共有 251 个执行步骤，完成 0 个 |
+| V0.1 技术基线 | **有条件可冻结** | 离线主链、CLI/MCP/静态产物、安全审计与当前 793 项测试通过；真实 live、M8 价值实验和 CI 锁文件门仍未闭合 |
+| Local Beta M9–M14 | **执行中** | 六份已批准计划共有 251 个执行步骤；M9 Task 1 完成后为 6/251 |
 | 整个项目 | **不可关闭** | Local Beta 仍是 active 承诺，且用户已要求从中断处继续，不是取消或延期 |
 | GitHub 仓库归档 | **不执行** | 公开归档属于外部生效动作，且项目关闭条件尚未满足 |
 
-项目当前不是“所有能做的都做完了”，而是完成了可信知识编译器 V0.1 的大部分技术交付，随后完成了下一阶段设计，但尚未开始把引擎做成个人开发者可操作的 Local Beta。
+项目当前不是“所有能做的都做完了”，而是完成了可信知识编译器 V0.1 的大部分技术交付，随后完成了下一阶段设计，并已从 M9 Task 1 开始把引擎做成个人开发者可操作的 Local Beta。
 
 ## 已验证交付
 
 - Git 快照/变化识别、公开 Evidence Provider、五类 Canonical IR、规划/抽取/独立验证、原子发布、增量失效/退役、human overlay。
 - Markdown Wiki、Knowledge Cards、Task Context、单文件 HTML、静态多页站点、本地回环只读服务、FTS 检索。
 - CLI 主命令面与七个只读 MCP 工具；默认 snapshot/validity/evidence fail-closed。
-- 2026-10-11 `VERIFY_FAST=1 bash scripts/verify.sh`：790 passed、1 opt-in live skipped，compile/diff/pip-audit PASS。
+- 封存审查完整双遍为 790 passed、1 opt-in live skipped；M9 Task 1 后快速基线为 793+1，compile/pip-audit PASS。
 - 隔离临时仓库真实浏览器验收覆盖入口、Ask、详情、Evidence、History、移动端；截图见[产品端面审查](../materials/validation/project-freeze-2026-09-25/product-surface-review.md)。
 
 ## 本轮发现并关闭
@@ -61,13 +61,13 @@ sources:
 
 | 里程碑 | 执行步骤 | 当前完成 | 下一入口 |
 |---|---:|---:|---|
-| M9 本地产品基座 | 48 | 0 | Task 1：应用打包契约 |
+| M9 本地产品基座 | 48 | 6 | Task 2：AppPaths 与版本化 App DB |
 | M10 可靠仓库解析 | 44 | 0 | M9 公共合同完成后 |
 | M11 构建任务生命周期 | 43 | 0 | M9/M10 完成后 |
 | M12 知识阅读 Beta | 40 | 0 | M11 读 API 稳定后 |
 | M13 Ask / Agent 一致性 | 41 | 0 | M10/M12 完成后 |
 | M14 价值证明与 Beta 发布 | 35 | 0 | M9–M13 全部过门后 |
-| **合计** | **251** | **0** | **从 M9 Task 1 连续推进** |
+| **合计** | **251** | **6** | **从 M9 Task 2 连续推进** |
 
 ## 竞品横评后的范围裁决
 
@@ -91,9 +91,9 @@ sources:
 ## 恢复与继续执行
 
 1. `git pull --ff-only`，确认 `main == origin/main`。
-2. 运行 `bash scripts/verify.sh`，确认 790+1 或后续明确记录的新基线。
+2. 运行 `bash scripts/verify.sh`，确认 793+1 或后续明确记录的新基线。
 3. 阅读 [Local Beta 总计划](../superpowers/plans/active/2026-09-17-local-beta-master-plan.md) 与 [M9 详细计划](../superpowers/plans/active/2026-09-17-m9-local-product-foundation.md)。
-4. 从 M9 Task 1 的失败测试开始；不得把设计 HTML 当成已交付应用。
+4. 从 M9 Task 2 的失败测试继续；不得把设计 HTML 当成已交付应用。
 5. 每个里程碑同步 README、docs 索引、决策日志、验证证据与 HANDOFF。
 
 ## 关闭门禁
@@ -110,3 +110,4 @@ sources:
 ## Revision History
 
 - 2026-10-11：完成 2026-09-25 启动的冻结审查，给出 V0.1 与整个项目的独立结论。
+- 2026-10-11：用户要求续做后完成 M9 Task 1，当前进度更新为 6/251。

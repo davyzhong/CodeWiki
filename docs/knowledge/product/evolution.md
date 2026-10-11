@@ -25,18 +25,19 @@ ATLAS 与 Enterprise Intelligence 的资料治理实践暴露了“静态整理�
 | 2026-08-26—09-02 | 设计符合性与生产门 | 精确快照、退役、恢复、脚本化验证、752×2 基线 | completed |
 | 2026-09-02—16 | M8 与真实上游 | A/B harness/dry-run；上游中型仓库崩溃复现并报 issue | frozen-blocked |
 | 2026-09-12 | 三层知识治理 | materials / knowledge / workflow 分层，静态知识库与决策日志 | completed |
-| 2026-09-16—17 | 产品方向定稿 | Local Beta 单机设计、HTML 原型、M9–M14 总计划 | approved-not-started |
+| 2026-09-16—17 | 产品方向定稿 | Local Beta 单机设计、HTML 原型、M9–M14 总计划 | approved |
 | 2026-09-25—10-11 | 封存审计 | 竞品刷新、依赖修复、浏览器实测、工程/端面/清理/知识/归档审查 | closing-audit |
+| 2026-10-11 | Local Beta 恢复执行 | M9 Task 1 打包契约、双入口、Python/前端锁定与 wheel 静态资源门禁 | in-progress（6/251） |
 
 ## 两条不能混淆的产品线
 
 ### V0.1 Knowledge Compiler
 
-代码已经实现，离线门禁 790 passed / 1 skipped。它是 CLI + MCP + 静态产物的开发者工具；产品假设仍缺真实 A/B 和 live smoke 证据，因此只能判定“有条件技术冻结”，不能宣称价值验证完成。
+代码已经实现，加入 M9 Task 1 契约测试后的离线门禁为 793 passed / 1 skipped。它是 CLI + MCP + 静态产物的开发者工具；产品假设仍缺真实 A/B 和 live smoke 证据，因此只能判定“有条件技术冻结”，不能宣称价值验证完成。
 
 ### Local Beta M9–M14
 
-它把现有引擎包装成个人开发者可操作的本地产品：服务/API、可靠仓库解析、任务生命周期、阅读体验、Ask parity 与发布验收。六份计划按行首 checkbox 逐项重算共 251 个执行步骤（M9 48、M10 44、M11 43、M12 40、M13 41、M14 35），截至 2026-10-11 全部未完成；设计已批准不等于实现。每份文档说明中的 checkbox 示例不是执行步骤，不计入总数。
+它把现有引擎包装成个人开发者可操作的本地产品：服务/API、可靠仓库解析、任务生命周期、阅读体验、Ask parity 与发布验收。六份计划按行首 checkbox 逐项重算共 251 个执行步骤（M9 48、M10 44、M11 43、M12 40、M13 41、M14 35）；2026-10-11 已完成 M9 Task 1，当前 6/251。每份文档说明中的 checkbox 示例不是执行步骤，不计入总数。
 
 ## 关键转折
 

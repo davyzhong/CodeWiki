@@ -1,6 +1,6 @@
 ---
-status: approved-not-started
-last-reviewed: 2026-09-25
+status: active
+last-reviewed: 2026-10-11
 scope: local-beta-m9-m14
 sources:
   - docs/superpowers/specs/2026-09-17-local-beta-product-design.md
@@ -18,7 +18,7 @@ sources:
 
 ---
 
-**Status:** Approved planning baseline — implementation not started.  
+**Status:** Active — M9 Task 1 implemented and under commit gate（6/251 steps）。
 **Specification:** [Local Beta Product Design](../../specs/2026-09-17-local-beta-product-design.md)  
 **Visual design:** [Approved HTML](../../../design/2026-09-17-local-beta-design.html)  
 **Branch policy:** work directly on `main`; do not create branches or worktrees.  

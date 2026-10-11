@@ -7,15 +7,19 @@ name = "knowledge-compiler"
 version = "0.1.0.dev0"
 requires-python = ">=3.12"
 dependencies = [
+  "fastapi>=0.141,<1",
   "litellm>=1.98,<2",
+  "platformdirs>=4.3,<5",
   "pydantic>=2.10,<3",
   "pyyaml>=6.0,<7",
   "typer>=0.15,<1",
+  "uvicorn>=0.52,<1",
 ]
 
 [project.optional-dependencies]
 dev = [
   "codewiki>=0.6,<0.7",
+  "httpx>=0.28,<1",
   "mcp>=1.0,<2",
   "pytest>=9.0.3,<10",
   "pytest-cov>=6.0,<7",
@@ -23,6 +27,7 @@ dev = [
 
 [project.scripts]
 knowledge = "knowledge_compiler.cli:app"
+knowledge-app = "knowledge_compiler.app.launcher:main"
 knowledge-mcp = "knowledge_compiler.mcp_server:main"
 
 [tool.pytest.ini_options]
@@ -31,3 +36,4 @@ addopts = "-q"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/knowledge_compiler"]
+artifacts = ["src/knowledge_compiler/app/static/**"]

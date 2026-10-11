@@ -58,9 +58,9 @@ docs/materials/source-catalog.md
 
 | 文件 | SHA-256 |
 |---|---|
-| `docs/reviews/2026-09-25-project-closure-review.md` | `804da0a634c4021c113d55c57d0d69562760ca02eae44b9036b76d3430444c30` |
-| `docs/knowledge/product/evolution.md` | `20d7a823220509bf298cd18b477d2bbea9e6b0fa94a84f16993dc4e40d83006f` |
-| `docs/knowledge/product/traceability.md` | `58e9d0263560682657e6bcf68eef7e61135bc8e52d8058f7ec58c91a7334ce10` |
+| `docs/reviews/2026-09-25-project-closure-review.md` | `f5e1bd62a8bcd83d3ab25f9655e89117cad763833d074b8c412aea450f2d65ac` |
+| `docs/knowledge/product/evolution.md` | `65ddfee1b7f184aae3e18f4369229c777046c724309fb974b12422ed8ce8b2ca` |
+| `docs/knowledge/product/traceability.md` | `c1357cdc0dc352edb1fade866e4de0374450032982d8a1493c0dfde786e74ae7` |
 | `ui/01-entry.png` | `e9f239fca1dd268d90321423ed279dde65192d780c50e2d42112e818d559587d` |
 | `ui/02-ask-results.png` | `412958705c7d351568e6a1d3b0c39c5ce342abae93eb64b3c1525ee85790092c` |
 | `ui/03-object-detail.png` | `4a8fed37d0bd3a6f1e61b92ca578773779c0f1a67519ea903dcdf03184b9115c` |
@@ -91,7 +91,7 @@ bash scripts/verify.sh
 - 原始/历史材料未被覆盖；私有 ATLAS 与 Enterprise Intelligence 只保留公开安全的方法提炼。
 - 本轮没有删除、重命名、数据库迁移、强制推送或公开归档。
 - CI/CD 建议因审批边界尚未执行，并在关闭审查中保留为治理缺口。
-- 关键知识文档与截图的 SHA-256 已按 2026-10-11 待提交字节记录；后续修改这些文件必须同步更新本表。
+- 关键知识文档与截图的 SHA-256 已按 2026-10-11 M9 Task 1 状态字节记录；后续修改这些文件必须同步更新本表。
 
 ## Revision History
 

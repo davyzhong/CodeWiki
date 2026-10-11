@@ -42,14 +42,14 @@ sources:
 
 | 里程碑 | 已批准承诺 | 实现证据 | 状态 |
 |---|---|---|---|
-| M9 Foundation | 本地应用骨架、API、项目工作区、统一 shell | 目标 `application/`、`app/`、`web/` 均不存在 | planned-only（0/48） |
+| M9 Foundation | 本地应用骨架、API、项目工作区、统一 shell | 打包契约、应用入口、运行依赖、wheel 静态入口与前端锁文件已落地；应用服务/API/UI 尚未实现 | in-progress（6/48） |
 | M10 Parsing | 可靠仓库解析、状态/排除/降级 | 无 Local Beta 实现；V0.1 provider 不能替代产品端面 | planned-only（0/44） |
 | M11 Jobs | 可观察 build lifecycle、取消/恢复/错误 | 无应用层 job API/UI | planned-only（0/43） |
 | M12 Reading | Overview、对象详情、证据、图、历史 | 仅静态 V0.1 Wiki 与设计稿 | planned-only（0/40） |
 | M13 Ask | UI Ask 与 Agent 相同检索/引用 | 仅 V0.1 MCP/ContextRetriever | planned-only（0/41） |
 | M14 Proof/Release | 价值实验、E2E、安装/升级/备份、发布 | 无交付证据 | planned-only（0/35） |
 
-合计：`0/251`。该数字由六份 active 子计划的行首 checkbox 逐项统计；每份文档说明中的 checkbox 示例不是执行步骤，不计入总数。旧交接文档的 259 为错误估算。
+合计：`6/251`。该数字由六份 active 子计划的行首 checkbox 逐项统计；每份文档说明中的 checkbox 示例不是执行步骤，不计入总数。旧交接文档的 259 为错误估算。
 
 ## 明确非目标
 
@@ -59,3 +59,4 @@ sources:
 
 - 2026-09-25：建立从规格到源码与测试的关闭追溯矩阵。
 - 2026-10-11：按源计划重算 Local Beta 为 0/251，并更新 V0.1 浏览器/依赖修复证据。
+- 2026-10-11：M9 Task 1 完成，Local Beta 进度更新为 6/251。

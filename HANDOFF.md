@@ -1,16 +1,16 @@
 # HANDOFF — 会话交接文档
 
 > 交接时间：2026-10-11（项目冻结续审与恢复执行） ｜ 修复基线：`12c92cc` ｜ 审查归档：`d26a7a1`
-> 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**790 passed + 1 opt-in live skipped**；live SKIP 不是 PASS）
+> 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**793 passed + 1 opt-in live skipped**；live SKIP 不是 PASS）
 > 新会话第一步：`git fetch origin && git status --short --branch` 核对并行推进，再读本文与 [CLAUDE.md](CLAUDE.md)（会话入口）/ [docs/README.md](docs/README.md)（文档地图）。
 
 ---
 
 ## 零、2026-10-11 当前权威状态
 
-1. **V0.1：有条件可技术冻结。** CLI、七个只读 MCP 工具、Canonical IR、生命周期、human overlay、三视图和静态站点均已交付；离线门禁 790+1。真实 live 与 M8 A/B 尚无完成证据。
-2. **整个项目：不可关闭。** Local Beta M9–M14 六份计划共有 251 个行首 checkbox 执行步骤，当前 `0/251`。旧文档中的 259 是把说明性文字误计入/估算导致，已由源计划重算纠正。
-3. **下一执行入口：M9 Task 1。** 用户已明确要求从中断处继续，不把 M9–M14 取消、延期或转历史；先写打包契约失败测试，再按计划推进。
+1. **V0.1：有条件可技术冻结。** CLI、七个只读 MCP 工具、Canonical IR、生命周期、human overlay、三视图和静态站点均已交付；包含 M9 Task 1 契约测试后的离线门禁为 793+1。真实 live 与 M8 A/B 尚无完成证据。
+2. **整个项目：不可关闭。** Local Beta M9–M14 六份计划共有 251 个行首 checkbox 执行步骤，当前 `6/251`。旧文档中的 259 是把说明性文字误计入/估算导致，已由源计划重算纠正。
+3. **下一执行入口：M9 Task 2。** M9 Task 1 已按 TDD 完成：有界 Python 依赖、`knowledge app`/`knowledge-app` 入口、wheel 静态资源与精确前端锁文件均已验证。下一步实现 AppPaths 与版本化 App DB。
 4. **本轮实际修复：** 浏览器审计发现并关闭 History `esc` 初始化顺序、静态站点 `nav` 样式污染、`body` flex 布局污染；升级 `multidict`、`pyjwt`、`urllib3` 关闭 18 条漏洞。提交 `12c92cc` 已推送。
 5. **本轮证据入口：** [关闭审查](docs/reviews/2026-09-25-project-closure-review.md)、[追溯矩阵](docs/knowledge/product/traceability.md)、[审计证据](docs/materials/validation/project-freeze-2026-09-25/)、[归档清单](docs/materials/archives/2026-09-25-project-freeze-manifest.md)。
 6. **未授权治理项：** `ci.yml` 尚未 frozen sync/pip-audit；`screenshot.yml` 仍监听不存在的 `README.zh.md` 并每日自动写回。两项都属于 CI/CD 修改红线，未擅自执行。
@@ -24,7 +24,7 @@ git pull --ff-only
 bash scripts/verify.sh
 ```
 
-随后读 [Local Beta 总计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) 与 [M9 详细计划](docs/superpowers/plans/active/2026-09-17-m9-local-product-foundation.md)，从 M9 Task 1 开始。若要先闭合 CI/CD，两项必须一次只做一个选择题取得用户批准。
+随后读 [Local Beta 总计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) 与 [M9 详细计划](docs/superpowers/plans/active/2026-09-17-m9-local-product-foundation.md)，从 M9 Task 2 开始。若要先闭合 CI/CD，两项必须一次只做一个选择题取得用户批准。
 
 ---
 
@@ -107,7 +107,7 @@ bash scripts/verify.sh
 ```bash
 cd /Users/qiming/workspace/CodeWiki
 git fetch origin && git status --short --branch   # 预期：clean、main 与 origin/main 同步
-bash scripts/verify.sh                             # 当前预期：VERIFY: PASS（790+1skip；live SKIP 仍须明确记录）
+bash scripts/verify.sh                             # 当前预期：VERIFY: PASS（793+1skip；live SKIP 仍须明确记录）
 gh issue view 2 --repo PorunC/CodeWiki             # 可选：查上游 issue 是否有回复
 ```
 

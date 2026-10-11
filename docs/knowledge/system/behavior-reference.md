@@ -59,7 +59,7 @@ Agent 队列命令（隐藏，供 `/knowledge-build`、`/knowledge-update` Skill
 4. `pip-audit` 依赖审计；
 5. live 冒烟自动探测：`codewiki` 0.6.x 在 PATH ∧ `KNOWLEDGE_EXTRACTION_MODEL` ∧ `KNOWLEDGE_LIVE_REPOSITORY` 齐备即执行真实端到端，否则列明缺失项跳过；`REQUIRE_LIVE=1` 强制失败闭合。
 
-当前基线：790 passed + 1 skipped（live）。2026-10-11 不带 `VERIFY_FAST` 的完整双遍结果一致，compileall、diff-check、pip-audit 均 PASS；live 因三项环境条件缺失而 SKIP。
+当前基线：793 passed + 1 skipped（live）。2026-10-11 M9 Task 1 后以 `VERIFY_FAST=1` 复验通过；本轮封存审查时的完整双遍 790+1 结果一致。compileall 与 pip-audit 通过；live 因三项环境条件缺失而 SKIP。
 
 ## 静态站点运行语义
 
@@ -70,4 +70,4 @@ Agent 队列命令（隐藏，供 `/knowledge-build`、`/knowledge-update` Skill
 ## Revision History
 
 - 2026-09-12 按 `origin/main 000e962` 的 CLI/MCP/检索实现建卷。
-- 2026-10-11 更新为 790+1 门禁基线，并记录静态站点实际运行与回落语义。
+- 2026-10-11 更新为 M9 Task 1 后的 793+1 门禁基线，并记录静态站点实际运行与回落语义。
