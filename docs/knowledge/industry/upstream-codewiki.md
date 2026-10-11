@@ -1,6 +1,6 @@
 ---
 status: maintained
-last-reviewed: 2026-09-16
+last-reviewed: 2026-10-11
 sources:
   - docs/spikes/codewiki-public-surface.md（Phase 0 实测报告，结论 go）
   - tests/fixtures/codewiki/0.6/cli-observations.json（实测观测，可再生 go 判定）
@@ -65,7 +65,14 @@ Repository → RepoScanner → tree-sitter AST → Code Graph（符号/调用/�
 
 升级到 0.7+ 前：公开面合同必须重新实测（重跑 Phase 0 spike 流程），无假设升级。
 
+## 2026-10-11 状态复核
+
+- [PorunC/CodeWiki issue #2](https://github.com/PorunC/CodeWiki/issues/2) 仍为 OPEN，0 comments，最后更新时间仍为 2026-09-16。
+- GitHub 最新正式 release 仍为 v0.6.3（2026-05-30）；本项目锁定并实测的 PyPI `0.6.5` 高于公开 release tag。
+- 因没有上游修复版本和本轮 live 凭据，不改变现有集成：fixture/合成仓库路径继续用于离线验证，真实中型仓库能力保持 `blocked evidence`，不得表述为 PASS。
+
 ## Revision History
 
 - 2026-09-16 半 live 实测追加：五仓库 analyze 崩溃、CLI 合同在合成仓库成立、entry_points 匹配缺口。
 - 2026-09-12 从 spikes 报告、实测 fixture 与调研笔记提炼建卷。
+- 2026-10-11 复核上游 issue 与 release，阻断状态未变化。

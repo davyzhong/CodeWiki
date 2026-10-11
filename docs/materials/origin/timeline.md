@@ -1,3 +1,13 @@
+---
+status: historical-source
+last-reviewed: 2026-10-11
+scope: project-origin-and-evolution
+sources:
+  - docs/materials/archives/
+  - docs/superpowers/specs/
+  - docs/superpowers/plans/
+---
+
 # 项目演进时间线
 
 | 日期 | 阶段 | 形成的认识或产物 |
@@ -21,6 +31,10 @@
 | 2026-08-26→09-02 | 设计符合性修复 | 审计出的 5 项设计差距全部闭合：调研驱动多目标规划、tracked plan/manifest 生命周期状态、clean/dirty 精确快照检索门禁、真实增量提示与完整退役证明、可达终态与两次修复尝试；三项刻意偏差记入规格 §11.1；752×2 离线套件一致（`e090283`→`ab259fa`）。M4.8b per-type 夹具延后项经核查由五类型 fixture worker、provider 公开面合同测试与 opt-in live 测试组合覆盖，正式关闭。 |
 | 2026-09-02 | 生产验证闭环与 M8 准备 | pip-audit 无已知漏洞（扫描器离线匹配为模式级误报）；`scripts/verify.sh` 一键验证（双遍套件、compileall、diff-check、pip-audit、live 冒烟自动探测）成为每次更新的固定入口；M8 A/B 基准设计草案完成（预注册判定标准，待用户冻结任务集/harness/预算）；live 冒烟 runbook 就绪（`1ef6770`、`7fe5a90`）。 |
 | 2026-09-12 | 文档库三层治理重组 | 素材/知识/工作流三层分离（materials ≈ Evidence、knowledge ≈ Canonical IR、specs/plans ≈ Views）：新建静态知识库（产品/行业/方法/系统四区 13 篇，含全量决策日志 D-001…D-023）；计划分 active/historical 并全量标注状态；project-materials 更名 materials 并澄清素材层角色；建立 docs/README 总索引、状态表与命名规范（决策 D-023）。 |
+| 2026-09-16 | 展示层与上游诊断 | 交付单文件 HTML、静态多页站点和本地只读服务；M8 预注册冻结；真实仓库崩溃压缩为 258 行复现并提交上游 issue #2。 |
+| 2026-09-17 | Local Beta 定稿 | 确认个人开发者、本地单节点、零服务器依赖；归档完整 HTML 设计、产品规格和 M9–M14 六份执行计划。 |
+| 2026-09-25 | 封存审计启动 | 建立 P-002 项目冻结铁律与完整审计计划，开始核对内部实现、行业竞品、清理、知识沉淀和关闭条件。 |
+| 2026-10-11 | 封存续审与中断恢复 | 真实浏览器审计发现并修复历史页脚本与多页布局缺陷；关闭传递依赖漏洞；确认 V0.1 可有条件技术冻结、M9–M14 仍为 0/251，整个项目不可关闭并应从 M9 Task 1 续做。 |
 
 ## 贯穿始终的决策链
 
@@ -34,3 +48,7 @@
   -> 借用上游 CodeWiki 的公开证据能力
   -> 先实测公共接口，再实现最小产品切片
 ```
+
+## Revision History
+
+- 2026-10-11：补齐展示层、Local Beta、封存审计与本次续做节点，并加入治理 frontmatter。

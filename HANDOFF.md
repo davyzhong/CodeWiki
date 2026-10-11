@@ -1,19 +1,41 @@
 # HANDOFF — 会话交接文档
 
-> 交接时间：2026-09-17（Local Beta 设计与 M9–M14 计划定稿） ｜ 计划基线：`bed00c2`（本文更新提交随后推送 `origin/main`）
-> 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**787 passed + 1 opt-in live skipped**；live SKIP 属预期）
+> 交接时间：2026-10-11（项目冻结续审与恢复执行） ｜ 已推送修复基线：`12c92cc`
+> 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**790 passed + 1 opt-in live skipped**；live SKIP 不是 PASS）
 > 新会话第一步：`git fetch origin && git status --short --branch` 核对并行推进，再读本文与 [CLAUDE.md](CLAUDE.md)（会话入口）/ [docs/README.md](docs/README.md)（文档地图）。
 
 ---
 
-## 零、2026-09-17 新基线（优先于下方历史交接）
+## 零、2026-10-11 当前权威状态
+
+1. **V0.1：有条件可技术冻结。** CLI、七个只读 MCP 工具、Canonical IR、生命周期、human overlay、三视图和静态站点均已交付；离线门禁 790+1。真实 live 与 M8 A/B 尚无完成证据。
+2. **整个项目：不可关闭。** Local Beta M9–M14 六份计划共有 251 个行首 checkbox 执行步骤，当前 `0/251`。旧文档中的 259 是把说明性文字误计入/估算导致，已由源计划重算纠正。
+3. **下一执行入口：M9 Task 1。** 用户已明确要求从中断处继续，不把 M9–M14 取消、延期或转历史；先写打包契约失败测试，再按计划推进。
+4. **本轮实际修复：** 浏览器审计发现并关闭 History `esc` 初始化顺序、静态站点 `nav` 样式污染、`body` flex 布局污染；升级 `multidict`、`pyjwt`、`urllib3` 关闭 18 条漏洞。提交 `12c92cc` 已推送。
+5. **本轮证据入口：** [关闭审查](docs/reviews/2026-09-25-project-closure-review.md)、[追溯矩阵](docs/knowledge/product/traceability.md)、[审计证据](docs/materials/validation/project-freeze-2026-09-25/)、[归档清单](docs/materials/archives/2026-09-25-project-freeze-manifest.md)。
+6. **未授权治理项：** `ci.yml` 尚未 frozen sync/pip-audit；`screenshot.yml` 仍监听不存在的 `README.zh.md` 并每日自动写回。两项都属于 CI/CD 修改红线，未擅自执行。
+7. **上游状态：** PorunC/CodeWiki issue #2 截至 2026-10-11 仍 OPEN、0 comments；最新 GitHub release 仍 v0.6.3。不得把真实中型仓库路径写成 PASS。
+
+### 下一会话固定动作
+
+```bash
+cd /Users/qiming/workspace/CodeWiki
+git pull --ff-only
+bash scripts/verify.sh
+```
+
+随后读 [Local Beta 总计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) 与 [M9 详细计划](docs/superpowers/plans/active/2026-09-17-m9-local-product-foundation.md)，从 M9 Task 1 开始。若要先闭合 CI/CD，两项必须一次只做一个选择题取得用户批准。
+
+---
+
+## 一、2026-09-17 历史基线（已被上节取代）
 
 用户已正式批准下一阶段设计：**个人开发者、本地单节点、零服务器依赖；真实可信度验证与 Beta 体验并行；按可信垂直切片推进，不设工期。** Web、CLI、MCP 共享一套应用服务；`.knowledge/` 中的 Canonical Knowledge / Evidence / Human Overlay 仍是唯一权威，App SQLite、FTS、页面和未来可能的向量均为可重建投影。
 
 本次已完成：
 
 1. 批准设计归档：[Local Beta 产品规格](docs/superpowers/specs/2026-09-17-local-beta-product-design.md) + [完整 HTML](docs/design/2026-09-17-local-beta-design.html)。
-2. 执行计划入库：[总计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) + M9–M14 六份子计划，共 48 个 Task、259 个可勾选步骤，覆盖功能、解析、架构、界面、Web/CLI/MCP、测试、真实仓库和发布验收。
+2. 执行计划入库：[总计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) + M9–M14 六份子计划，共 48 个 Task、251 个执行步骤，覆盖功能、解析、架构、界面、Web/CLI/MCP、测试、真实仓库和发布验收。
 3. 决策日志新增 D-026（本地单节点形态）与 D-027（重大设计同步 README/文档铁律）；`AGENTS.md` 已将 D-027 写成所有后续 Agent 的项目工作流要求。
 4. README 和 docs 总索引已链接正式规格与计划；行业横评、完整设计图和详细路线继续保留。
 
@@ -44,7 +66,7 @@
 ### 2.2 工程基础设施（本会话新增）
 
 - **CI**：push/PR 触发，三步（compileall、离线套件、check_links）——约 1.5 分钟；依赖上界已加，help 断言已环境无关。
-- **CLAUDE.md**：新会话入口（第一步/规则/红线/文档表）；**decision-log 至 D-025**；**787** 为当前基线计数。
+- **当时状态**：CLAUDE.md 新增会话入口；decision-log 当时至 D-025；当时验证基线为 787。当前状态以上方 2026-10-11 权威节为准。
 - **.gitignore** 已含 `/data/`、`/storage/`（codewiki CWD 副产物，曾两次污染提交）。
 
 ### 2.3 上游崩溃证据链（全部入库）
@@ -85,7 +107,7 @@
 ```bash
 cd /Users/qiming/workspace/CodeWiki
 git fetch origin && git status --short --branch   # 预期：clean、main 与 origin/main 同步
-bash scripts/verify.sh                             # 预期：VERIFY: PASS（787+1skip，live SKIP 属预期）
+bash scripts/verify.sh                             # 当前预期：VERIFY: PASS（790+1skip；live SKIP 仍须明确记录）
 gh issue view 2 --repo PorunC/CodeWiki             # 可选：查上游 issue 是否有回复
 ```
 

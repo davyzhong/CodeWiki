@@ -18,6 +18,8 @@ build/
 node_modules/
 playwright-report/
 test-results/
+.playwright-cli/
+/output/playwright/
 
 # Local worktrees and generated spike observations
 .worktrees/

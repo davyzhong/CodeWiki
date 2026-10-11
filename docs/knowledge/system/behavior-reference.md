@@ -1,6 +1,6 @@
 ---
 status: maintained
-last-reviewed: 2026-09-12
+last-reviewed: 2026-10-11
 sources:
   - src/knowledge_compiler/cli.py、cli_agent_queue.py、mcp_server.py、retrieval/context.py（as-built）
   - scripts/verify.sh
@@ -59,8 +59,15 @@ Agent 队列命令（隐藏，供 `/knowledge-build`、`/knowledge-update` Skill
 4. `pip-audit` 依赖审计；
 5. live 冒烟自动探测：`codewiki` 0.6.x 在 PATH ∧ `KNOWLEDGE_EXTRACTION_MODEL` ∧ `KNOWLEDGE_LIVE_REPOSITORY` 齐备即执行真实端到端，否则列明缺失项跳过；`REQUIRE_LIVE=1` 强制失败闭合。
 
-当前基线：752 passed + 1 skipped（live）双遍一致。
+当前基线：790 passed + 1 skipped（live）。2026-10-11 不带 `VERIFY_FAST` 的完整双遍结果一致，compileall、diff-check、pip-audit 均 PASS；live 因三项环境条件缺失而 SKIP。
+
+## 静态站点运行语义
+
+- `exports/site/` 可由任意静态 HTTP 服务托管；Ask 在 `/api/preview` 不可用时回落到编译时内嵌 Claim 索引。
+- `repo-wiki.html` 是单文件侧栏布局；`exports/site/` 是顶部导航多页布局，两者不得共享全局 `body/nav` 布局选择器。
+- History 页必须先装载转义 helper 再执行内嵌 run 渲染；该顺序有回归测试和真实浏览器截图。
 
 ## Revision History
 
 - 2026-09-12 按 `origin/main 000e962` 的 CLI/MCP/检索实现建卷。
+- 2026-10-11 更新为 790+1 门禁基线，并记录静态站点实际运行与回落语义。

@@ -290,9 +290,11 @@ One command runs production verification: two-pass test-suite consistency, `comp
 ## Project status
 
 - **V0.1 main chain fully connected**: planning → evidence → extraction → verification → atomic publish → incremental invalidation/retry/deterministic retirement → three-view compilation → FTS/gated retrieval → CLI + MCP; recovery plan Gates 1–8 and compliance fixes Tasks 1–5 all complete.
-- Offline baseline: **787 tests passing (two-pass consistent)** + 1 opt-in live smoke skipped by default; core-package statement coverage is **88%**.
+- Fast re-verification baseline on 2026-10-11: **790 tests passing** + 1 opt-in live smoke skipped by default; the latest full core-package statement-coverage baseline is **88%**.
 - **M8 benchmark frozen with the harness landed** ([benchmark/](benchmark/README.md), dry-run works; four decisions in the design doc §8); the real experiment awaits API keys.
-- Two remaining items both wait on external input: live smoke with a real repository + API key (also: upstream codewiki 0.6.5 segfaults during analyze on a real mid-size repository — needs an upstream fix or version bump, see [upstream operating knowledge](docs/knowledge/industry/upstream-codewiki.md)); and M8 experiment execution.
+- **Local Beta has not started**: the M9–M14 suite contains 251 executable checklist steps, currently `0/251`; the next entry is M9 Task 1 and it does not require a cloud server or API key.
+- Freeze-review verdict: **V0.1 is conditionally ready for a technical freeze; the whole project is not ready to close**. See the [project freeze and closure review](docs/reviews/2026-09-25-project-closure-review.md).
+- External gaps remain live smoke, the real M8 experiment, and the upstream crash. PorunC/CodeWiki issue #2 was still unresolved on 2026-10-11; see [upstream operating knowledge](docs/knowledge/industry/upstream-codewiki.md).
 
 ### Full review conclusions
 
@@ -305,7 +307,7 @@ One command runs production verification: two-pass test-suite consistency, `comp
 | Retrieval | verified-only, snapshot gating, SQLite FTS5, budgeted trimming | Missing human-facing ranking explanations, filters and repeatable quality evaluation |
 | Human interface | Multi-page static site, search, Ask, history and diffs | Read-only serving is limited; information density, hierarchy, responsiveness and accessibility lag |
 | Agent surface | 7 read-only MCP tools, CLI Context, Skill | Web/CLI/MCP don't yet share one service layer and full error semantics |
-| Testing & security | 787+1, 88% coverage, path/symlink/credential defenses | CLI statement coverage ~67%; real-model, real-repo and install-upgrade validation thin |
+| Testing & security | 790+1, latest full coverage baseline 88%, path/symlink/credential defenses | CLI statement coverage ~67%; real-model, real-repo and install-upgrade validation thin |
 
 The code hot spots that need attention:
 
@@ -347,7 +349,7 @@ The resulting core differentiation:
 
 ## Next-round milestones: trusted vertical slices
 
-The next round doesn't stack big versions by date; it proceeds through six vertical slices, M9–M14. The full execution entry is the [Local Beta master plan](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md), backed by six milestone sub-plans with exact files, tests, commands and commit boundaries. Every milestone must leave behind: a user-operable flow, the underlying implementation, real-repository evidence, machine-readable results and automated regression tests.
+The next round doesn't stack big versions by date; it proceeds through six vertical slices, M9–M14. The full execution entry is the [Local Beta master plan](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md), backed by six milestone sub-plans with 251 executable checklist steps and exact files, tests, commands and commit boundaries. Progress is currently `0/251`, starting at M9 Task 1. Every milestone must leave behind: a user-operable flow, the underlying implementation, real-repository evidence, machine-readable results and automated regression tests.
 
 ### M9 — local product foundation
 

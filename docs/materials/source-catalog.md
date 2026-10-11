@@ -1,6 +1,16 @@
+---
+status: active
+last-reviewed: 2026-10-11
+scope: material-provenance-and-disposition
+sources:
+  - docs/materials/
+  - docs/superpowers/
+  - tests/fixtures/
+---
+
 # 来源目录与处置记录
 
-记录日期：2026-08-24。
+初始记录日期：2026-08-24；最近复核：2026-10-11。
 
 ## 项目自有材料
 
@@ -8,12 +18,14 @@
 |---|---|---|---|
 | `knowledge_compiler_complete_transfer_archive_2026-08-24.md` | 原文件 `ac6d9ad09c6a886ad2a18dc231e1d45daa250eefd137570c2509862614671db4`；公开版 `f3cba5f2cd74c5054776573153f2aa858dd42f08802339454c7cd5895df8bc98` | 保存公开安全版；移除旧绝对路径、会话 ID、测试凭据字面量和失效 localhost 链接，并增加状态覆盖勘误 | `archives/knowledge-compiler-transfer-archive-public.md` |
 | `knowledge-compiler-v0-1-design.md` | `efa29dce97367613aa389fd8f1312a287cdf4717a742c4fef24687d8b847c7c2` | 与正式规格逐字相同，去重 | `docs/superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md` |
-| `codewiki-adapter-spike-plan.md` | `355a3c23b09ffedee8de2b12b226d9c2eef6b09979f6515e1b0052814dd2ce3b` | 与正式计划逐字相同，去重 | `docs/superpowers/plans/2026-08-24-codewiki-adapter-spike.md` |
+| `codewiki-adapter-spike-plan.md` | `355a3c23b09ffedee8de2b12b226d9c2eef6b09979f6515e1b0052814dd2ce3b` | 与正式计划逐字相同，去重 | `docs/superpowers/plans/historical/2026-08-24-codewiki-adapter-spike.md` |
 | Phase 0 实测 fixture | CodeWiki `0.6.5` | 原始结构化观测，已做路径/敏感信息清理 | `tests/fixtures/codewiki/0.6/cli-observations.json` |
 | Phase 0 实验报告 | 当前分支 | 保留为公共合同研究结论 | `docs/spikes/codewiki-public-surface.md` |
 | 2026-08-25 M1 实施会话归档 | 当天用户可见请求、提交、测试和审查记录的公开安全重建 | 保留实施与暂停上下文；不包含系统提示、内部推理、会话 ID 或凭据 | `archives/2026-08-25-m1-implementation-session.md` |
-| 2026-08-25 完整接续 To-do | M1 剩余验收及 M2–M7 详细任务清单 | 作为跨 Agent 当前执行入口 | `docs/superpowers/plans/2026-08-25-v0-1-complete-handoff-todo.md` |
+| 2026-08-25 完整接续 To-do | M1 剩余验收及 M2–M7 详细任务清单 | 历史交接入口；已被恢复计划与 Local Beta 总计划取代 | `docs/superpowers/plans/historical/2026-08-25-v0-1-complete-handoff-todo.md` |
 | 2026-08-25 归档清单 | 项目资料、代码证据和可视化资产清点 | 作为下一位 Agent 的资料导航 | `archives/2026-08-25-archive-manifest.md` |
+| 2026-09-17 Local Beta 设计 | 已批准 HTML、规格、三张设计图与整页长图 | 设计证据；明确不等于 shipped UI | `docs/design/`、`docs/assets/local-beta-design-*.png` |
+| 2026-09-25—10-11 封存审计 | 工程/产品/竞品/清理证据与 6 张真实截图 | 维护为本轮关闭判定的原始证据 | `docs/materials/validation/project-freeze-2026-09-25/` |
 
 ## 本机关联项目
 
@@ -37,6 +49,8 @@
 | GitHub Copilot Memory 文档 | 产品文档 | 2026-08-24 | 摘要 + 官方链接 |
 | PorunC/CodeWiki | MIT 开源仓库 | 2026-08-24 | 摘要、实测报告、固定提交 Skill + MIT 许可快照 |
 
+2026-09-25 的扩展竞品复核（Qoder、Google Code Wiki、DeepWiki、DeepWiki Open、Copilot Memory/Spaces、Sourcegraph、Cursor、Augment、Greptile、GitBook、Backstage、PorunC/CodeWiki）只保存官方 URL、能力摘要和范围处置，不复制受版权保护的全文；详见 [`validation/project-freeze-2026-09-25/competitor-sources.md`](validation/project-freeze-2026-09-25/competitor-sources.md)。PorunC/CodeWiki issue/release 状态已于 2026-10-11 再核验。
+
 早期归档还包含 Sourcegraph、Cursor、DeepWiki、Microsoft deep-wiki Skill 和 Qwen CodeScope 的概念性研究。由于原始材料没有完整保留每项的精确官方页面版本，它们被列为[次级研究线索](research/reference-products.md)，不伪装成已固定、可复现的来源快照。
 
 ## 公开仓库安全边界
@@ -57,3 +71,7 @@
 - 检查 Downloads 在 2026-08-24—25 形成的 PNG、JPG、JPEG、SVG、WebP、GIF：未发现本项目相关文件。
 - 2026-08-24 早期会话曾引用 localhost 可视化伴侣，但没有可恢复的静态资产；链接已经失效。
 - 可视化表达的产品决策与架构已在 V0.1 设计、公开安全会话归档和 2026-08-25 实施归档中以文本保留。
+
+## Revision History
+
+- 2026-10-11：修正历史计划路径，补入 Local Beta 设计与封存审计证据，加入来源治理 frontmatter。

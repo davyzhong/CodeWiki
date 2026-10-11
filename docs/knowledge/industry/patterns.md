@@ -1,6 +1,6 @@
 ---
 status: maintained
-last-reviewed: 2026-09-12
+last-reviewed: 2026-10-11
 sources:
   - materials/archives/knowledge-compiler-transfer-archive-public.md 第二编 §8.9–§8.16、§4.6–§4.7
   - materials/research/qoder/qoder-knowledge-system-analysis.md
@@ -57,6 +57,11 @@ Context：当前任务需要知道哪些（预算化选编）
 
 Qoder 官方叙事中的多 Agent 分阶段分析（规划→分域建模→综合→验证）；开源等价物 = 一个持久化队列 + 可替换的语义工作者（内置 LLM 或 Skill），关键在合同与验证而非 Agent 数量。→ D-006。
 
+## P11 · 编译正确不等于浏览器正确
+
+静态 HTML 的字节确定性、字符串断言和链接检查只能证明产物结构稳定，不能证明脚本执行顺序、CSS 作用域和响应式布局正确。每次冻结至少要在隔离仓库生成真实产物，通过 HTTP 在浏览器中覆盖入口、详情、证据、Ask、历史和窄屏，并把截图与控制台观察留档。本轮由该方法发现 `esc` 初始化顺序和全局 `body/nav` 选择器污染。→ P-002 封存审计。
+
 ## Revision History
 
 - 2026-09-12 从归档 §8 与 Qoder 分析提炼建卷。
+- 2026-10-11 增加 P11：把真实浏览器执行作为静态产品冻结证据。

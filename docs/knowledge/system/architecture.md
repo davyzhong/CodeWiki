@@ -1,6 +1,6 @@
 ---
 status: maintained
-last-reviewed: 2026-09-12
+last-reviewed: 2026-10-11
 sources:
   - src/knowledge_compiler/（as-built 源码结构）
   - superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md §4–§5、§11.1（偏差）
@@ -65,6 +65,13 @@ knowledge update：本地 ChangeSet 先行 → 原子失效（stale 移出 Agent
 | `.knowledge/state/runs/`、`state/transactions/` | 否 | 运行状态与发布事务（恢复用） |
 | `.knowledge/exports/repo-wiki.html` | 否 | 可复现产物（可显式提交） |
 
+## 当前端面边界
+
+- 已交付：CLI、七个只读 MCP 工具、Markdown Wiki、单文件 HTML、静态多页站点、本地回环只读服务。
+- 静态多页站点与单文件 HTML 共用内容渲染，但外壳布局明确分离：`wiki-site` 使用顶部导航，`wiki-standalone` 使用侧栏。浏览器回归见 `tests/compiler/test_wiki_compilation.py`。
+- 未交付：Local Beta 的 `application/`、`app/`、`web/`、FastAPI 应用服务、任务中心和 React UI。这些只存在于 M9–M14 计划，不属于当前 as-built 架构。
+
 ## Revision History
 
 - 2026-09-12 按 `origin/main 000e962` 的源码结构建卷。
+- 2026-10-11 按 `12c92cc` 更新静态站点端面与 Local Beta 未实现边界。

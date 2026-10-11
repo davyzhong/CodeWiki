@@ -25,6 +25,7 @@ superpowers/ 等（工作流层） ≈ Views    从知识库出发的工作产�
 | 执行构建/更新/验证操作 | 根 [README 快速上手](../README.md) + [runbooks/](runbooks/) + `bash scripts/verify.sh` |
 | 查某个里程碑怎么做的 | [plans/historical/](superpowers/plans/historical/) + [materials/archives/](materials/archives/) |
 | 理解项目来龙去脉 | [materials/origin/](materials/origin/)（起源、时间线） |
+| 查看当前真实进度与关闭结论 | [项目冻结与关闭审查](reviews/2026-09-25-project-closure-review.md) + [承诺追溯矩阵](knowledge/product/traceability.md) |
 
 ## 全文档状态表
 
@@ -32,7 +33,7 @@ superpowers/ 等（工作流层） ≈ Views    从知识库出发的工作产�
 
 | 文档 | 类型 | 状态 | 说明 |
 |---|---|---|---|
-| [knowledge/product/](knowledge/product/README.md) | 知识 | active | 产品定义、决策日志（D-001…）、概念词典 |
+| [knowledge/product/](knowledge/product/README.md) | 知识 | active | 产品定义、决策日志（D-001…D-029）、概念词典、演进与承诺追溯 |
 | [knowledge/industry/](knowledge/industry/README.md) | 知识 | active | 行业格局、设计模式、Qoder 深度分析、上游 CodeWiki |
 | [knowledge/methods/](knowledge/methods/README.md) | 知识 | active | 知识工程沉淀、证据优先设计、基准方法论 |
 | [knowledge/system/](knowledge/system/README.md) | 知识 | active | as-built 架构、运行时行为参考、安全模型 |
@@ -40,6 +41,8 @@ superpowers/ 等（工作流层） ≈ Views    从知识库出发的工作产�
 | [superpowers/specs/2026-09-17-local-beta-product-design.md](superpowers/specs/2026-09-17-local-beta-product-design.md) | 规格 | active | 已批准的个人开发者、本地单节点 Local Beta 产品与架构基线 |
 | [superpowers/plans/active/2026-09-17-local-beta-master-plan.md](superpowers/plans/active/2026-09-17-local-beta-master-plan.md) | 总计划 | approved-not-started | M9–M14 共 251 个可勾选步骤全部未执行；不得将已批准计划表述为已交付功能 |
 | [superpowers/plans/active/2026-09-25-project-freeze-closure-audit.md](superpowers/plans/active/2026-09-25-project-freeze-closure-audit.md) | 封存审计计划 | active | 不扩大产品范围的全量 Review、清理、知识沉淀与关闭判定 |
+| [reviews/2026-09-25-project-closure-review.md](reviews/2026-09-25-project-closure-review.md) | 审查 | active | V0.1 有条件可冻结；整个项目不可关闭；M9–M14 为 0/251 |
+| [materials/archives/2026-09-25-project-freeze-manifest.md](materials/archives/2026-09-25-project-freeze-manifest.md) | 归档 | frozen-evidence | 审计证据树、验证快照、恢复说明与提交指针 |
 | [superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md](superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md) | 规格 | active | V0.1 权威设计合同（含 §5.10/§6.5 人工层、§11.1 已记录偏差） |
 | [superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md](superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md) | 计划 | frozen-blocked | 四项决策于 2026-09-16 冻结，harness/dry-run 已实现；真实实验仍等 API key 与 live 前置 |
 | [runbooks/2026-09-02-live-smoke.md](runbooks/2026-09-02-live-smoke.md) | 手册 | active | live 冒烟操作（opt-in 验收项） |

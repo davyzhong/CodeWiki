@@ -290,9 +290,11 @@ bash scripts/verify.sh
 ## 项目状态
 
 - **V0.1 主链路全线贯通**：规划 → 证据 → 抽取 → 验证 → 原子发布 → 增量失效/重试/确定性退役 → 三视图编译 → FTS/门禁检索 → CLI + MCP，恢复计划 Gate 1–8 与符合性修复 Task 1–5 全部完成。
-- 离线基线 **787 项测试通过（双遍一致）** + 1 项 opt-in live 冒烟默认跳过；核心包当前语句覆盖率 **88%**。
+- 2026-10-11 快速复验基线：**790 项测试通过** + 1 项 opt-in live 冒烟默认跳过；核心包最近完整覆盖率基线 **88%**。
 - **M8 基准已冻结并落地 harness**（[benchmark/](benchmark/README.md)，dry-run 可跑；四项决策见设计文档 §8），真实实验等 API key。
-- 剩余两件事都在等外部输入：真实仓库 + API key 的 live 冒烟（另：上游 codewiki 0.6.5 在真实中型仓库 analyze 段错误，需上游修复或版本升级，见 [upstream 运行知识](docs/knowledge/industry/upstream-codewiki.md)）；M8 实验执行。
+- **Local Beta 尚未开始**：M9–M14 六份计划共有 251 个执行步骤，当前 `0/251`；下一入口是 M9 Task 1，不依赖云服务器或 API key。
+- 冻结审查结论：**V0.1 有条件可技术冻结，整个项目不可关闭**。完整证据、竞品处置与恢复步骤见[项目冻结与关闭审查](docs/reviews/2026-09-25-project-closure-review.md)。
+- 外部缺口仍是 live 冒烟、M8 真实实验与上游崩溃；PorunC/CodeWiki issue #2 截至 2026-10-11 仍未闭合，见[上游运行知识](docs/knowledge/industry/upstream-codewiki.md)。
 
 ### 全面 Review 结论
 
@@ -305,7 +307,7 @@ bash scripts/verify.sh
 | 检索 | verified-only、快照门禁、SQLite FTS5、预算裁剪 | 缺少面向人的搜索排序解释、筛选和可重复质量评测 |
 | 人类界面 | 多页静态站点、搜索、Ask、历史和 diff | 只读服务能力有限；信息密度、层级、响应式与可访问性不足 |
 | Agent 端面 | 7 个只读 MCP 工具、CLI Context、Skill | Web/CLI/MCP 尚未共享统一的服务层和完整错误语义 |
-| 测试与安全 | 787+1、88% 覆盖率、路径/符号链接/凭据防护 | CLI 语句覆盖率约 67%；真实模型、真实仓库、安装升级验证不足 |
+| 测试与安全 | 790+1、最近完整覆盖率 88%、路径/符号链接/凭据防护 | CLI 语句覆盖率约 67%；真实模型、真实仓库、安装升级验证不足 |
 
 当前最需要关注的代码热点：
 
@@ -347,7 +349,7 @@ bash scripts/verify.sh
 
 ## 下一轮里程碑：可信垂直切片
 
-下一轮不按日期堆积大版本，而是按 M9–M14 六个垂直切片推进。完整执行入口见 [Local Beta 总实施计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md)，并由六份里程碑子计划提供精确文件、测试、命令与提交边界。每个里程碑必须同时留下：用户可操作流程、底层实现、真实仓库证据、机器可读结果和自动回归测试。
+下一轮不按日期堆积大版本，而是按 M9–M14 六个垂直切片推进。完整执行入口见 [Local Beta 总实施计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md)，并由六份里程碑子计划提供 251 个执行步骤的精确文件、测试、命令与提交边界。当前进度为 `0/251`，从 M9 Task 1 开始。每个里程碑必须同时留下：用户可操作流程、底层实现、真实仓库证据、机器可读结果和自动回归测试。
 
 ### M9 — 本地产品基座
 
@@ -442,7 +444,7 @@ bash scripts/verify.sh
 | 层 | 入口 | 内容 |
 | --- | --- | --- |
 | 知识库（事实基础） | [docs/knowledge/](docs/knowledge/README.md) | [产品定义](docs/knowledge/product/product-definition.md) · [决策日志 D-001…](docs/knowledge/product/decision-log.md) · [领域模型](docs/knowledge/product/domain-model.md) · [行业格局](docs/knowledge/industry/landscape.md) · [上游 CodeWiki](docs/knowledge/industry/upstream-codewiki.md) · [证据优先设计方法](docs/knowledge/methods/evidence-first-design.md) · [as-built 架构](docs/knowledge/system/architecture.md) · [行为参考](docs/knowledge/system/behavior-reference.md) · [安全模型](docs/knowledge/system/security-model.md) |
-| 项目治理 | [rules/principles.md](rules/principles.md) | 重大设计同步铁律 · 中期冻结/最终封存完整审计 · [当前封存审计计划](docs/superpowers/plans/active/2026-09-25-project-freeze-closure-audit.md) |
+| 项目治理 | [rules/principles.md](rules/principles.md) | 重大设计同步铁律 · 中期冻结/最终封存完整审计 · [当前关闭审查](docs/reviews/2026-09-25-project-closure-review.md) · [审计计划](docs/superpowers/plans/active/2026-09-25-project-freeze-closure-audit.md) |
 | 规格与计划 | docs/superpowers/ | [V0.1 设计规格（权威合同）](docs/superpowers/specs/2026-08-24-knowledge-compiler-v0-1-design.md) · [M8 A/B 基准（已冻结）](docs/superpowers/plans/active/2026-09-02-m8-ab-benchmark-design.md) · [Local Beta 总计划（未开始）](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) |
 | 操作手册 | docs/runbooks/ | [Live 冒烟手册](docs/runbooks/2026-09-02-live-smoke.md) |
 

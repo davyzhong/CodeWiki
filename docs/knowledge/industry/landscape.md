@@ -1,47 +1,52 @@
 ---
 status: maintained
-last-reviewed: 2026-09-12
+last-reviewed: 2026-10-11
 sources:
-  - materials/research/reference-products.md（核验日期 2026-08-24）
-  - materials/archives/knowledge-compiler-transfer-archive-public.md 第二编 §8（竞品调研）
-  - 各产品官方文档链接见 materials/research/
+  - docs/materials/validation/project-freeze-2026-09-25/competitor-sources.md
+  - docs/materials/research/qoder/
+  - docs/materials/research/reference-products.md
 ---
 
-# 行业格局与竞品对照（Landscape）
+# 行业格局与竞品对照
 
-## 五层能力模型
+## 能力分层
 
-2026-08 调研形成的行业分层（归档 §8 导语）：
-
-| 层 | 回答的问题 | 代表 |
+| 层 | 回答的问题 | 代表产品 |
 |---|---|---|
-| L1 Code Index | 代码在哪 | Cursor / embedding / search |
-| L2 Code Intelligence | 代码怎么连接 | Sourcegraph Code Graph / AST |
-| L3 Agentic Retrieval | 此任务该读什么 | Codex / Claude Code / Cody |
-| L4 Knowledge Distillation | 系统长期该知道什么 | **Qoder Knowledge Cards / GitHub Copilot Memory / 本项目** |
-| L5 Knowledge Representation | 知识如何组织成 Wiki/Card/Graph | Qoder Repo Wiki / PorunC/CodeWiki / DeepWiki |
+| L1 Code Index | 代码在哪 | Cursor、Sourcegraph Search、Augment |
+| L2 Code Intelligence | 代码怎样连接 | Sourcegraph Code Navigation、PorunC/CodeWiki、Greptile |
+| L3 Agentic Retrieval | 当前任务该读什么 | Sourcegraph Deep Search、Cursor、Augment、MCP 工具 |
+| L4 Knowledge Distillation | 系统长期应知道什么 | Qoder Knowledge Cards、Copilot Memory、**本项目** |
+| L5 Knowledge Representation | 如何让人和 Agent 消费知识 | Qoder Repo Wiki、Google Code Wiki、DeepWiki、GitBook、TechDocs |
 
-本项目定位 L4（吸收 L5 的组织方式），并明确：**预编译知识不替代 L3 的实时检索，两者组合使用**（Sourcegraph 调研的核心结论）。
+本项目定位 L4，并从 L5 编译 Wiki / Cards / Task Context；它不试图替代 L1–L3 的实时搜索。Canonical IR 是权威层，FTS、embedding 或 Agent prompt 都只能是可重建索引/视图。
 
-## 竞品对照矩阵
+## 2026-09-25 代表性全类别对照
 
-| 产品 | 核心价值 | 对本项目的启发 | 未照搬的部分 |
-|---|---|---|---|
-| Qoder Repo Wiki + Knowledge Cards | 双视图（人/Agent）同步生成、受影响部分增量更新、人工修订保护 | 双视图同源、增量失效、人工 overlay（D-013） | IDE 封闭实现、无证据合同 |
-| Google Code Wiki | 自动结构化 Wiki + 图表 + 源码链接 | 人类视图需要可导航、可回链源码 | 托管形态、模型绑定 |
-| GitHub Copilot Memory | 带代码引用的仓库记忆，使用前重新验证 | fail-closed 默认读取（D-009）、Evidence-backed 事实 | 零散 memory 而非完整 IR |
-| PorunC/CodeWiki | 本地 AST/代码图/GraphRAG/Wiki/MCP/Skill 全链 | Evidence Provider 底座与公开面合同（D-001/D-002） | Fork 平台、内部数据库 |
-| Sourcegraph | 代码智能基础设施 + agentic 检索循环 | 知识与实时检索组合而非替代 | 通用代码搜索平台化 |
-| Cursor | Index + Rules + Memory 轻知识模式 | 静态指令表达"如何工作"的价值 | 不承担可验证 IR |
-| DeepWiki | Outline/Page Agent 逐页取证生成 Wiki | 沿 imports/callers 追踪取证的工作流 | 无独立治理 IR |
-| Qwen CodeScope | 结构图 + 演进图 + embedding | 代码结构与 Git 演进结合的视角 | 作为概念参考，非运行时依赖 |
+| 代表 | 最值得保留的行业信号 | 本项目状态 |
+|---|---|---|
+| Qoder | 增量 Wiki、生成范围控制、人工修改保护、Git 同步、Agent 引用 | planner、增量失效、overlay、静态产物和 MCP 已覆盖；可视化工作流属 M9–M13 |
+| Google Code Wiki | 持续再生成、源码链接、图表、Wiki 内 Ask | 源码证据/图/静态 Wiki 已覆盖；Ask UI 未交付 |
+| Copilot Memory/Spaces | 使用前验证、自然淘汰、可组合上下文 | snapshot+validity+evidence fail-closed 已覆盖且更明确 |
+| DeepWiki / DeepWiki Open | Wiki、Ask、MCP、自托管 RAG | 本项目更重治理和确定性；不把 embedding 设为事实源 |
+| Sourcegraph | 多机制检索、代码导航、agentic search；为安全和维护以 Search 替代 enterprise embeddings | 支持“知识 + 实时检索”组合；不自建通用搜索平台 |
+| Cursor / Augment | 本地变更感知、版本化规则、实时上下文 | rules/skills 与 snapshot 生命周期已覆盖；不做 IDE |
+| Greptile | 代码图、引用化 review、团队规则 | 图和规则可借鉴；PR review 越界 |
+| GitBook / TechDocs | docs-as-code、静态发布、发现与反馈 | 静态生成与 Git 保存已覆盖；门户/团队运营越界 |
+| PorunC/CodeWiki | 本地 AST/图/RAG/Wiki/MCP 全链 | 仅作为可替换 Evidence Provider；真实仓库稳定性仍是外部阻断 |
 
-行业共识信号（当次调研提炼）：**代码图谱 + commit 演进 + embedding 正在合流；source-grounded 生成（禁止按命名猜测、结论带 file:line）成为方向**（Microsoft deep-wiki Skill 明文禁止 "This probably handles..." 类表述）。
+完整逐产品矩阵、官方来源和 gap disposition 见 [竞品来源与能力核验](../../materials/validation/project-freeze-2026-09-25/competitor-sources.md)。
 
-## 我们的位置
+## 范围裁决
 
-差异化 = 把这条链路**开放化 + 证据化**：证据引擎可替换、Canonical IR 独立、Claim 可追溯、Agent 读取默认安全、更新与发布可恢复、用 Task Context 验证知识是否真正改善 Agent 任务（M8）。参见 [qoder-deep-dive](qoder-deep-dive.md) 的逐项对比。
+- **封存前应关闭**：依赖安全、锁文件一致性、状态/路径/文档事实一致性。
+- **保留当前设计**：证据优先、Canonical IR、人工 overlay、只读 MCP、静态可重建视图。
+- **缺证据**：真实上游解析、Live smoke、真实 GUI 的可用性/无障碍证据。
+- **按既定计划而非新增范围**：Local Beta 的生成进度、阅读、Ask、历史与恢复界面。
+- **明确越界**：云托管、多租户、团队 RBAC、多仓门户、PR review、IDE、向量数据库权威化。
 
 ## Revision History
 
-- 2026-09-12 从 reference-products 与归档 §8 提炼建卷；第三方能力会变化，引用前先回 materials/research/ 核对官方链接。
+- 2026-09-12：从历史研究提炼初版行业格局。
+- 2026-09-25：以一方来源刷新产品状态，新增分类完备矩阵和范围裁决。
+- 2026-10-11：复核上游 CodeWiki 状态未变；不新增竞品功能范围。
