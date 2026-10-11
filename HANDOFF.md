@@ -1,6 +1,6 @@
 # HANDOFF — 会话交接文档
 
-> 交接时间：2026-10-11（项目冻结续审与恢复执行） ｜ 已推送修复基线：`12c92cc`
+> 交接时间：2026-10-11（项目冻结续审与恢复执行） ｜ 修复基线：`12c92cc` ｜ 审查归档：`d26a7a1`
 > 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**790 passed + 1 opt-in live skipped**；live SKIP 不是 PASS）
 > 新会话第一步：`git fetch origin && git status --short --branch` 核对并行推进，再读本文与 [CLAUDE.md](CLAUDE.md)（会话入口）/ [docs/README.md](docs/README.md)（文档地图）。
 

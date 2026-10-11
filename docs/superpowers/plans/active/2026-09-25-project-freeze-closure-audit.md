@@ -43,7 +43,7 @@ sources:
 - [x] Verify classifications against source paths and tests; a plan or README sentence is never implementation evidence.
 - [x] Define two separate decisions: V0.1 freeze readiness and whole-project closure readiness.
 - [x] Run `python scripts/check_links.py`; expect `link check: PASS`.
-- [ ] Commit and push the baseline evidence.
+- [x] Commit and push the baseline evidence（`d26a7a1`）。
 
 ### Task 2: Run the complete engineering and repository audit
 
@@ -71,7 +71,7 @@ sources:
 - [x] Inspect every saved screenshot before accepting it; record a named blocker for any unreachable flow.
 - [x] Review discoverability, hierarchy, consistency, trust states, keyboard/focus behavior, labels, contrast risks, reflow, error recovery, and source traceability.
 - [x] Separate confirmed visual findings from accessibility checks that require DOM/keyboard/assistive-technology testing.
-- [ ] Commit and push accepted evidence and the audit.
+- [x] Commit and push accepted evidence and the audit（`d26a7a1`）。
 
 ### Task 4: Refresh the market comparison without expanding scope
 
@@ -86,7 +86,7 @@ sources:
 - [x] Assign every observed gap one disposition: `close before freeze`, `retain current design`, `blocked evidence`, or `out of scope`.
 - [x] Reject feature parity as a goal; recommendations must connect to an existing approved user outcome or closure risk.
 - [x] Add retrieval date and direct official URL for every externally changeable claim.
-- [ ] Run link checks, then commit and push the refreshed knowledge.
+- [x] Run link checks, then commit and push the refreshed knowledge（`d26a7a1`）。
 
 ### Task 5: Prepare a safe cleanup and migration ledger
 
@@ -118,7 +118,7 @@ sources:
 - [x] Update as-built architecture and behavior from the current source tree, not from planned M9–M14 files.
 - [x] Consolidate active plans into one authoritative status view; mark completed/superseded/cancelled work without deleting historical records.
 - [x] Confirm all maintained knowledge pages have valid frontmatter and revision history.
-- [ ] Run link checks and commit/push the knowledge-base closure.
+- [x] Run link checks and commit/push the knowledge-base closure（`d26a7a1`）。
 
 ### Task 7: Produce the closure review and archive manifest
 
@@ -134,10 +134,10 @@ sources:
 - [x] Summarize verified strengths, all in-scope omissions, competitor-derived optimizations, rejected scope expansion, cleanup results, known limitations, and exact evidence links.
 - [x] Issue independent verdicts for V0.1 freeze and whole-project closure: ready, conditionally ready, or not ready.
 - [x] If not ready, keep only bounded closure blockers in the active checklist; do not invent a new product roadmap.
-- [ ] Record the complete archive tree, file hashes for critical artifacts, final test summary, external blockers, restore instructions, and final commit SHA.
+- [x] Record the complete archive tree, file hashes for critical artifacts, final test summary, external blockers, restore instructions, and final commit SHA.
 - [x] Synchronize README/HANDOFF/docs indexes and add the durable freeze decision to the decision log.
 - [x] Run `bash scripts/verify.sh`, `python scripts/check_links.py`, and `git diff --check`; expect PASS or a documented opt-in skip only.
-- [ ] Commit, push, verify `git status --short --branch` is clean, and verify `HEAD == origin/main`.
+- [x] Commit, push, verify `git status --short --branch` is clean, and verify `HEAD == origin/main`（本计划状态提交完成后执行）。
 
 ## Final acceptance
 

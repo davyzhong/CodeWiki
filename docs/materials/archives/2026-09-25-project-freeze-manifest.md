@@ -18,7 +18,7 @@ sources:
 | 冻结原则与审计计划建立 | `cea7c4b` |
 | 首轮文档/依赖基线修复 | `853f025` |
 | 浏览器缺陷与传递依赖安全修复 | `12c92cc` |
-| 本归档文档提交 | 以 `git log -1 -- docs/materials/archives/2026-09-25-project-freeze-manifest.md` 为准；下一次冻结前写入固定 SHA |
+| 审查文档与归档首次入库 | `d26a7a1` |
 
 ## 归档树
 
