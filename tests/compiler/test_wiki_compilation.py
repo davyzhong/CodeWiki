@@ -588,6 +588,56 @@ def test_site_history_page_lists_runs_and_diff_payload(tmp_path: Path) -> None:
     assert 'href="history.html"' in index
 
 
+def test_site_history_declares_escape_helper_before_rendering_runs(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    publish_world(tmp_path)
+    compile_repository_wiki(tmp_path)
+
+    history = (
+        tmp_path / ".knowledge/exports/site/history.html"
+    ).read_text(encoding="utf-8")
+    assert history.index("function esc(s)") < history.index("(function(){")
+
+
+def test_site_navigation_does_not_inherit_standalone_sidebar_layout(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    publish_world(tmp_path)
+    compile_repository_wiki(tmp_path)
+
+    site = (
+        tmp_path / ".knowledge/exports/site/index.html"
+    ).read_text(encoding="utf-8")
+    assert "\nnav{" not in site
+    standalone = (
+        tmp_path / ".knowledge/exports/repo-wiki.html"
+    ).read_text(encoding="utf-8")
+    assert '<nav class="wiki-sidebar">' in standalone
+
+
+def test_site_body_does_not_inherit_standalone_flex_layout(
+    tmp_path: Path,
+) -> None:
+    from knowledge_compiler.compiler.wiki import compile_repository_wiki
+
+    publish_world(tmp_path)
+    compile_repository_wiki(tmp_path)
+
+    site = (
+        tmp_path / ".knowledge/exports/site/index.html"
+    ).read_text(encoding="utf-8")
+    assert '<body class="wiki-site">' in site
+    standalone = (
+        tmp_path / ".knowledge/exports/repo-wiki.html"
+    ).read_text(encoding="utf-8")
+    assert '<body class="wiki-standalone">' in standalone
+
+
 def test_detail_page_renders_related_card(tmp_path: Path) -> None:
     from knowledge_compiler.compiler.wiki import compile_repository_wiki
 

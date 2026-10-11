@@ -634,10 +634,11 @@ _WIKI_STYLE = """
 --yellow:#d29922;--red:#f85149;--code-bg:#161b22;--ok-bar:#3fb950;--stale-bar:#d29922}}
 *{box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,
-sans-serif;margin:0;display:flex;background:var(--bg);color:var(--fg);line-height:1.6}
-nav{width:270px;flex-shrink:0;background:var(--sidebar);border-right:1px solid
+sans-serif;margin:0;background:var(--bg);color:var(--fg);line-height:1.6}
+.wiki-standalone{display:flex}
+.wiki-sidebar{width:270px;flex-shrink:0;background:var(--sidebar);border-right:1px solid
 var(--border);padding:16px;position:sticky;top:0;height:100vh;overflow:auto}
-nav h3{margin:0 0 4px;font-size:1.05em}
+.wiki-sidebar h3{margin:0 0 4px;font-size:1.05em}
 .brand{display:flex;align-items:center;justify-content:space-between}
 #theme-toggle{border:1px solid var(--border);background:var(--bg);color:var(--fg);
 border-radius:6px;cursor:pointer;padding:2px 8px;font-size:.9em}
@@ -747,8 +748,8 @@ padding-bottom:6px}
 .related li{padding:2px 0;font-size:.88em;word-break:break-all}
 .related svg{max-width:100%;height:auto;color:var(--fg)}
 @media (max-width:900px){
-body{display:block}
-nav{width:auto;height:auto;max-height:45vh;position:static;
+.wiki-standalone{display:block}
+.wiki-sidebar{width:auto;height:auto;max-height:45vh;position:static;
 border-right:none;border-bottom:1px solid var(--border)}
 main{padding:16px;max-width:none}
 .catalog-table{display:block;overflow-x:auto}
@@ -923,7 +924,7 @@ def _site_history_html(
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         '<meta name="color-scheme" content="light dark">\n'
         f"<title>{_h(root_name)} knowledge history</title>\n"
-        f"<style>{_WIKI_STYLE}</style>\n</head>\n<body>\n"
+        f'<style>{_WIKI_STYLE}</style>\n</head>\n<body class="wiki-site">\n'
         '<nav class="site-nav"><a href="index.html">← catalog</a>'
         f'<span class="meta">{_h(root_name)} · generation {_h(active)}'
         f" · commit {_h(commit)}</span>"
@@ -940,6 +941,7 @@ def _site_history_html(
         "<th>Published</th><th>Results</th></tr></thead>"
         '<tbody id="catalog-body"></tbody></table>\n'
         "</main>\n"
+        f"<script>{_ESC_JS}</script>\n"
         "<script>var RUNS="
         + payload
         + ";\n"
@@ -982,7 +984,6 @@ function diffRuns(){
 }
 """
         f"</script>\n"
-        f"<script>{_ESC_JS}</script>\n"
         f"<script>{_THEME_TOGGLE_JS}</script>\n"
         "</body>\n</html>\n"
     ).encode("utf-8")
@@ -1196,8 +1197,8 @@ btn.addEventListener('click',function(){
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         '<meta name="color-scheme" content="light dark">\n'
         f"<title>{_h(root.name)} knowledge wiki</title>\n"
-        f"<style>{_WIKI_STYLE}</style>\n</head>\n<body>\n"
-        f"<nav><div class='brand'><h3>{_h(root.name)}</h3>"
+        f'<style>{_WIKI_STYLE}</style>\n</head>\n<body class="wiki-standalone">\n'
+        f'<nav class="wiki-sidebar"><div class="brand"><h3>{_h(root.name)}</h3>'
         '<button id="theme-toggle" title="Toggle theme" aria-label="Toggle color theme">◐</button></div>\n'
         f'<p class="meta">generation: {_h(active)}<br>freshness: {_h(freshness)}<br>'
         f"commit: {_h(commit)}</p>\n"
@@ -1572,7 +1573,7 @@ def _site_page_html(
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         '<meta name="color-scheme" content="light dark">\n'
         f"<title>{_h(root_name)} · {_h(relative)}</title>\n"
-        f"<style>{_WIKI_STYLE}</style>\n</head>\n<body>\n"
+        f'<style>{_WIKI_STYLE}</style>\n</head>\n<body class="wiki-site">\n'
         f'<nav class="site-nav"><a href="{_h(home)}">← catalog</a>'
         f'<span class="meta">{_h(root_name)} · generation {_h(active)}'
         f" · freshness {_h(freshness)} · commit {_h(commit)}</span>"
@@ -1613,7 +1614,7 @@ def _site_index_html(
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         '<meta name="color-scheme" content="light dark">\n'
         f"<title>{_h(root_name)} knowledge catalog</title>\n"
-        f"<style>{_WIKI_STYLE}</style>\n</head>\n<body>\n"
+        f'<style>{_WIKI_STYLE}</style>\n</head>\n<body class="wiki-site">\n'
         '<nav class="site-nav"><span class="meta">'
         f"{_h(root_name)} · generation {_h(active)}"
         f" · freshness {_h(freshness)} · commit {_h(commit)}</span>"
