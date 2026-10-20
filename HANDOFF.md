@@ -1,114 +1,229 @@
-# HANDOFF — 会话交接文档
-
-> 交接时间：2026-10-11（项目冻结续审与恢复执行） ｜ 修复基线：`12c92cc` ｜ 审查归档：`d26a7a1`
-> 验证基线：`VERIFY_FAST=1 bash scripts/verify.sh` 全 PASS（**793 passed + 1 opt-in live skipped**；live SKIP 不是 PASS）
-> 新会话第一步：`git fetch origin && git status --short --branch` 核对并行推进，再读本文与 [CLAUDE.md](CLAUDE.md)（会话入口）/ [docs/README.md](docs/README.md)（文档地图）。
-
+---
+status: active
+last-reviewed: 2026-10-20
+scope: cross-session-handoff
 ---
 
-## 零、2026-10-11 当前权威状态
+# HANDOFF — CodeWiki 当前交接
 
-1. **V0.1：有条件可技术冻结。** CLI、七个只读 MCP 工具、Canonical IR、生命周期、human overlay、三视图和静态站点均已交付；包含 M9 Task 1 契约测试后的离线门禁为 793+1。真实 live 与 M8 A/B 尚无完成证据。
-2. **整个项目：不可关闭。** Local Beta M9–M14 六份计划共有 251 个行首 checkbox 执行步骤，当前 `6/251`。旧文档中的 259 是把说明性文字误计入/估算导致，已由源计划重算纠正。
-3. **下一执行入口：M9 Task 2。** M9 Task 1 已按 TDD 完成：有界 Python 依赖、`knowledge app`/`knowledge-app` 入口、wheel 静态资源与精确前端锁文件均已验证。下一步实现 AppPaths 与版本化 App DB。
-4. **本轮实际修复：** 浏览器审计发现并关闭 History `esc` 初始化顺序、静态站点 `nav` 样式污染、`body` flex 布局污染；升级 `multidict`、`pyjwt`、`urllib3` 关闭 18 条漏洞。提交 `12c92cc` 已推送。
-5. **本轮证据入口：** [关闭审查](docs/reviews/2026-09-25-project-closure-review.md)、[追溯矩阵](docs/knowledge/product/traceability.md)、[审计证据](docs/materials/validation/project-freeze-2026-09-25/)、[归档清单](docs/materials/archives/2026-09-25-project-freeze-manifest.md)。
-6. **未授权治理项：** `ci.yml` 尚未 frozen sync/pip-audit；`screenshot.yml` 仍监听不存在的 `README.zh.md` 并每日自动写回。两项都属于 CI/CD 修改红线，未擅自执行。
-7. **上游状态：** PorunC/CodeWiki issue #2 截至 2026-10-11 仍 OPEN、0 comments；最新 GitHub release 仍 v0.6.3。不得把真实中型仓库路径写成 PASS。
+> 交接日期：2026-10-20
+>
+> 工作仓库：`/Users/qiming/workspace/CodeWiki`
+>
+> 交接前远端 HEAD：`ff1437b`（README 自动截图）；最近功能提交：`dfa267d`
+>
+> 分支策略：只在 `main` 工作，验证后 commit，并立即 push 到 `origin/main`
+>
+> 本文提交：以 `git log -1 -- HANDOFF.md` 为准
 
-### 下一会话固定动作
+## 1. 当前任务
+
+项目已结束“是否可以关闭”的冻结审查，结论是：
+
+- V0.1 核心技术链有条件可冻结；
+- 整个项目不可关闭；
+- Local Beta 已恢复执行；
+- 当前执行里程碑是 M9“本地产品基座”；
+- M9 Task 1 已完成，下一功能任务是 Task 2“AppPaths 与版本化 App DB”。
+
+权威执行入口：
+
+1. [Local Beta 总计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md)
+2. [M9 详细计划](docs/superpowers/plans/active/2026-09-17-m9-local-product-foundation.md)
+3. [承诺—实现—测试追溯矩阵](docs/knowledge/product/traceability.md)
+4. [项目冻结与关闭审查](docs/reviews/2026-09-25-project-closure-review.md)
+
+## 2. 当前进度
+
+| 范围 | 进度 | 状态 |
+|---|---:|---|
+| V0.1 核心引擎 | 主链已交付 | 有条件可技术冻结 |
+| M8 真实价值实验 | harness/dry-run 已完成 | 真实 A/B 未执行 |
+| M9 本地产品基座 | 6/48 | Task 1 完成，Task 2 待开始 |
+| M10–M14 | 0/203 | 尚未开始 |
+| Local Beta 总计划 | 6/251 | 约 2.4% |
+| 整个项目 | — | 不可关闭 |
+
+251 的统计口径是六份子计划中行首 checkbox 的总数；不要恢复旧交接中的 259。
+
+## 3. 已经完成
+
+### 3.1 冻结审查与知识归档
+
+- 建立项目冻结铁律 P-002 和完整关闭审查。
+- 完成内部工程审计、真实浏览器审计、竞品横评、清理台账、演进时间线、来源目录和归档清单。
+- 明确区分“V0.1 核心完成”“Local Beta 设计批准”“整个项目完成”。
+- 主要提交：
+  - `12c92cc`：修复静态知识站点布局、History 运行时错误和传递依赖漏洞；
+  - `d26a7a1`：冻结审查、截图和知识归档入库；
+  - `7c5b0a3`：固定审查提交指针。
+
+证据入口：
+
+- [冻结审查](docs/reviews/2026-09-25-project-closure-review.md)
+- [审计证据目录](docs/materials/validation/project-freeze-2026-09-25/)
+- [冻结归档清单](docs/materials/archives/2026-09-25-project-freeze-manifest.md)
+- [项目演进](docs/knowledge/product/evolution.md)
+
+### 3.2 M9 Task 1：打包和运行时契约
+
+提交：`dfa267d build: 固化本地应用打包契约`
+
+已完成：
+
+- 增加有界运行依赖：FastAPI、Uvicorn、platformdirs；
+- 增加开发依赖 httpx；
+- 注册 `knowledge app` 和 `knowledge-app`；
+- 建立 `src/knowledge_compiler/app/` 包和 wheel 静态入口；
+- 建立 `web/` 的 React、TypeScript、Vite、Vitest、Playwright 工具链；
+- 生成并验证 `pnpm-lock.yaml`；
+- 实际构建 wheel，确认包含 `knowledge_compiler/app/static/index.html`；
+- 增加 3 项打包契约测试；
+- `knowledge-app` 当前是 Task 1 的占位入口，会清晰输出“尚未实现”并返回 1；真正生命周期在 M9 Task 6 实现。
+
+### 3.3 README 自动截图
+
+README 更新后，GitHub Actions 追加了两个截图提交：
+
+- `f2c9b3d`
+- `ff1437b`
+
+它们只更新 `assets/screenshots/readme-desktop.png` 和 `readme-mobile.png`，没有功能代码变化。
+
+## 4. 当前卡点与风险
+
+### 4.1 当前安全门禁失败：必须先处理
+
+2026-10-20 在 `ff1437b` 运行：
+
+```bash
+VERIFY_FAST=1 bash scripts/verify.sh
+```
+
+结果：
+
+- tests：793 passed、1 skipped；
+- compileall：PASS；
+- diff-check：PASS；
+- live smoke：SKIP；
+- pip-audit：FAIL；
+- 总结果：`VERIFY: FAILED`。
+
+失败原因是锁文件中的 `aiohttp 3.14.3` 新出现 3 条已知漏洞：
+
+- CVE-2026-111064；
+- GHSA-2g87-pp6c-29x5；
+- CVE-2026-111063。
+
+修复版本均为 `aiohttp 3.14.4`。因此 `793+1` 只能表述为测试结果，不能表述为当前完整门禁 PASS。
+
+### 4.2 上游 CodeWiki 崩溃
+
+- [PorunC/CodeWiki issue #2](https://github.com/PorunC/CodeWiki/issues/2) 在 2026-10-20 仍为 OPEN、0 comments；
+- 最新 GitHub release 仍为 v0.6.3；
+- 本项目使用并实测的 PyPI 版本为 0.6.5；
+- 真实中型 Python 仓库可能触发 SIGSEGV/SIGBUS；
+- 该问题阻塞真实 live 与 M8，但不阻塞 M9 的本地应用基础工作。
+
+### 4.3 外部输入仍缺失
+
+- `KNOWLEDGE_EXTRACTION_MODEL` 未配置；
+- `KNOWLEDGE_LIVE_REPOSITORY` 未配置；
+- `codewiki` 未暴露在 shell PATH；
+- M8 真实实验仍需模型凭据。
+
+Live smoke 的 SKIP 不是 PASS。
+
+### 4.4 需要用户批准的红线
+
+以下动作不能直接执行：
+
+1. M9 Task 2 会创建 App SQLite schema 和迁移机制，命中“数据库 schema/迁移”红线；开始前必须给用户一个结构化选择题取得批准。
+2. 修改 `.github/workflows/ci.yml`，让 CI 使用 frozen lock 和 pip-audit，属于 CI/CD 修改红线。
+3. 修改 `.github/workflows/screenshot.yml`，清理不存在的 `README.zh.md` 和每日自动写回策略，也属于 CI/CD 修改红线。
+
+三个决策必须一个一个问，不得合并成一道题。
+
+## 5. 下一步计划
+
+### 第一步：恢复并关闭安全门禁
 
 ```bash
 cd /Users/qiming/workspace/CodeWiki
 git pull --ff-only
-bash scripts/verify.sh
+uv lock --upgrade-package aiohttp
+uv sync --frozen --extra dev
+uv pip check
+VERIFY_FAST=1 bash scripts/verify.sh
+python scripts/check_links.py
+git diff --check
 ```
 
-随后读 [Local Beta 总计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) 与 [M9 详细计划](docs/superpowers/plans/active/2026-09-17-m9-local-product-foundation.md)，从 M9 Task 2 开始。若要先闭合 CI/CD，两项必须一次只做一个选择题取得用户批准。
+预期：
 
----
+- `aiohttp >= 3.14.4`；
+- pip-audit PASS；
+- tests 至少 793 passed、1 live skipped；
+- `VERIFY: PASS`。
 
-## 一、2026-09-17 历史基线（已被上节取代）
+完成后更新验证基线、commit，并立即 push。
 
-用户已正式批准下一阶段设计：**个人开发者、本地单节点、零服务器依赖；真实可信度验证与 Beta 体验并行；按可信垂直切片推进，不设工期。** Web、CLI、MCP 共享一套应用服务；`.knowledge/` 中的 Canonical Knowledge / Evidence / Human Overlay 仍是唯一权威，App SQLite、FTS、页面和未来可能的向量均为可重建投影。
+### 第二步：取得 Task 2 数据库红线批准
 
-本次已完成：
+只问一个选择题：
 
-1. 批准设计归档：[Local Beta 产品规格](docs/superpowers/specs/2026-09-17-local-beta-product-design.md) + [完整 HTML](docs/design/2026-09-17-local-beta-design.html)。
-2. 执行计划入库：[总计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) + M9–M14 六份子计划，共 48 个 Task、251 个执行步骤，覆盖功能、解析、架构、界面、Web/CLI/MCP、测试、真实仓库和发布验收。
-3. 决策日志新增 D-026（本地单节点形态）与 D-027（重大设计同步 README/文档铁律）；`AGENTS.md` 已将 D-027 写成所有后续 Agent 的项目工作流要求。
-4. README 和 docs 总索引已链接正式规格与计划；行业横评、完整设计图和详细路线继续保留。
+- A：批准执行 M9 Task 2 的本地 App SQLite schema 与版本化迁移（推荐）；
+- B：暂不执行数据库部分，只停留在 Task 1。
 
-**实现尚未开始。下一执行入口是 M9 Task 1**，严格按 [M9 计划](docs/superpowers/plans/active/2026-09-17-m9-local-product-foundation.md) 从失败测试开始。下方关于“全部事项等外部输入”的旧判断已被本节取代：M9–M13 可以离线推进；上游崩溃改由 M10 的进程隔离与降级 Provider 主动解决，不再只是等待。
+未获批准前，不创建 migration SQL、不改变 schema。
 
-## 一、当前任务状态（上次交接 `042b8a1` 之后做了什么）
+### 第三步：执行 M9 Task 2
 
-上次交接后本会话又完成四条线（12 个提交）：
+批准后严格按 TDD 实现：
 
-1. **ARIA 补齐**（`46e269c`）：chips `aria-pressed`、目录表头真按钮化 + `aria-sort`、Ask 区 `aria-live`、输入与主题按钮 `aria-label`——无框架条件下补齐可访问性义务。
-2. **全局 review 落地**（`dd3fdf3`→`8495aaf`）：新增 **CI**（`.github/workflows/ci.yml`：compileall + 离线套件 + 链接检查）、**CLAUDE.md** 会话入口、`scripts/check_links.py` 入库；decision-log 补 **D-024**（展示层三段交付）/ **D-025**（M8 冻结）；展示层设计移 historical；CI 首跑抓到两个终端宽度敏感的 help 测试（根因：无界依赖拉到新版 rich/typer）→ 改为命令元数据断言。
-3. **用户两项决策执行**（`af7780f`）：清三个遗留 console 入口（spikes/vertical_slice 模块保留）；全部直接依赖加上界（typer<1 等）。
-4. **上游崩溃跟进 + U3 修复**：
-   - 诊断深化（`e776ecf`）：faulthandler 定位崩溃帧（`ast_cache.write→asdict`，**非线程竞争**——单 worker 同帧崩）；单文件复现（requests/models.py 直连 parser 50/50 崩、SIGSEGV×28+SIGBUS×22 混合=典型 C 层 UB）；ddmin 压至 **258 行语法完整最小复现**。
-   - **issue 已发布**（用户确认，红线流程）：[PorunC/CodeWiki#2](https://github.com/PorunC/CodeWiki/issues/2)。
-   - **U3 接入层修复**（`4da9bbb`）：三层根因（`"*"` 通配查询真实 CLI 无效 / `.knowledge/` 二次构建被增量索引 / 预算整包拒绝误杀）→ inspect 改源文件名词探测 search、读侧三处过滤内部状态路径、预算语义三分（零匹配空包/装不下 raise/超额截断）；**干净索引半 live 达成 partial**（flow/rule 2 对象 verified、7 页、FTS 索引）。
+- `AppPaths`：macOS/Linux 路径解析、注入式测试目录、symlink 防护；
+- `AppDatabase`：空库迁移、重复迁移幂等、版本拒绝、升级前备份；
+- 表范围只允许 `schema_version`、`repositories`、`jobs`、`job_events`、`preferences`；
+- 测试只能使用隔离临时目录，不连接常驻数据库；
+- 通过 focused tests 和项目验证后提交推送。
 
-## 二、已完成的内容（关键事实）
+随后依次执行 M9 Task 3–8：仓库注册服务 → 状态/诊断服务 → Loopback API → 启动器 → Web onboarding → clean-wheel 验收。
 
-### 2.1 U3 修复后的接入层语义（as-built，勿回退）
+## 6. 踩过的坑
 
-- **inspect**：symbols 来自按源文件 stem 探测 `graph search`（≤8 词、跳过 `__init__*`），file 型节点过滤（不是符号）；planner 拿到真实符号。
-- **读侧防御**：`normalize_explore`/`normalize_search`/`_read_evidence` 三处滤 `.knowledge/` 路径（上游无排除参数、二次构建必污染）。
-- **预算三分**：零匹配→空包（worker 判 InsufficientEvidence——源接地语义在 worker 层）；有匹配但一项装不下→`ValueError`（配置错误 fail-closed）；超额→按确定性序截断。
-- **`_select_entries`**：匹配 seed 原文、点分尾段、文件路径（architecture_seeds 是文件清单）。
-- **测试冻结语义优先**：本会话三次"改进"被既有测试正确拦下（planner 空符号不编造 / 空包合法 / 装不下要报错）——改行为前先看测试意图。
+1. **真实仓库目录是 `/Users/qiming/workspace/CodeWiki`。** 环境上下文中的 `CoDoMoWiki` 是旧路径，不能在旧目录工作。
+2. **每次开工先 pull。** README 更新会触发自动截图提交，本地可能在几分钟内落后远端。
+3. **测试数不等于完整门禁。** 本次 793 项测试通过，但 pip-audit 新增漏洞，整体仍是 FAILED。
+4. **测试计数以 `scripts/verify.sh` summary 为准。**
+5. **pnpm 默认镜像没有 audit endpoint。** 审计前端依赖时使用：
+   `pnpm --dir web --registry=https://registry.npmjs.org audit --audit-level high`。
+6. **Vite/Vitest 配置类型要从 `vitest/config` 导入 `defineConfig`。** 从 `vite` 导入会拒绝 `test` 字段。
+7. **console script 不能直接抛 `typer.Exit`。** 独立 `knowledge-app` 入口会出现 traceback；launcher 应返回退出码，由 Typer 命令转换。
+8. **`/tmp` 在 macOS 是 `/private/tmp` 的软链。** 涉及根路径安全断言时使用解析后的真实路径。
+9. **上游 CLI 会在 CWD 产生 `data/`、`storage/`。** 已加入 ignore，但提交前仍要检查污染。
+10. **上游真实包名是 `backend`，且真实仓库 analyze 会原生崩溃。** 不要用 fixture 成功推断 live 成功。
+11. **不得把设计 HTML 当成已交付 Web 应用。**
+12. **不要重复统计说明文字里的 checkbox 示例。** Local Beta 总数是 251。
+13. **只在 `main` 工作，不创建分支或 worktree。**
+14. **提交前检查目标仓库、分支和 `git status`，避免把自动截图或临时浏览器产物混入功能提交。**
 
-### 2.2 工程基础设施（本会话新增）
-
-- **CI**：push/PR 触发，三步（compileall、离线套件、check_links）——约 1.5 分钟；依赖上界已加，help 断言已环境无关。
-- **当时状态**：CLAUDE.md 新增会话入口；decision-log 当时至 D-025；当时验证基线为 787。当前状态以上方 2026-10-11 权威节为准。
-- **.gitignore** 已含 `/data/`、`/storage/`（codewiki CWD 副产物，曾两次污染提交）。
-
-### 2.3 上游崩溃证据链（全部入库）
-
-- 最小复现文件 `docs/materials/origin/codewiki-segfault-repro-258.py`；issue 草稿（含双 faulthandler 栈与 50 次信号统计）`docs/materials/origin/2026-09-16-codewiki-segfault-issue-draft.md`（status: published）；诊断结论在 [upstream-codewiki.md](docs/knowledge/industry/upstream-codewiki.md)。
-
-## 三、历史外部依赖（不再阻塞 M9 启动）
-
-| # | 事项 | 等什么 | 解锁后动作 |
-|---|--- |--- |--- |
-| 1 | **上游崩溃修复** | [PorunC/CodeWiki#2](https://github.com/PorunC/CodeWiki/issues/2) 的回复/发版 | 定期查 issue；有新版本按纪律重跑 Phase 0 spike 实测后升级 |
-| 2 | **live 冒烟** | `KNOWLEDGE_EXTRACTION_MODEL` + API key + codewiki 修复 | 按 [runbooks/2026-09-02-live-smoke.md](docs/runbooks/2026-09-02-live-smoke.md)；module 目标的 DemoWorker 残余失败在此阶段由真实 LLM worker 接管 |
-| 3 | **M8 实验执行** | API key（harness/dry-run 全就绪，[benchmark/README.md](benchmark/README.md)） | 真实模式跑；预注册判据勿事后改 |
-
-## 四、下一步计划（以 Local Beta 总计划为准）
-
-1. **立即执行 M9**：本地产品基座——包契约、AppPaths/App DB、repository service、共享 status/diagnostics、FastAPI、`knowledge app`、React onboarding、clean-wheel smoke。
-2. **随后 M10–M13**：可靠解析 → 建库任务闭环 → 知识阅读 Beta → Ask/Agent 三端一致；每个里程碑退出前更新 README/docs/HANDOFF 并留真实仓验证。
-3. **M14**：技术前置全部通过后执行冻结 M8、性能/故障矩阵、安装升级和 Beta 发布。API key 只在此处和需要真实模型的 live 证据中成为外部输入。
-4. **上游 issue #2**：继续跟进，但不得以等待上游代替 M10 的崩溃隔离、稳定错误与降级证据方案。
-
-## 五、踩过的坑（给下一个会话/Agent 的实操警告）
-
-1. **会话快照会撒谎**：多 agent 仓库，接手前先 `git fetch` 重新核对；完成状态以门禁提交号为准。
-2. **测试冻结的语义优先于改进直觉**：本会话三次被拦（planner 不编造/空包合法/装不下要报错）——改行为前先读测试意图，别急着改测试。
-3. **批量 heredoc 脚本断言失败=整体未写盘**：每个替换后 grep 验证；old 串尾随空格是断言杀手；复杂改动用 Edit 工具。
-4. **codewiki CLI 的坑三连**：真实包名是 `backend`（`from backend.app.cli import main`）；会在 CWD 落 `data/`、`storage/`（已 gitignore，仍需提交前检查）；`analyze` 真实仓库段错误（issue #2），诊断用 `python -X faulthandler`。
-5. **管道后的 `$?` 是管道尾命令的**：测段错误 exit code 要重定向后单独 echo，别接管道。
-6. **测试计数以 verify.sh 尾行为准**（`pytest tests/` 与套件范围不同）；**依赖必须加上界**（无界 rich/typer 曾让 CI 行为漂移）。
-7. **`RunStore.active_run()` 构建完成后返回 None**：读最新 run 用 active-or-last 回退。
-8. **合成仓库生成勿对生长中的集合迭代**（指数爆炸）；fixture 副本要重新 `git init`。
-9. **CSS 链式 `:not()` 是 AND**；**迁移目录前扫代码引用**；**链接深度以文档所在目录为基准**（`scripts/check_links.py` 已入库）。
-10. **Edit 偶发匹配失败**：重新 Read 刷新；`/tmp` 是 `/private/tmp` 软链，用全路径；macOS 无 `cat -A`/`timeout`。
-11. **提交纪律**：纯文本 conventional commits、正文 72 字符；推送前 verify.sh 绿（main-only）；`git add -A` 前先 `git status` 扫污染。
-
-## 六、下个会话快速上手
+## 7. 接手命令
 
 ```bash
 cd /Users/qiming/workspace/CodeWiki
-git fetch origin && git status --short --branch   # 预期：clean、main 与 origin/main 同步
-bash scripts/verify.sh                             # 当前预期：VERIFY: PASS（793+1skip；live SKIP 仍须明确记录）
-gh issue view 2 --repo PorunC/CodeWiki             # 可选：查上游 issue 是否有回复
+git pull --ff-only
+git status --short --branch
+git log -5 --oneline --decorate
+VERIFY_FAST=1 bash scripts/verify.sh
 ```
 
-然后：读本文 → [Local Beta 总计划](docs/superpowers/plans/active/2026-09-17-local-beta-master-plan.md) → [M9 详细计划](docs/superpowers/plans/active/2026-09-17-m9-local-product-foundation.md)，从 M9 Task 1 开始。API key 不再是启动下一阶段开发的前置条件。
+当前预期不是全绿：在升级 `aiohttp` 前，pip-audit 会失败。先关闭该安全问题，再请求 Task 2 数据库授权。
+
+## 8. 本轮结束状态
+
+- 当前功能进度：Local Beta 6/251；
+- 当前功能提交：`dfa267d`；
+- 交接前远端 HEAD：`ff1437b`；
+- 当前完整门禁：FAILED（aiohttp 漏洞）；
+- 下一安全动作：升级 `aiohttp` 至 3.14.4 或更高兼容版本；
+- 下一功能动作：获批后执行 M9 Task 2。
